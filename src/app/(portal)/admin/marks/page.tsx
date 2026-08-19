@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Download } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Download } from "lucide-react";import { createClient } from "@/lib/supabase/client";
 import type { Assessment, CourseSection, Student } from "@/lib/types";
 import { one, parseCsv } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
@@ -161,6 +160,30 @@ export default function MarksPage() {
     await loadMarks(selectedAssessment.id);
   }
 
+  function exportCsv() {
+    if (!selectedAssessment) return;
+    const header = ["student_email", "registration_no", "full_name", "score"];
+    const lines = rows.map((r) =>
+      [
+        r.profiles?.email ?? "",
+        r.registration_no ?? "",
+        (r.profiles?.full_name ?? "").replace(/"/g, '""'),
+        r.mark.trim() !== "" ? r.mark : "",
+      ]
+        .map((v) => `"${v}"`)
+        .join(",")
+    );
+    const blob = new Blob([[header.join(","), ...lines].join("\n")], {
+      type: "text/csv",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `marks_${selectedAssessment.title.replace(/[^\w]+/g, "_")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div>
       <PageHeader
@@ -235,6 +258,13 @@ export default function MarksPage() {
             </div>
             <div className="flex items-center gap-2">
               {dirty && <Badge tone="gold">Unsaved changes</Badge>}
+              <button
+                className="btn-outline px-3 py-1.5 text-xs"
+                onClick={exportCsv}
+                disabled={rows.length === 0}
+              >
+                <Download className="h-3.5 w-3.5" /> Export CSV
+              </button>
               <button className="btn-dark" onClick={saveAll} disabled={saving || rows.length === 0}>
                 {saving ? "Saving..." : "Save all marks"}
               </button>

@@ -1,8 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Download } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Download } from "lucide-react";import { createClient } from "@/lib/supabase/client";
 import type { Assessment, CourseSection, Student } from "@/lib/types";
 import { one, parseCsv } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
@@ -171,6 +170,30 @@ const load = useCallback(async () => {
     await loadMarks(selectedAssessment.id);
   }
 
+  function exportCsv() {
+    if (!selectedAssessment) return;
+    const header = ["student_email", "registration_no", "full_name", "score"];
+    const lines = rows.map((r) =>
+      [
+        r.profiles?.email ?? "",
+        r.registration_no ?? "",
+        (r.profiles?.full_name ?? "").replace(/"/g, '""'),
+        r.mark.trim() !== "" ? r.mark : "",
+      ]
+        .map((v) => `"${v}"`)
+        .join(",")
+    );
+    const blob = new Blob([[header.join(","), ...lines].join("\n")], {
+      type: "text/csv",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `marks_${selectedAssessment.title.replace(/[^\w]+/g, "_")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div>
       <PageHeader
@@ -245,6 +268,13 @@ const load = useCallback(async () => {
             </div>
             <div className="flex items-center gap-2">
               {dirty && <Badge tone="gold">Unsaved changes</Badge>}
+              <button
+                className="btn-outline px-3 py-1.5 text-xs"
+                onClick={exportCsv}
+                disabled={rows.length === 0}
+              >
+                <Download className="h-3.5 w-3.5" /> Export CSV
+              </button>
               <button className="btn-dark" onClick={saveAll} disabled={saving || rows.length === 0}>
                 {saving ? "Saving..." : "Save all marks"}
               </button>
@@ -254,7 +284,7 @@ const load = useCallback(async () => {
           {rows.length === 0 ? (
             <EmptyState
               title="No enrolled students"
-              description="Enroll students in this section from the Students & Invites page first."
+              description="Enroll students in this course from the Students section first."
             />
           ) : (
             <div className="overflow-x-auto">
@@ -531,7 +561,7 @@ function CsvImportModal({
                 <p className="flex items-center gap-1.5 text-sm font-bold text-red-700">
                   <UserX className="h-4 w-4" /> {report.notFound.length} not found
                 </p>
-                <p className="text-xs text-red-600/70">Not in this section</p>
+                <p className="text-xs text-red-600/70">Not in this course</p>
               </div>
               <div className="rounded-xl bg-amber-50 p-4">
                 <p className="flex items-center gap-1.5 text-sm font-bold text-amber-700">
@@ -572,6 +602,3 @@ function CsvImportModal({
     </Modal>
   );
 }
-
-
-

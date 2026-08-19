@@ -32,12 +32,14 @@ interface SectionMarks {
     title: string;
     type: string;
     total: number;
+    weightage: number;
     obtained: number | null;
     stats: AssessmentStats | null;
     myPercent: number;
   }[];
   totalObtained: number;
   totalPossible: number;
+  weightedPct: number | null;
   leaderboard: LeaderboardEntry[];
   myRank: LeaderboardEntry | null;
 }
@@ -68,7 +70,7 @@ export default function MarksPage() {
             .from("enrollments")
             .select("section_id, section:course_sections(section_code, course:courses(code, title, id))"),
           supabase.from("marks").select("obtained, assessment_id").eq("student_id", user.id),
-          supabase.from("assessments").select("id, section_id, title, type, total_marks"),
+          supabase.from("assessments").select("id, section_id, title, type, total_marks, weightage"),
         ]);
 
       if (cancelled) return;
@@ -100,6 +102,7 @@ export default function MarksPage() {
               title: a.title,
               type: a.type,
               total: Number(a.total_marks),
+              weightage: Number(a.weightage ?? 0),
               obtained,
               stats: null as AssessmentStats | null,
               myPercent: obtained === null ? 0 : percent(obtained, Number(a.total_marks)),
@@ -136,6 +139,19 @@ export default function MarksPage() {
             assessments: rows,
             totalObtained: rows.reduce((s, r) => s + (r.obtained ?? 0), 0),
             totalPossible: rows.reduce((s, r) => s + r.total, 0),
+            weightedPct: (() => {
+              const scored = rows.filter((r) => r.obtained !== null && r.weightage > 0);
+              const w = scored.reduce((s, r) => s + r.weightage, 0);
+              if (w === 0) return null;
+              return (
+                scored.reduce(
+                  (s, r) => s + (r.obtained! / r.total) * r.weightage,
+                  0
+                ) /
+                w *
+                100
+              );
+            })(),
             leaderboard,
             myRank,
           };
@@ -243,6 +259,14 @@ function SectionBlock({ section, myRegNo }: { section: SectionMarks; myRegNo: st
             {section.totalPossible > 0
               ? `${percent(section.totalObtained, section.totalPossible).toFixed(1)}% overall · Grade ${gradeFor(section.totalObtained, section.totalPossible).grade}`
               : "No marks published yet"}
+            {section.weightedPct !== null && (
+              <>
+                {" "}·{" "}
+                <span className="font-semibold text-gold-deep">
+                  Weighted: {section.weightedPct.toFixed(1)}%
+                </span>
+              </>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -266,6 +290,7 @@ function SectionBlock({ section, myRegNo }: { section: SectionMarks; myRegNo: st
             <tr>
               <th className="th">Assessment</th>
               <th className="th">Type</th>
+              <th className="th text-right">Weight</th>
               <th className="th text-right">Marks</th>
               <th className="th text-right">%</th>
               <th className="th text-right">Grade</th>
@@ -279,6 +304,9 @@ function SectionBlock({ section, myRegNo }: { section: SectionMarks; myRegNo: st
                 <td className="td font-semibold text-ink">{a.title}</td>
                 <td className="td">
                   <Badge tone="neutral">{a.type}</Badge>
+                </td>
+                <td className="td text-right text-ink/70">
+                  {a.weightage > 0 ? `${a.weightage}%` : "—"}
                 </td>
                 <td className="td text-right font-medium">
                   {a.obtained === null ? (

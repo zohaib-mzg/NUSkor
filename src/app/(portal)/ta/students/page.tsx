@@ -10,6 +10,7 @@ import {
   Power,
   UserPlus,
   Mail,
+  Download,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { CourseSection, Student, StudentInvite } from "@/lib/types";
@@ -168,7 +169,7 @@ export default function TaStudentsPage() {
     loadSection(sectionId);
   }
 
-  async function copyLink(token: string) {
+async function copyLink(token: string) {
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/join?token=${token}`);
       setCopied(token);
@@ -176,6 +177,25 @@ export default function TaStudentsPage() {
     } catch {
       error("Could not copy. Copy the link manually.");
     }
+  }
+
+  function exportCsv() {
+    const header = ["registration_no", "email", "full_name"];
+    const lines = students.map((r) => {
+      const st = studentOf(r);
+      return [st?.registration_no ?? "", st?.profiles?.email ?? "", (st?.profiles?.full_name ?? "").replace(/"/g, '""')]
+        .map((v) => `"${v}"`)
+        .join(",");
+    });
+    const blob = new Blob([[header.join(","), ...lines].join("\n")], {
+      type: "text/csv",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `students_section_${activeSection?.section_code ?? "list"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   if (loading) return <Spinner label="Loading your sections..." />;
@@ -232,9 +252,18 @@ export default function TaStudentsPage() {
                       </span>
                     </h2>
                   </div>
+<div className="flex items-center gap-2">
+                  <button
+                    className="btn-outline px-3 py-1.5 text-xs"
+                    onClick={exportCsv}
+                    disabled={students.length === 0}
+                  >
+                    <Download className="h-3.5 w-3.5" /> Export CSV
+                  </button>
                   <button className="btn-primary px-3 py-1.5 text-xs" onClick={() => setAddOpen(true)}>
                     <UserPlus className="h-3.5 w-3.5" /> Add by email
                   </button>
+                </div>
                 </div>
 
                 {students.length === 0 ? (

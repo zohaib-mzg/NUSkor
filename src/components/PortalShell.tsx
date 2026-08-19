@@ -18,10 +18,10 @@ import {
   LogOut,
   Menu,
   X,
-  Bell,
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import NotificationBell from "@/components/NotificationBell";
 
 interface NavItem {
   href: string;
@@ -269,13 +269,18 @@ export default function PortalShell({
           className="rounded-lg p-2 text-ink transition-colors hover:bg-black/5"
           aria-label="Home"
         >
-          <Bell className="h-5 w-5" />
+          <LayoutDashboard className="h-5 w-5" />
         </button>
       </header>
 
       {/* Main */}
       <main className="px-4 py-6 sm:px-6 lg:ml-64 lg:px-10 lg:py-8">
-        <div className="mx-auto w-full max-w-6xl">{children}</div>
+        <div className="mx-auto w-full max-w-6xl">
+          <div className="mb-4 flex justify-end">
+            <NotificationBell />
+          </div>
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -7,6 +7,7 @@ import {
   Clock,
   Power,
   Trash2,
+  Wand2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { CourseSection, EvaluationPeriod, SlotWithBookings } from "@/lib/types";
@@ -30,6 +31,8 @@ export default function TaEvaluationPeriodsPage() {
   const [periods, setPeriods] = useState<PeriodAdmin[]>([]);
   const [modal, setModal] = useState(false);
   const [slotFor, setSlotFor] = useState<PeriodAdmin | null>(null);
+  const [genFor, setGenFor] = useState<PeriodAdmin | null>(null);
+  const [genBusy, setGenBusy] = useState(false);
   const [toClose, setToClose] = useState<PeriodAdmin | null>(null);
   const [toDeleteSlot, setToDeleteSlot] = useState<{
     period: PeriodAdmin;
@@ -60,8 +63,6 @@ const load = useCallback(async () => {
         .in("section_id", ids)
         .order("starts_on", { ascending: false });
       raw = (pRes.data ?? []) as EvaluationPeriod[];
-    } else {
-      raw = [];
     }
     const withSlots = await Promise.all(
       raw.map(async (p) => {
@@ -130,6 +131,54 @@ const load = useCallback(async () => {
     if (err) return error(err.message);
     success("Slot added.");
     setSlotFor(null);
+    load();
+  }
+
+  async function generateSlots(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!genFor) return;
+    const el = e.currentTarget.elements as unknown as {
+      from_date: HTMLInputElement;
+      to_date: HTMLInputElement;
+      weekdays: NodeListOf<HTMLInputElement>;
+      start_time: HTMLInputElement;
+      end_time: HTMLInputElement;
+      duration: HTMLInputElement;
+      capacity: HTMLInputElement;
+    };
+    const from = el.from_date.value;
+    const to = el.to_date.value;
+    if (!from || !to || to < from) return error("Check the date range.");
+
+    const weekdays = Array.from(el.weekdays)
+      .filter((cb) => cb.checked)
+      .map((cb) => Number(cb.value));
+    if (weekdays.length === 0) return error("Pick at least one weekday.");
+
+    const dates: string[] = [];
+    const cur = new Date(from + "T00:00:00");
+    const end = new Date(to + "T00:00:00");
+    while (cur <= end) {
+      if (weekdays.includes(cur.getDay())) {
+        dates.push(cur.toISOString().slice(0, 10));
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    setGenBusy(true);
+    const supabase = createClient();
+    const { data, error: err } = await supabase.rpc("generate_slots", {
+      p_period_id: genFor.id,
+      p_dates: dates,
+      p_start_time: el.start_time.value,
+      p_end_time: el.end_time.value,
+      p_duration_minutes: Number(el.duration.value || 30),
+      p_capacity: Number(el.capacity.value || 1),
+    });
+    setGenBusy(false);
+    if (err) return error(err.message);
+    success(`Generated ${dates.length} potential slots (${data ?? 0} rows). Duplicates were skipped.`);
+    setGenFor(null);
     load();
   }
 
@@ -225,6 +274,14 @@ const load = useCallback(async () => {
                     </p>
                   </div>
                   <div className="flex gap-2">
+                    {!period.is_closed && (
+                      <button
+                        className="btn-outline px-3 py-1.5 text-xs"
+                        onClick={() => setGenFor(period)}
+                      >
+                        <Wand2 className="h-3.5 w-3.5" /> Auto-generate
+                      </button>
+                    )}
                     {!period.is_closed && (
                       <button
                         className="btn-outline px-3 py-1.5 text-xs"
@@ -413,6 +470,77 @@ const load = useCallback(async () => {
         </form>
       </Modal>
 
+      {/* Auto-generate slots modal */}
+      <Modal
+        open={!!genFor}
+        onClose={() => setGenFor(null)}
+        title={`Auto-generate slots Â· ${genFor?.title ?? ""}`}
+      >
+        <form onSubmit={generateSlots} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">From</label>
+              <input name="from_date" type="date" className="input" required defaultValue={genFor?.starts_on} min={genFor?.starts_on} max={genFor?.ends_on} />
+            </div>
+            <div>
+              <label className="label">To</label>
+              <input name="to_date" type="date" className="input" required defaultValue={genFor?.ends_on} min={genFor?.starts_on} max={genFor?.ends_on} />
+            </div>
+          </div>
+          <div>
+            <label className="label">Days of the week</label>
+            <div className="flex gap-2">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, i) => (
+                <label key={d} className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-black/[0.08] px-2 py-1.5 text-[11px] font-medium text-ink/60">
+                  <input
+                    type="checkbox"
+                    name="weekdays"
+                    value={i}
+                    defaultChecked={i >= 1 && i <= 5}
+                    className="h-3.5 w-3.5 accent-[#F5C518]"
+                  />
+                  {d}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Start time</label>
+              <input name="start_time" type="time" className="input" defaultValue="09:00" required />
+            </div>
+            <div>
+              <label className="label">End time</label>
+              <input name="end_time" type="time" className="input" defaultValue="17:00" required />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Slot length (min)</label>
+              <input name="duration" type="number" min={5} step={5} defaultValue={30} className="input" required />
+            </div>
+            <div>
+              <label className="label">Capacity</label>
+              <input name="capacity" type="number" min={1} defaultValue={1} className="input" required />
+            </div>
+          </div>
+          <div className="rounded-xl bg-gold/10 p-4 text-xs leading-relaxed text-ink/60">
+            <p className="font-semibold text-gold-deep">How it works</p>
+            One slot is created for every {`"slot length"`} step on each selected
+            day, between the start and end times. Running this again skips
+            duplicates â€” existing bookings are never touched.
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" className="btn-outline" onClick={() => setGenFor(null)}>
+              Cancel
+            </button>
+            <button className="btn-primary" disabled={genBusy}>
+              <Wand2 className="h-4 w-4" /> {genBusy ? "Generating..." : "Generate slots"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
       <ConfirmDialog
         open={!!toClose}
         onClose={() => setToClose(null)}
@@ -433,5 +561,3 @@ const load = useCallback(async () => {
     </div>
   );
 }
-
-

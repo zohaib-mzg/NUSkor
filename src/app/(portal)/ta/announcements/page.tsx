@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Megaphone, Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
+import { Megaphone, Plus, Pencil, Trash2, Eye, EyeOff, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Announcement, CourseSection } from "@/lib/types";
 import { formatDate, one } from "@/lib/utils";
@@ -14,7 +14,7 @@ import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 export default function TaAnnouncementsPage() {
-  const { success, error } = useToast();
+  const { success, error, info } = useToast();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<Announcement[]>([]);
   const [sections, setSections] = useState<CourseSection[]>([]);
@@ -22,6 +22,7 @@ export default function TaAnnouncementsPage() {
     { mode: "create" } | { mode: "edit"; item: Announcement } | null
   >(null);
   const [toDelete, setToDelete] = useState<Announcement | null>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
 const load = useCallback(async () => {
     const supabase = createClient();
@@ -135,6 +136,37 @@ const load = useCallback(async () => {
     load();
   }
 
+  async function sendEmails(item: Announcement) {
+    setSendingId(item.id);
+    try {
+      const res = await fetch("/api/announcements/send-emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ announcementId: item.id }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        skipped?: boolean;
+        prepared?: number;
+        sent?: number;
+        failed?: number;
+        message?: string;
+      };
+      if (!res.ok) {
+        error(json.error ?? "Could not send emails.");
+      } else if (json.skipped) {
+        info(json.message ?? "Emails staged, but not sent.");
+      } else {
+        success(
+          `Emails: ${json.sent ?? 0} sent, ${json.failed ?? 0} failed, ${json.prepared ?? 0} new recipients staged.`
+        );
+      }
+    } catch {
+      error("Network error while sending emails.");
+    }
+    setSendingId(null);
+  }
+
   async function deleteItem() {
     if (!toDelete) return;
     const supabase = createClient();
@@ -224,6 +256,17 @@ const load = useCallback(async () => {
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
+                  {a.status === "published" && (
+                    <button
+                      onClick={() => sendEmails(a)}
+                      disabled={sendingId === a.id}
+                      className="btn-outline px-3 py-1.5 text-xs"
+                      title="Email the announcement to every recipient"
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      {sendingId === a.id ? "Sending..." : "Send email"}
+                    </button>
+                  )}
                 </div>
               </div>
               <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink/70">
@@ -312,5 +355,3 @@ const load = useCallback(async () => {
     </div>
   );
 }
-
-

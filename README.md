@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NUSkor — TA Evaluation & Marks Portal
 
-## Getting Started
+Production-ready web app that replaces Excel/Google Sheets for a TA managing
+marks, evaluation slots, and bookings at FAST-NUCES Lahore.
 
-First, run the development server:
+Built per the design brief in `NUSKOR_MASTER_PROMPT.md`.
+
+## Stack
+
+- **Next.js 14 (App Router) + TypeScript + Tailwind CSS**
+- **Supabase** (Postgres, Auth, Row-Level Security)
+- **Google OAuth** restricted to `@lhr.nu.edu.pk`
+- **Lucide** icons, **Recharts** charts
+- Hosted on Vercel (free tier) by default
+
+## Local development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copy `.env.example` to `.env.local` and fill in:
 
-## Learn More
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your anon/publishable key (public, safe) |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth Client ID (public, safe) |
+| `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` locally, your Vercel URL in prod |
 
-To learn more about Next.js, take a look at the following resources:
+Never put the `service_role` key or Google Client Secret in env vars exposed to
+the frontend — those live only in Supabase / Vercel secrets.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Database setup
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Open your Supabase project → SQL Editor.
+2. Run **all** of `supabase/schema.sql` (tables, triggers, RLS policies, RPCs, indexes).
+3. Confirm the Google provider is enabled under Authentication → Providers,
+   with the Client ID and Client Secret entered.
+4. Set the Google redirect URI in Google Cloud Console:
+   `https://<project-ref>.supabase.co/auth/v1/callback`
 
-## Deploy on Vercel
+The schema is **idempotent** (drops/creates policies, `create or replace`
+functions) so you can re-run it safely.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+> The first admin is hard-coded at the database level as
+> `l242530@lhr.nu.edu.pk` (see the `handle_new_user` trigger). Every other
+> `@lhr.nu.edu.pk` account becomes a student automatically.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Roles & authorization
+
+- **Admin (TA):** full CRUD on students, courses, assessments, marks (incl.
+  CSV bulk upload), evaluation periods/slots, bookings, announcements, analytics.
+- **Student:** own marksheet, class stats, anonymized leaderboard, slot
+  booking, own bookings, announcements.
+
+Everything is enforced by **Row-Level Security** in Postgres — not by hidden
+buttons. Students can never read or write another student's data, even via
+direct API calls. One-booking-per-period and slot capacity are enforced by
+database constraints/triggers.
+
+## CSV marks import
+
+Format (first line optional header):
+
+```
+student_email,score
+l242530@lhr.nu.edu.pk,24
+```
+
+The importer reports **ready / not found / duplicates / invalid** counts before
+writing anything.
+
+## Deploy
+
+1. Push this repo to GitHub, import into Vercel.
+2. Add the four env vars above.
+3. Deploy.
+4. Freeze the code — all future changes happen through the Admin UI.
+
+## Project structure
+
+```
+src/app/                    # routes (App Router)
+  page.tsx                  # public landing page
+  login/                    # Google sign-in
+  auth/callback/            # OAuth exchange
+  access-denied/            # non-@lhr.nu.edu.pk screen
+  (portal)/                 # authenticated area
+    dashboard/              # student home
+    marks/                  # student marksheet + stats + leaderboard
+    evaluations/            # slot booking
+    announcements/
+    admin/                  # TA panel (guarded)
+      students/ courses/ assessments/ marks/ evaluations/ bookings/
+      announcements/ analytics/
+src/components/             # shared UI + PortalShell layout
+src/lib/                    # Supabase clients, types, utils
+src/middleware.ts           # session + domain guard
+supabase/schema.sql         # database (tables, RLS, RPCs)
+```

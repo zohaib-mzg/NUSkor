@@ -1,0 +1,288 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  CalendarDays,
+  Clock,
+  CalendarClock,
+  Users,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import type {
+  Booking,
+  EvaluationPeriod,
+  SlotWithBookings,
+} from "@/lib/types";
+import { formatDate, formatTime } from "@/lib/utils";
+import { useToast } from "@/components/ui/Toast";
+import PageHeader from "@/components/ui/PageHeader";
+import Badge from "@/components/ui/Badge";
+import Spinner from "@/components/ui/Spinner";
+import EmptyState from "@/components/ui/EmptyState";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+
+interface PeriodWithData extends EvaluationPeriod {
+  slots: SlotWithBookings[];
+  booking: Booking | null;
+}
+
+export default function EvaluationsPage() {
+  const { success, error } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [periods, setPeriods] = useState<PeriodWithData[]>([]);
+  const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
+  const [acting, setActing] = useState<string | null>(null);
+
+  async function load() {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const [periodRes, bookingRes] = await Promise.all([
+      supabase
+        .from("evaluation_periods")
+        .select("*, course:courses(code, title)")
+        .eq("is_closed", false)
+        .gte("ends_on", new Date().toISOString().slice(0, 10))
+        .order("starts_on", { ascending: true }),
+      supabase
+        .from("bookings")
+        .select("*, evaluation_slots(slot_date, slot_time)")
+        .eq("student_id", user.id),
+    ]);
+
+    if (periodRes.error || bookingRes.error) return;
+
+    const rawPeriods = periodRes.data as EvaluationPeriod[];
+    const bookings = (bookingRes.data ?? []) as Booking[];
+
+    const withSlots = await Promise.all(
+      rawPeriods.map(async (p) => {
+        const { data } = await supabase.rpc("get_slots_with_counts", {
+          p_period_id: p.id,
+        });
+        return {
+          ...p,
+          slots: (data ?? []) as SlotWithBookings[],
+          booking:
+            bookings.find((b) => b.evaluation_period_id === p.id) ?? null,
+        };
+      })
+    );
+
+    setPeriods(withSlots);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      await load();
+      if (!cancelled) setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function bookSlot(periodId: string, slotId: string) {
+    setActing(slotId);
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error: err } = await supabase.from("bookings").insert({
+      student_id: user.id,
+      evaluation_period_id: periodId,
+      slot_id: slotId,
+      status: "confirmed",
+    });
+    setActing(null);
+
+    if (err) {
+      const msg = err.message.includes("full")
+        ? "That slot just filled up — pick another one."
+        : err.message.includes("duplicate")
+          ? "You already have a booking for this evaluation period."
+          : "Could not book this slot. Please try again.";
+      error(msg);
+      return;
+    }
+    success("Slot booked! See you at the evaluation.");
+    await load();
+  }
+
+  async function cancelBooking() {
+    if (!cancelTarget) return;
+    setActing("cancel");
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("bookings")
+      .update({ status: "cancelled" })
+      .eq("id", cancelTarget.id);
+    setActing(null);
+    setCancelTarget(null);
+    if (err) {
+      error("Could not cancel the booking. Try again.");
+      return;
+    }
+    success("Booking cancelled. You can book a new slot.");
+    await load();
+  }
+
+  if (loading) return <Spinner label="Loading evaluation periods..." />;
+
+  return (
+    <div>
+      <PageHeader
+        title="Evaluation Scheduling"
+        subtitle="Pick the slot that works best for you. One booking per evaluation period."
+        icon={CalendarDays}
+      />
+
+      {periods.length === 0 ? (
+        <div className="card">
+          <EmptyState
+            title="No open evaluation periods"
+            description="Nothing is open for booking right now. Check back when your TA opens a new period, or watch the announcements."
+          />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {periods.map((period) => (
+            <section key={period.id} className="card overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] px-5 py-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="font-bold text-ink">{period.title}</h2>
+                    <Badge tone={period.booking ? "green" : "gold"}>
+                      {period.booking ? "Booked" : "Open for booking"}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink/55">
+                    <span className="inline-flex items-center gap-1.5">
+                      <CalendarClock className="h-3.5 w-3.5 text-gold-deep" />
+                      {formatDate(period.starts_on)} – {formatDate(period.ends_on)}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Users className="h-3.5 w-3.5 text-gold-deep" />
+                      {period.course?.code ?? "Course"} · {period.course?.title ?? ""}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              {period.booking ? (
+                <div className="flex flex-wrap items-center justify-between gap-4 bg-green-50/70 px-5 py-5">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="h-8 w-8 shrink-0 text-green-600" />
+                    <div>
+                      <p className="font-bold text-ink">Your slot is confirmed</p>
+                      <p className="text-sm text-ink/60">
+                        {period.booking.evaluation_slots
+                          ? `${formatDate(period.booking.evaluation_slots.slot_date)} at ${formatTime(period.booking.evaluation_slots.slot_time)}`
+                          : "Booking confirmed"}
+                        {" "}· {period.booking.status}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setCancelTarget(period.booking)}
+                    className="btn-outline text-red-600 hover:border-red-300 hover:bg-red-50"
+                    disabled={acting === "cancel"}
+                  >
+                    <XCircle className="h-4 w-4" /> Cancel booking
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {period.slots.length === 0 ? (
+                    <div className="px-5 py-8">
+                      <EmptyState
+                        title="No slots published yet"
+                        description="The TA hasn't added time slots for this period. Check back soon."
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 px-5 py-5 sm:grid-cols-2 lg:grid-cols-3">
+                      {period.slots.map((slot) => {
+                        const full = slot.booked >= slot.capacity;
+                        const available = slot.is_open && !full;
+                        return (
+                          <div
+                            key={slot.slot_id}
+                            className={
+                              available
+                                ? "rounded-xl border border-black/[0.08] bg-white p-4 transition-all hover:border-gold hover:shadow-lift"
+                                : "rounded-xl border border-black/[0.05] bg-paper/80 p-4 opacity-70"
+                            }
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="inline-flex items-center gap-1.5 font-bold text-ink">
+                                <Clock className="h-4 w-4 text-gold-deep" />
+                                {formatTime(slot.slot_time)}
+                              </span>
+                              <Badge
+                                tone={
+                                  !slot.is_open
+                                    ? "red"
+                                    : full
+                                      ? "red"
+                                      : "green"
+                                }
+                              >
+                                {!slot.is_open
+                                  ? "Closed"
+                                  : full
+                                    ? `Full (${slot.booked}/${slot.capacity})`
+                                    : `${slot.booked}/${slot.capacity} booked`}
+                              </Badge>
+                            </div>
+                            <p className="mt-2 text-sm text-ink/60">
+                              {formatDate(slot.slot_date)}
+                            </p>
+                            <button
+                              onClick={() => bookSlot(period.id, slot.slot_id)}
+                              disabled={!available || acting === slot.slot_id}
+                              className="btn-primary mt-3 w-full py-2 text-xs"
+                            >
+                              {acting === slot.slot_id
+                                ? "Booking..."
+                                : full
+                                  ? "Slot full"
+                                  : "Book this slot"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-6 flex flex-wrap items-center gap-2 text-xs text-ink/45">
+        <Badge tone="gold">Important</Badge>
+        Slot capacity and the one-booking-per-period rule are enforced in the
+        database — even direct API calls can&apos;t double-book.
+      </div>
+
+      <ConfirmDialog
+        open={!!cancelTarget}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={cancelBooking}
+        title="Cancel this booking?"
+        message="Your slot will be freed up for other students. You can book a new slot afterwards."
+        confirmLabel="Cancel booking"
+      />
+    </div>
+  );
+}

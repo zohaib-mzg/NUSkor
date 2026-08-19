@@ -106,7 +106,7 @@ export default function EvaluationsPage() {
 
     if (err) {
       const msg = err.message.includes("full")
-        ? "That slot just filled up — pick another one."
+        ? "That slot just filled up. Pick another one."
         : err.message.includes("duplicate")
           ? "You already have a booking for this evaluation period."
           : "Could not book this slot. Please try again.";
@@ -167,7 +167,7 @@ export default function EvaluationsPage() {
                   <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink/55">
                     <span className="inline-flex items-center gap-1.5">
                       <CalendarClock className="h-3.5 w-3.5 text-gold-deep" />
-                      {formatDate(period.starts_on)} – {formatDate(period.ends_on)}
+                      {formatDate(period.starts_on)} to {formatDate(period.ends_on)}
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <Users className="h-3.5 w-3.5 text-gold-deep" />
@@ -272,7 +272,7 @@ export default function EvaluationsPage() {
       <div className="mt-6 flex flex-wrap items-center gap-2 text-xs text-ink/45">
         <Badge tone="gold">Important</Badge>
         Slot capacity and the one-booking-per-period rule are enforced in the
-        database — even direct API calls can&apos;t double-book.
+        database. Even direct API calls can&apos;t book twice.
       </div>
 
       <ConfirmDialog

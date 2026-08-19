@@ -19,7 +19,7 @@ const features = [
   {
     icon: <CalendarDays className="h-5 w-5" />,
     title: "Evaluation slots, zero spreadsheet chaos",
-    desc: "Pick a time slot for evaluations. Double-booking is impossible — guaranteed at the database level.",
+    desc: "Pick a time slot for evaluations. Booking the same slot twice is impossible, guaranteed at the database level.",
   },
   {
     icon: <ShieldCheck className="h-5 w-5" />,
@@ -69,7 +69,7 @@ export default function LandingPage() {
             </div>
           </div>
           <h1 className="mx-auto max-w-3xl text-4xl font-extrabold leading-tight tracking-tight text-ink sm:text-5xl">
-            Marks, evaluations and bookings —{" "}
+            Marks, evaluations and bookings,{" "}
             <span className="text-gold-deep">no more spreadsheets.</span>
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-ink/60 sm:text-lg">
@@ -82,11 +82,8 @@ export default function LandingPage() {
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/login" className="btn-primary px-6 py-3 text-base">
-              Sign in with Google <ArrowRight className="h-4 w-4" />
+              Student / TA Sign in <ArrowRight className="h-4 w-4" />
             </Link>
-            <span className="badge bg-ink/90 text-gold px-3 py-1.5 text-xs">
-              <ShieldCheck className="h-3.5 w-3.5" /> @lhr.nu.edu.pk only
-            </span>
           </div>
         </div>
       </section>
@@ -120,7 +117,7 @@ export default function LandingPage() {
               icon: <GraduationCap className="h-5 w-5" />,
               step: "01",
               title: "Sign in with your FAST email",
-              desc: "Google Sign-In is restricted to @lhr.nu.edu.pk accounts — enforced on every request.",
+              desc: "Choose your side: sign in as a student or as the TA. Your role decides which portal you land in.",
             },
             {
               icon: <TrendingUp className="h-5 w-5" />,
@@ -132,7 +129,7 @@ export default function LandingPage() {
               icon: <CalendarDays className="h-5 w-5" />,
               step: "03",
               title: "Book your evaluation slot",
-              desc: "Pick any open slot at a tap. One booking per evaluation period — guaranteed.",
+              desc: "Pick any open slot at a tap. One booking per evaluation period, guaranteed.",
             },
           ].map((s) => (
             <div key={s.step} className="relative">

@@ -173,10 +173,10 @@ export default function StudentsPage() {
                         </div>
                       </td>
                       <td className="td font-mono text-xs text-ink/70">
-                        {s.registration_no ?? "—"}
+                        {s.registration_no ?? "N/A"}
                       </td>
-                      <td className="td">{s.program ?? "—"}</td>
-                      <td className="td">{s.semester ?? "—"}</td>
+                      <td className="td">{s.program ?? "N/A"}</td>
+                      <td className="td">{s.semester ?? "N/A"}</td>
                       <td className="td">
                         <div className="flex max-w-[180px] flex-wrap gap-1">
                           {enrolled.length === 0 ? (

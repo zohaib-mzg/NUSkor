@@ -23,10 +23,13 @@ export default function BookingsPage() {
     const { data, error: err } = await supabase
       .from("bookings")
       .select(
-        "*, evaluation_slots(slot_date, slot_time), evaluation_periods(title, course:courses(code)), profiles(full_name, email)"
+        "*, evaluation_slots(slot_date, slot_time), evaluation_periods(title, course:courses(code)), students(profiles(full_name, email))"
       )
       .order("created_at", { ascending: false });
-    if (err) return error(err.message);
+    if (err) {
+      setLoading(false);
+      return error(err.message);
+    }
     setBookings((data ?? []) as Booking[]);
     setLoading(false);
   }, [error]);
@@ -38,8 +41,8 @@ export default function BookingsPage() {
   const filtered = bookings.filter((b) => {
     const q = query.toLowerCase();
     return (
-      (b.profiles?.email ?? "").toLowerCase().includes(q) ||
-      (b.profiles?.full_name ?? "").toLowerCase().includes(q) ||
+      (b.students?.[0]?.profiles?.[0]?.email ?? "").toLowerCase().includes(q) ||
+      (b.students?.[0]?.profiles?.[0]?.full_name ?? "").toLowerCase().includes(q) ||
       (b.evaluation_periods?.title ?? "").toLowerCase().includes(q) ||
       (b.evaluation_periods?.course?.code ?? "").toLowerCase().includes(q)
     );
@@ -107,13 +110,13 @@ export default function BookingsPage() {
                   <tr key={b.id} className="bg-white">
                     <td className="td">
                       <p className="font-semibold text-ink">
-                        {b.profiles?.full_name ?? "Student"}
+                        {b.students?.[0]?.profiles?.[0]?.full_name ?? "Student"}
                       </p>
-                      <p className="text-xs text-ink/50">{b.profiles?.email}</p>
+                      <p className="text-xs text-ink/50">{b.students?.[0]?.profiles?.[0]?.email}</p>
                     </td>
                     <td className="td">
                       <p className="font-semibold text-ink">
-                        {b.evaluation_periods?.title ?? "—"}
+                        {b.evaluation_periods?.title ?? "N/A"}
                       </p>
                       <p className="text-xs text-ink/50">
                         {b.evaluation_periods?.course?.code ?? ""}
@@ -122,7 +125,7 @@ export default function BookingsPage() {
                     <td className="td text-ink/70">
                       {b.evaluation_slots
                         ? `${formatDate(b.evaluation_slots.slot_date)}, ${formatTime(b.evaluation_slots.slot_time)}`
-                        : "—"}
+                        : "N/A"}
                     </td>
                     <td className="td">
                       <Badge tone={(statusTone(b.status) as "green" | "gold" | "red")}>{b.status}</Badge>

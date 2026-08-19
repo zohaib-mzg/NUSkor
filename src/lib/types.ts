@@ -99,7 +99,7 @@ export interface Booking {
   created_at: string;
   evaluation_slots?: EvaluationSlot | null;
   evaluation_periods?: EvaluationPeriod | null;
-  profiles?: { email?: string; full_name?: string } | null;
+  students?: { profiles?: { email?: string; full_name?: string }[] }[] | null;
 }
 
 export interface Announcement {

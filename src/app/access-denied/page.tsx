@@ -13,10 +13,9 @@ export default function AccessDeniedPage() {
           Access denied
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-ink/55">
-          NUSkor is restricted to{" "}
-          <span className="font-semibold text-ink">@lhr.nu.edu.pk</span>{" "}
-          accounts. If you signed in with a different email, sign out and try
-          again with your FAST-NUCES Lahore account.
+          NUSkor is restricted to institutional accounts. If you signed in with
+          a different email, sign out and try again with your FAST-NUCES Lahore
+          account.
         </p>
         <div className="mt-6 flex justify-center">
           <form action="/auth/signout" method="post">

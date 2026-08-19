@@ -27,7 +27,7 @@ type RecentBooking = {
   status: string;
   created_at: string;
   evaluation_periods: { title: string; course: { code: string }[] }[];
-  profiles: { full_name: string; email: string }[];
+  students: { profiles: { full_name: string; email: string }[] }[] | null;
 };
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
@@ -59,14 +59,14 @@ export default function AdminDashboard() {
           supabase
             .from("bookings")
             .select(
-              "id, status, created_at, evaluation_periods(title, course:courses(code)), profiles(full_name, email)",
+              "id, status, created_at, evaluation_periods(title, course:courses(code)), students(profiles(full_name, email))",
               { count: "exact", head: true }
             )
             .gte("created_at", new Date().toISOString().slice(0, 10)),
           supabase
             .from("bookings")
             .select(
-              "*, evaluation_periods(title, course:courses(code)), profiles(full_name, email)"
+              "*, evaluation_periods(title, course:courses(code)), students(profiles(full_name, email))"
             )
             .order("created_at", { ascending: false })
             .limit(5),
@@ -131,7 +131,7 @@ export default function AdminDashboard() {
           ) : (
             <ul className="divide-y divide-black/[0.05]">
               {recentBookings.map((b: RecentBooking) => {
-                const profile = b.profiles[0];
+                const profile = b.students?.[0]?.profiles?.[0];
                 const period = b.evaluation_periods[0];
                 return (
                 <li key={b.id} className="flex flex-wrap items-center gap-3 py-3">

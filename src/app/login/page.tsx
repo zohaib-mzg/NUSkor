@@ -2,29 +2,30 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 function LoginContent() {
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"student" | "ta" | null>(null);
   const params = useSearchParams();
   const error = params.get("error");
 
-  async function signInWithGoogle() {
-    setBusy(true);
+  async function signInWithGoogle(flow: "student" | "ta") {
+    setBusy(flow);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?flow=${flow}`,
         queryParams: {
           hd: "lhr.nu.edu.pk",
           prompt: "select_account",
         },
       },
     });
-    if (error) setBusy(false);
+    if (error) setBusy(null);
   }
 
   return (
@@ -48,14 +49,8 @@ function LoginContent() {
               Welcome to NUSkor
             </h1>
             <p className="mt-1 text-sm text-ink/55">
-              Marks, evaluations &amp; bookings — all in one place.
+              Marks, evaluations &amp; bookings, all in one place.
             </p>
-            <div className="mx-auto mt-3 flex max-w-[260px] items-center justify-center gap-1.5">
-              <Shield className="h-3.5 w-3.5 text-gold-deep" />
-              <span className="text-[11px] font-medium text-ink/50">
-                Restricted to @lhr.nu.edu.pk accounts
-              </span>
-            </div>
           </div>
 
           {error && (
@@ -65,18 +60,34 @@ function LoginContent() {
           )}
 
           <button
-            onClick={signInWithGoogle}
-            disabled={busy}
+            onClick={() => signInWithGoogle("student")}
+            disabled={busy !== null}
             className="btn-dark w-full gap-3 py-3"
           >
             <GoogleIcon />
-            {busy ? "Redirecting to Google..." : "Continue with Google"}
+            {busy === "student" ? "Redirecting to Google..." : "Sign in as Student"}
+          </button>
+
+          <div className="my-4 flex items-center gap-3">
+            <span className="h-px flex-1 bg-black/[0.08]" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-ink/35">
+              Are you the TA?
+            </span>
+            <span className="h-px flex-1 bg-black/[0.08]" />
+          </div>
+
+          <button
+            onClick={() => signInWithGoogle("ta")}
+            disabled={busy !== null}
+            className="btn-primary w-full gap-3 py-3"
+          >
+            <Users className="h-4 w-4" />
+            {busy === "ta" ? "Redirecting to Google..." : "Sign in as TA"}
           </button>
 
           <p className="mt-5 text-center text-xs leading-relaxed text-ink/45">
-            Only FAST-NUCES Lahore students &amp; TAs using their{" "}
-            <span className="font-semibold text-ink/70">@lhr.nu.edu.pk</span>{" "}
-            email can access this portal.
+            Students get marks, evaluations and announcements. TAs get one
+            dashboard to run it all.
           </p>
         </div>
       </main>
@@ -85,15 +96,6 @@ function LoginContent() {
         NUSkor · Empowering Students. Elevating Futures.
       </footer>
     </div>
-  );
-}
-
-function Shield({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
   );
 }
 

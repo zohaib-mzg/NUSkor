@@ -86,7 +86,7 @@ export default function AssessmentsPage() {
       .delete()
       .eq("id", toDelete.id);
     if (err) return error(err.message);
-    success(`"${toDelete.title}" deleted — its marks were removed too.`);
+    success(`"${toDelete.title}" deleted. Its marks were removed too.`);
     setToDelete(null);
     load();
   }
@@ -106,7 +106,7 @@ export default function AssessmentsPage() {
     <div>
       <PageHeader
         title="Assessments"
-        subtitle="Quizzes, assignments, midterms, projects — the building blocks of every marksheet."
+        subtitle="Quizzes, assignments, midterms, projects: the building blocks of every marksheet."
         icon={FolderKanban}
         actions={
           <button className="btn-primary" onClick={() => setModal({ mode: "create" })}>
@@ -194,7 +194,7 @@ export default function AssessmentsPage() {
               </option>
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.code} — {c.title}
+                  {c.code} · {c.title}
                 </option>
               ))}
             </select>

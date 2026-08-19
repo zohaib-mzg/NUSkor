@@ -172,7 +172,7 @@ export default function EvaluationPeriodsPage() {
         <div className="card">
           <EmptyState
             title="No evaluation periods"
-            description='Create one, e.g. "Assignment 1 Evaluation, May 21–23", then add slots.'
+            description='Create one, e.g. "Assignment 1 Evaluation, May 21 to 23", then add slots.'
           />
         </div>
       ) : (
@@ -193,7 +193,7 @@ export default function EvaluationPeriodsPage() {
                       </Badge>
                     </div>
                     <p className="mt-1 text-sm text-ink/55">
-                      {period.course?.code} · {formatDate(period.starts_on)} –{" "}
+                      {period.course?.code} · {formatDate(period.starts_on)} to{" "}
                       {formatDate(period.ends_on)} · {period.slots.length} slots ·{" "}
                       {totalBooked} bookings
                     </p>
@@ -302,7 +302,7 @@ export default function EvaluationPeriodsPage() {
               </option>
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.code} — {c.title}
+                  {c.code} · {c.title}
                 </option>
               ))}
             </select>

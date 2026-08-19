@@ -348,7 +348,7 @@ create policy "announcements_admin_delete" on announcements
 --  without ever being able to read other students' marks)
 -- =========================================================
 
--- Class stats for one assessment: avg / min / max / count
+-- Class stats for ONE assessment: avg / min / max / count
 create or replace function public.get_assessment_stats(p_assessment_id uuid)
 returns table (avg_marks numeric, min_marks numeric, max_marks numeric, total_students bigint)
 language sql security definer stable
@@ -360,6 +360,23 @@ as $$
     count(*)
   from marks
   where assessment_id = p_assessment_id;
+$$;
+
+-- Batch variant: stats for MANY assessments in a single round trip.
+-- (Marks page previously fired one RPC per assessment, which was slow.)
+create or replace function public.get_assessment_stats_many(p_assessment_ids uuid[])
+returns table (assessment_id uuid, avg_marks numeric, min_marks numeric, max_marks numeric, total_students bigint)
+language sql security definer stable
+as $$
+  select
+    m.assessment_id,
+    round(avg(m.obtained)::numeric, 2),
+    min(m.obtained),
+    max(m.obtained),
+    count(*)
+  from marks m
+  where m.assessment_id = any(p_assessment_ids)
+  group by m.assessment_id;
 $$;
 
 -- Slots for a period with live confirmed-booking counts

@@ -179,7 +179,7 @@ export default function AnalyticsPage() {
     <div>
       <PageHeader
         title="Analytics"
-        subtitle="Class performance at a glance — computed live from the database."
+        subtitle="Class performance at a glance, computed live from the database."
         icon={BarChart3}
       />
 
@@ -196,7 +196,7 @@ export default function AnalyticsPage() {
           <option value="">Select a course</option>
           {courses.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.code} — {c.title}
+              {c.code} · {c.title}
             </option>
           ))}
         </select>

@@ -15,7 +15,7 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: {
-    default: "NUSkor — Evaluation & Marks Portal",
+    default: "NUSkor: Evaluation & Marks Portal",
     template: "%s · NUSkor",
   },
   description:

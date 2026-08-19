@@ -103,22 +103,19 @@ export default function MarksPage() {
             };
           });
 
-          const [statsResults, leaderboardRes] = await Promise.all([
-            Promise.all(
-              rows.map(async (r) => {
-                const { data } = await supabase.rpc("get_assessment_stats", {
-                  p_assessment_id: r.id,
-                });
-                return { id: r.id, stats: (data as AssessmentStats | null) ?? null };
-              })
-            ),
+          const [statsRes, leaderboardRes] = await Promise.all([
+            supabase.rpc("get_assessment_stats_many", {
+              p_assessment_ids: courseAssessments.map((a) => a.id),
+            }),
             supabase.rpc("get_leaderboard", { p_course_id: course.id }),
           ]);
 
           if (cancelled) return;
 
           const statsById = new Map(
-            statsResults.map((s) => [s.id, s.stats])
+            ((statsRes.data ?? []) as (AssessmentStats & { assessment_id: string })[]).map(
+              (s) => [s.assessment_id, s]
+            )
           );
           rows.forEach((r) => (r.stats = statsById.get(r.id) ?? null));
 
@@ -179,7 +176,7 @@ export default function MarksPage() {
         <StatCard
           icon={TrendingUp}
           label="Overall"
-          value={summary.possible ? `${summary.pct.toFixed(1)}%` : "—"}
+          value={summary.possible ? `${summary.pct.toFixed(1)}%` : "N/A"}
           hint={
             summary.possible
               ? `${gradeFor(summary.total, summary.possible).grade} · ${summary.total} / ${summary.possible}`
@@ -196,7 +193,7 @@ export default function MarksPage() {
         <StatCard
           icon={Trophy}
           label="Best rank"
-          value={summary.topRank === Infinity ? "—" : `#${summary.topRank}`}
+          value={summary.topRank === Infinity ? "N/A" : `#${summary.topRank}`}
           hint="Within a course leaderboard"
           accent="gold"
         />
@@ -291,14 +288,14 @@ function CourseSection({ course, myRegNo }: { course: CourseMarks; myRegNo: stri
                 </td>
                 <td className="td text-right">
                   {a.obtained === null ? (
-                    <span className="text-ink/35">—</span>
+                    <span className="text-ink/35">N/A</span>
                   ) : (
                     <span className="font-semibold">{a.myPercent.toFixed(1)}%</span>
                   )}
                 </td>
                 <td className="td text-right">
                   {a.obtained === null ? (
-                    <span className="text-ink/35">—</span>
+                    <span className="text-ink/35">N/A</span>
                   ) : (
                     <span className="inline-flex h-7 w-9 items-center justify-center rounded-lg bg-gold/20 font-bold text-gold-deep">
                       {gradeFor(a.obtained, a.total).grade}
@@ -308,12 +305,12 @@ function CourseSection({ course, myRegNo }: { course: CourseMarks; myRegNo: stri
                 <td className="td text-right text-ink/70">
                   {a.stats?.avg_marks != null
                     ? `${a.stats.avg_marks} / ${a.total}`
-                    : "—"}
+                    : "N/A"}
                 </td>
                 <td className="td text-right text-ink/70">
                   {a.stats?.min_marks != null
                     ? `${a.stats.min_marks} / ${a.stats.max_marks}`
-                    : "—"}
+                    : "N/A"}
                 </td>
               </tr>
             ))}
@@ -326,7 +323,7 @@ function CourseSection({ course, myRegNo }: { course: CourseMarks; myRegNo: stri
           <h3 className="mb-3 flex items-center gap-2 font-bold text-ink">
             <Trophy className="h-4 w-4 text-gold-deep" /> Leaderboard
             <span className="text-xs font-medium text-ink/45">
-              (student IDs only — privacy protected)
+              (student IDs only: privacy protected)
             </span>
           </h3>
           {course.leaderboard.length === 0 ? (
@@ -367,7 +364,7 @@ function CourseSection({ course, myRegNo }: { course: CourseMarks; myRegNo: stri
                           )}
                         </td>
                         <td className="td font-semibold text-ink">
-                          {e.registration_no ?? "—"}
+                          {e.registration_no ?? "N/A"}
                           {isMe && <Badge tone="dark" className="ml-2">You</Badge>}
                         </td>
                         <td className="td text-right font-medium">{e.total}</td>

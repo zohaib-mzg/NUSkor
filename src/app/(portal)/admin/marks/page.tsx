@@ -150,7 +150,7 @@ export default function MarksPage() {
     setSaving(false);
     const changes = toRemove.length + toUpdate.length;
     if (changes === 0) {
-      info("Nothing to save — marks already up to date.");
+      info("Nothing to save. Marks are already up to date.");
     } else {
       success(`Saved ${toUpdate.length} and removed ${toRemove.length} mark${changes === 1 ? "" : "s"}.`);
     }
@@ -182,7 +182,7 @@ export default function MarksPage() {
             <option value="">Select a course</option>
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.code} — {c.title}
+                {c.code} · {c.title}
               </option>
             ))}
           </select>
@@ -263,7 +263,7 @@ export default function MarksPage() {
                           <p className="text-xs text-ink/50">{r.profiles?.email}</p>
                         </td>
                         <td className="td font-mono text-xs text-ink/60">
-                          {r.registration_no ?? "—"}
+                          {r.registration_no ?? "N/A"}
                         </td>
                         <td className="td">
                           <input
@@ -277,12 +277,12 @@ export default function MarksPage() {
                             max={selectedAssessment?.total_marks}
                             step="any"
                             value={r.mark}
-                            placeholder="—"
+                            placeholder="N/A"
                             onChange={(e) => applyRowMark(r.id, e.target.value)}
                           />
                           {invalid && (
                             <p className="mt-1 text-right text-[11px] font-medium text-red-600">
-                              Must be 0 – {selectedAssessment?.total_marks}
+                              Must be between 0 and {selectedAssessment?.total_marks}
                             </p>
                           )}
                         </td>

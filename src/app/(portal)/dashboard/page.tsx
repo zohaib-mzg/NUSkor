@@ -44,7 +44,7 @@ export default function StudentDashboard() {
 
       setName(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "");
 
-      const [annRes, enrollRes, perRes, markRes] = await Promise.all([
+      const [annRes, enrollRes, perRes, markRes, bookingRes] = await Promise.all([
         supabase
           .from("announcements")
           .select("*")
@@ -66,6 +66,10 @@ export default function StudentDashboard() {
           .from("marks")
           .select("obtained, assessment_id, assessments(total_marks)")
           .eq("student_id", user.id),
+        supabase
+          .from("bookings")
+          .select("*, evaluation_slots(slot_date, slot_time)")
+          .eq("student_id", user.id),
       ]);
 
       if (cancelled) return;
@@ -75,12 +79,11 @@ export default function StudentDashboard() {
 
       const periodsRaw = (perRes.data ?? []) as EvaluationPeriod[];
       if (perRes.data) {
-        const myBookings = await supabase
-          .from("bookings")
-          .select("*, evaluation_slots(slot_date, slot_time)")
-          .eq("student_id", user.id);
         const bookingByPeriod = new Map(
-          (myBookings.data ?? []).map((b) => [b.evaluation_period_id, b])
+          ((bookingRes.data ?? []) as Booking[]).map((b) => [
+            b.evaluation_period_id,
+            b,
+          ])
         );
         setPeriods(
           periodsRaw.map((p) => ({
@@ -126,7 +129,7 @@ export default function StudentDashboard() {
           icon={ClipboardList}
           label={myMarks.possible > 0 ? "Overall performance" : "Marks"
           }
-          value={myMarks.possible > 0 ? `${overall.toFixed(1)}%` : "—"}
+          value={myMarks.possible > 0 ? `${overall.toFixed(1)}%` : "N/A"}
           hint={
             myMarks.possible > 0
               ? `${gradeFor(myMarks.total, myMarks.possible).grade} · ${myMarks.total} / ${myMarks.possible}`
@@ -211,7 +214,7 @@ export default function StudentDashboard() {
                       </Badge>
                     </div>
                     <p className="mt-2 text-xs text-ink/55">
-                      {formatDate(p.starts_on)} – {formatDate(p.ends_on)}
+                      {formatDate(p.starts_on)} to {formatDate(p.ends_on)}
                     </p>
                     <div className="mt-3">
                       {p.booking ? (
@@ -234,8 +237,8 @@ export default function StudentDashboard() {
           )}
           <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-ink/45">
             <Badge tone="gold">Tip</Badge>
-            One booking per evaluation period is enforced by the database —
-            no double-booking, ever.
+            One booking per evaluation period is enforced by the database.
+            No student can book twice, ever.
           </div>
         </section>
       </div>

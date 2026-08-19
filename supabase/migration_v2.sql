@@ -81,6 +81,8 @@ where cs.course_id = e.course_id;
 alter table enrollments alter column section_id set not null;
 alter table enrollments drop constraint if exists enrollments_student_id_course_id_key;
 alter table enrollments drop column if exists course_id;
+-- drop-then-add so re-running the migration after a partial failure is safe
+alter table enrollments drop constraint if exists enrollments_student_section_unique;
 alter table enrollments add constraint enrollments_student_section_unique
   unique (student_id, section_id);
 
@@ -146,6 +148,13 @@ update announcements
 set status = case when is_published then 'published' else 'draft' end,
     published_at = coalesce(published_at, created_at)
 where published_at is null;
+
+-- Old v1 policies reference is_published; drop them BEFORE the column.
+-- (They are recreated with new names in the RLS section below.)
+drop policy if exists "announcements_select_published" on announcements;
+drop policy if exists "announcements_admin_write" on announcements;
+drop policy if exists "announcements_admin_update" on announcements;
+drop policy if exists "announcements_admin_delete" on announcements;
 
 alter table announcements drop column if exists is_published;
 

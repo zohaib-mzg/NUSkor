@@ -20,7 +20,7 @@ language sql security definer stable as $$
   );
 $$;
 
-create or replace function public.current_role()
+create or replace function public.my_role()
 returns text
 language sql security definer stable as $$
   select role from profiles where id = auth.uid();
@@ -56,7 +56,7 @@ create policy "profiles_select_own_admin_or_section_ta" on profiles
 -- definer helper so no subquery re-enters RLS on profiles.
 create policy "profiles_update_own_no_role_change" on profiles
   for update using (id = auth.uid())
-  with check (id = auth.uid() and role = current_role());
+  with check (id = auth.uid() and role = my_role());
 
 create policy "profiles_admin_full_access" on profiles
   for all using (is_admin()) with check (is_admin());

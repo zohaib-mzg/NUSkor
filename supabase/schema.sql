@@ -315,6 +315,14 @@ returns boolean as $$
   );
 $$ language sql security definer stable;
 
+-- Current signed-in user's role (security definer: used inside
+-- profiles policies without re-entering RLS on profiles).
+create or replace function public.current_role()
+returns text
+language sql security definer stable as $$
+  select role from profiles where id = auth.uid();
+$$;
+
 create or replace function public.is_ta_of_section(p_section_id uuid)
 returns boolean
 language sql security definer stable as $$
@@ -351,7 +359,7 @@ create policy "profiles_update_own_no_role_change" on profiles
   for update using (id = auth.uid())
   with check (
     id = auth.uid()
-    and role = (select role from profiles where id = auth.uid())
+    and role = current_role()
   );
 drop policy if exists "profiles_admin_full_access" on profiles;
 create policy "profiles_admin_full_access" on profiles

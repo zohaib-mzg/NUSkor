@@ -1,5 +1,5 @@
 -- =========================================================
--- NUSkor — Database Schema + RLS Policies (v1.1, runnable)
+-- NUSkor â€” Database Schema + RLS Policies (v1.1, runnable)
 -- Run this in the Supabase SQL Editor once.
 -- Based on NUSkor_schema_v1.sql (kept faithful) + the RPC
 -- functions the web app depends on.
@@ -13,7 +13,7 @@ create extension if not exists "pgcrypto";
 -- ---------------------------------------------------------
 -- 1. PROFILES
 -- ---------------------------------------------------------
-create table profiles (
+create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text unique not null,
   full_name text,
@@ -47,7 +47,7 @@ create trigger on_auth_user_created
 -- ---------------------------------------------------------
 -- 2. STUDENTS
 -- ---------------------------------------------------------
-create table students (
+create table if not exists students (
   id uuid primary key references profiles(id) on delete cascade,
   registration_no text unique,
   program text,
@@ -58,7 +58,7 @@ create table students (
 -- ---------------------------------------------------------
 -- 3. COURSES
 -- ---------------------------------------------------------
-create table courses (
+create table if not exists courses (
   id uuid primary key default gen_random_uuid(),
   code text unique not null,
   title text not null,
@@ -70,7 +70,7 @@ create table courses (
 -- ---------------------------------------------------------
 -- 4. ENROLLMENTS
 -- ---------------------------------------------------------
-create table enrollments (
+create table if not exists enrollments (
   id uuid primary key default gen_random_uuid(),
   student_id uuid not null references students(id) on delete cascade,
   course_id uuid not null references courses(id) on delete cascade,
@@ -81,7 +81,7 @@ create table enrollments (
 -- ---------------------------------------------------------
 -- 5. ASSESSMENTS
 -- ---------------------------------------------------------
-create table assessments (
+create table if not exists assessments (
   id uuid primary key default gen_random_uuid(),
   course_id uuid not null references courses(id) on delete cascade,
   title text not null,
@@ -94,7 +94,7 @@ create table assessments (
 -- ---------------------------------------------------------
 -- 6. MARKS
 -- ---------------------------------------------------------
-create table marks (
+create table if not exists marks (
   id uuid primary key default gen_random_uuid(),
   student_id uuid not null references students(id) on delete cascade,
   assessment_id uuid not null references assessments(id) on delete cascade,
@@ -107,7 +107,7 @@ create table marks (
 -- ---------------------------------------------------------
 -- 7. EVALUATION PERIODS
 -- ---------------------------------------------------------
-create table evaluation_periods (
+create table if not exists evaluation_periods (
   id uuid primary key default gen_random_uuid(),
   course_id uuid not null references courses(id) on delete cascade,
   title text not null,
@@ -121,7 +121,7 @@ create table evaluation_periods (
 -- ---------------------------------------------------------
 -- 8. EVALUATION SLOTS
 -- ---------------------------------------------------------
-create table evaluation_slots (
+create table if not exists evaluation_slots (
   id uuid primary key default gen_random_uuid(),
   evaluation_period_id uuid not null references evaluation_periods(id) on delete cascade,
   slot_date date not null,
@@ -134,7 +134,7 @@ create table evaluation_slots (
 -- ---------------------------------------------------------
 -- 9. BOOKINGS
 -- ---------------------------------------------------------
-create table bookings (
+create table if not exists bookings (
   id uuid primary key default gen_random_uuid(),
   student_id uuid not null references students(id) on delete cascade,
   evaluation_period_id uuid not null references evaluation_periods(id) on delete cascade,
@@ -170,7 +170,7 @@ create trigger trg_check_slot_capacity
 -- ---------------------------------------------------------
 -- 10. ANNOUNCEMENTS
 -- ---------------------------------------------------------
-create table announcements (
+create table if not exists announcements (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   body text not null,

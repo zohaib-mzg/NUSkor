@@ -15,7 +15,7 @@ import type {
   Booking,
   EvaluationPeriod,
 } from "@/lib/types";
-import { cn, formatDate, formatTime, gradeFor, percent } from "@/lib/utils";
+import { cn, formatDate, formatTime, gradeFor, one, percent } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
@@ -100,7 +100,7 @@ export default function StudentDashboard() {
       }[];
       const total = marks.reduce((s, m) => s + Number(m.obtained), 0);
       const possible = marks.reduce(
-        (s, m) => s + Number(m.assessments?.[0]?.total_marks ?? 0),
+        (s, m) => s + Number(one(m.assessments)?.total_marks ?? 0),
         0
       );
       setMyMarks({ total, possible });

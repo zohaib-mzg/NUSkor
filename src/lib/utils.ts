@@ -52,6 +52,16 @@ export function initialOf(name: string | null | undefined): string {
   return name.trim().charAt(0).toUpperCase();
 }
 
+export function one<T>(value: T | T[] | null | undefined): T | null {
+  if (value == null) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+export function many<T>(value: T | T[] | null | undefined): T[] {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
 export function parseCsv(text: string): { email: string; score: number }[] {
   const rows: { email: string; score: number }[] = [];
   const lines = text

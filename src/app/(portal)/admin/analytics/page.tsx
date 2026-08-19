@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { BarChart3, TrendingUp, Users, Percent } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { one } from "@/lib/utils";
 import type { Assessment, Course } from "@/lib/types";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
@@ -95,11 +96,12 @@ export default function AnalyticsPage() {
     const byAss = new Map<string, { sum: number; max: number; n: number }>();
 
     marksOfCourse.forEach((m) => {
-      if (m.assessments?.[0]?.course_id !== courseId) return;
+      const ass = one(m.assessments);
+      if (ass?.course_id !== courseId) return;
       const rec = byAss.get(m.assessment_id) ?? { sum: 0, max: 0, n: 0 };
       rec.sum += Number(m.obtained);
       rec.n += 1;
-      rec.max = Math.max(rec.max, Number(m.assessments?.[0]?.total_marks ?? m.obtained));
+      rec.max = Math.max(rec.max, Number(ass?.total_marks ?? m.obtained));
       byAss.set(m.assessment_id, rec);
     });
 
@@ -120,7 +122,7 @@ export default function AnalyticsPage() {
     const buckets = new Map(grades.map((g) => [g, 0]));
     const firstMarks = marksOfCourse.filter((m) => m.assessment_id === firstAss.id);
     firstMarks.forEach((m) => {
-      const pct = (Number(m.obtained) / Number(m.assessments?.[0]?.total_marks || 1)) * 100;
+      const pct = (Number(m.obtained) / Number(one(m.assessments)?.total_marks || 1)) * 100;
       buckets.set(gradeFor(pct), (buckets.get(gradeFor(pct)) ?? 0) + 1);
     });
     const dist = [...buckets.entries()]
@@ -266,7 +268,7 @@ export default function AnalyticsPage() {
                           obtained: number;
                           assessments: { total_marks: number }[] | null;
                         }) => {
-                          const pct = (Number(m.obtained) / Number(m.assessments?.[0]?.total_marks || 1)) * 100;
+                          const pct = (Number(m.obtained) / Number(one(m.assessments)?.total_marks || 1)) * 100;
                           buckets.set(gradeFor(pct), (buckets.get(gradeFor(pct)) ?? 0) + 1);
                         });
                         setGradeDist(

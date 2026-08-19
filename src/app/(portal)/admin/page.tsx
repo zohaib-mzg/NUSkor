@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Announcement } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import { formatDate, one } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
@@ -26,8 +26,8 @@ type RecentBooking = {
   id: string;
   status: string;
   created_at: string;
-  evaluation_periods: { title: string; course: { code: string }[] }[];
-  students: { profiles: { full_name: string; email: string }[] }[] | null;
+  evaluation_periods: { title: string; course: { code: string } } | null;
+  students: { profiles: { full_name: string; email: string } } | null;
 };
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
@@ -86,7 +86,7 @@ export default function AdminDashboard() {
         openPeriods: periods.count ?? 0,
         bookingsToday: bookings.count ?? 0,
       });
-      setRecentBookings((bookings.data ?? []) as RecentBooking[]);
+      setRecentBookings((bookings.data ?? []) as unknown as RecentBooking[]);
       if (!announcements.error) setRecentAnnouncements(announcements.data ?? []);
       if (!cancelled) setLoading(false);
     })();
@@ -131,8 +131,8 @@ export default function AdminDashboard() {
           ) : (
             <ul className="divide-y divide-black/[0.05]">
               {recentBookings.map((b: RecentBooking) => {
-                const profile = b.students?.[0]?.profiles?.[0];
-                const period = b.evaluation_periods[0];
+                const profile = one(b.students?.profiles);
+                const period = one(b.evaluation_periods);
                 return (
                 <li key={b.id} className="flex flex-wrap items-center gap-3 py-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/15 text-xs font-bold text-gold-deep">
@@ -146,7 +146,7 @@ export default function AdminDashboard() {
                     </p>
                     <p className="truncate text-xs text-ink/50">
                       {period?.title ?? "Evaluation"} ·{" "}
-                      {period?.course?.[0]?.code ?? ""}
+                      {period?.course?.code ?? ""}
                     </p>
                   </div>
                   <Badge tone={b.status === "confirmed" ? "green" : b.status === "pending" ? "gold" : "red"}>

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, Search, CheckCircle2, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Booking } from "@/lib/types";
-import { formatDate, formatTime } from "@/lib/utils";
+import { formatDate, formatTime, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -40,9 +40,11 @@ export default function BookingsPage() {
 
   const filtered = bookings.filter((b) => {
     const q = query.toLowerCase();
+    const student = one(b.students);
+    const profile = one(student?.profiles);
     return (
-      (b.students?.[0]?.profiles?.[0]?.email ?? "").toLowerCase().includes(q) ||
-      (b.students?.[0]?.profiles?.[0]?.full_name ?? "").toLowerCase().includes(q) ||
+      (profile?.email ?? "").toLowerCase().includes(q) ||
+      (profile?.full_name ?? "").toLowerCase().includes(q) ||
       (b.evaluation_periods?.title ?? "").toLowerCase().includes(q) ||
       (b.evaluation_periods?.course?.code ?? "").toLowerCase().includes(q)
     );
@@ -106,13 +108,16 @@ export default function BookingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((b) => (
+                {filtered.map((b) => {
+                  const student = one(b.students);
+                  const profile = one(student?.profiles);
+                  return (
                   <tr key={b.id} className="bg-white">
                     <td className="td">
                       <p className="font-semibold text-ink">
-                        {b.students?.[0]?.profiles?.[0]?.full_name ?? "Student"}
+                        {profile?.full_name ?? "Student"}
                       </p>
-                      <p className="text-xs text-ink/50">{b.students?.[0]?.profiles?.[0]?.email}</p>
+                      <p className="text-xs text-ink/50">{profile?.email}</p>
                     </td>
                     <td className="td">
                       <p className="font-semibold text-ink">
@@ -153,7 +158,8 @@ export default function BookingsPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {filtered.length === 0 && (
                   <tr>
                     <td colSpan={5} className="td text-center text-ink/40">

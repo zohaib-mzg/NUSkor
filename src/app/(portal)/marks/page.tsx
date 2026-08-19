@@ -15,7 +15,7 @@ import type {
   AssessmentStats,
   LeaderboardEntry,
 } from "@/lib/types";
-import { gradeFor, percent } from "@/lib/utils";
+import { gradeFor, one, percent } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
@@ -86,7 +86,8 @@ export default function MarksPage() {
 
       const perCourse = await Promise.all(
         enrollments.map(async (en) => {
-          const course = en.course[0];
+          const course = one(en.course);
+          if (!course) return null;
           const courseAssessments = assessments.filter(
             (a) => a.course_id === course.id
           );

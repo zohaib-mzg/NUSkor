@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse, type NextRequest } from "next/server";
 
+const FUNCTIONS_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-announcement-emails`;
+
 export async function POST(request: NextRequest) {
   const supabase = createClient();
   const {
@@ -27,21 +29,36 @@ export async function POST(request: NextRequest) {
   }
   const prepared = prepRes.data ?? 0;
 
-  // Send via the Supabase Edge Function (Resend key lives in Supabase secrets).
-  const { data, error: invokeErr } = await supabase.functions.invoke(
-    "send-announcement-emails",
-    { body: { announcementId } }
-  );
-  if (invokeErr) {
+  // Call the Edge Function directly so the real error body is surfaced.
+  let res: Response;
+  try {
+    res = await fetch(FUNCTIONS_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}`,
+      },
+      body: JSON.stringify({ announcementId }),
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: `Could not reach the Edge Function: ${e instanceof Error ? e.message : String(e)}` },
+      { status: 500 }
+    );
+  }
+
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
     return NextResponse.json(
       {
         error:
-          `Edge function failed: ${invokeErr.message}. Deploy it with: supabase functions deploy send-announcement-emails --no-verify-jwt`,
+          `Edge function responded ${res.status}: ${JSON.stringify(data)}. Deploy with: supabase functions deploy send-announcement-emails --no-verify-jwt`,
         prepared,
       },
       { status: 500 }
     );
   }
 
-  return NextResponse.json(data ?? {});
+  return NextResponse.json(data);
 }

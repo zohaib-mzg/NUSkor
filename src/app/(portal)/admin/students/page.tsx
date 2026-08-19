@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Users, Pencil, Search, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Student, Course } from "@/lib/types";
+import type { Student, CourseSection } from "@/lib/types";
+import { one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -15,9 +16,9 @@ export default function StudentsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState<Student[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [sections, setSections] = useState<CourseSection[]>([]);
   const [enrollments, setEnrollments] = useState<
-    { student_id: string; course_id: string }[]
+    { student_id: string; section_id: string }[]
   >([]);
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Student | null>(null);
@@ -25,18 +26,23 @@ export default function StudentsPage() {
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const [sRes, cRes, eRes] = await Promise.all([
+    const [sRes, secRes, eRes] = await Promise.all([
       supabase
         .from("students")
         .select("*, profiles(email, full_name, created_at)"),
-      supabase.from("courses").select("*").eq("is_archived", false),
-      supabase.from("enrollments").select("student_id, course_id"),
+      supabase
+        .from("course_sections")
+        .select("*, course:courses(code, title)")
+        .eq("status", "active")
+        .order("section_code"),
+      supabase.from("enrollments").select("student_id, section_id"),
     ]);
     if (!sRes.error) setStudents((sRes.data ?? []) as Student[]);
-    if (!cRes.error) setCourses((cRes.data ?? []) as Course[]);
+    if (!secRes.error)
+      setSections((secRes.data ?? []) as CourseSection[]);
     if (!eRes.error)
       setEnrollments(
-        (eRes.data ?? []) as { student_id: string; course_id: string }[]
+        (eRes.data ?? []) as { student_id: string; section_id: string }[]
       );
     setLoading(false);
   }, []);
@@ -80,29 +86,29 @@ export default function StudentsPage() {
     load();
   }
 
-  function toggleEnroll(studentId: string, courseId: string) {
+  function toggleEnroll(studentId: string, sectionId: string) {
     const supabase = createClient();
     const currently = enrollments.some(
-      (en) => en.student_id === studentId && en.course_id === courseId
+      (en) => en.student_id === studentId && en.section_id === sectionId
     );
     if (currently) {
       supabase
         .from("enrollments")
         .delete()
         .eq("student_id", studentId)
-        .eq("course_id", courseId)
+        .eq("section_id", sectionId)
         .then(({ error: err }) => {
           if (err) return error(`Could not unenroll: ${err.message}`);
-          success("Removed from course.");
+          success("Removed from section.");
           load();
         });
     } else {
       supabase
         .from("enrollments")
-        .insert({ student_id: studentId, course_id: courseId })
+        .insert({ student_id: studentId, section_id: sectionId })
         .then(({ error: err }) => {
           if (err) return error(`Could not enroll: ${err.message}`);
-          success("Enrolled in course.");
+          success("Enrolled in section.");
           load();
         });
     }
@@ -114,7 +120,7 @@ export default function StudentsPage() {
     <div>
       <PageHeader
         title="Students"
-        subtitle="Profiles are created automatically at first sign-in. Edit their academic details and enroll them in courses."
+        subtitle="Profiles are created automatically at first sign-in. Edit their academic details and enroll them in sections."
         icon={Users}
         actions={
           <div className="relative">
@@ -152,9 +158,9 @@ export default function StudentsPage() {
               </thead>
               <tbody>
                 {filtered.map((s) => {
-                  const enrolled = courses.filter((c) =>
+                  const enrolled = sections.filter((sec) =>
                     enrollments.some(
-                      (en) => en.student_id === s.id && en.course_id === c.id
+                      (en) => en.student_id === s.id && en.section_id === sec.id
                     )
                   );
                   return (
@@ -182,9 +188,9 @@ export default function StudentsPage() {
                           {enrolled.length === 0 ? (
                             <span className="text-xs text-ink/35">Not enrolled</span>
                           ) : (
-                            enrolled.map((c) => (
-                              <Badge key={c.id} tone="neutral">
-                                {c.code}
+                            enrolled.map((sec) => (
+                              <Badge key={sec.id} tone="neutral">
+                                {one(sec.course)?.code} · {sec.section_code}
                               </Badge>
                             ))
                           )}
@@ -284,24 +290,25 @@ export default function StudentsPage() {
         {enrollStudent && (
           <div>
             <p className="mb-4 text-sm text-ink/55">
-              Toggle courses to enroll or unenroll this student.
+              Toggle sections to enroll or unenroll this student.
             </p>
-            {courses.length === 0 ? (
+            {sections.length === 0 ? (
               <EmptyState
-                title="No courses yet"
-                description="Create courses first, then come back to enroll students."
+                title="No sections yet"
+                description="Create courses and sections first, then come back to enroll students."
               />
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
-                {courses.map((c) => {
+                {sections.map((sec) => {
                   const active = enrollments.some(
                     (en) =>
-                      en.student_id === enrollStudent.id && en.course_id === c.id
+                      en.student_id === enrollStudent.id && en.section_id === sec.id
                   );
+                  const course = one(sec.course);
                   return (
                     <button
-                      key={c.id}
-                      onClick={() => toggleEnroll(enrollStudent.id, c.id)}
+                      key={sec.id}
+                      onClick={() => toggleEnroll(enrollStudent.id, sec.id)}
                       className={
                         active
                           ? "flex items-center justify-between rounded-xl border-2 border-gold bg-gold/10 p-3 text-left"
@@ -309,8 +316,12 @@ export default function StudentsPage() {
                       }
                     >
                       <span>
-                        <span className="block text-sm font-bold text-ink">{c.code}</span>
-                        <span className="block text-xs text-ink/50">{c.title}</span>
+                        <span className="block text-sm font-bold text-ink">
+                          {course?.code ?? "Course"} · Section {sec.section_code}
+                        </span>
+                        <span className="block text-xs text-ink/50">
+                          {course?.title ?? ""} {sec.semester ?? ""} {sec.academic_year ?? ""}
+                        </span>
                       </span>
                       <Badge tone={active ? "gold" : "neutral"}>
                         {active ? "Enrolled" : "Not enrolled"}

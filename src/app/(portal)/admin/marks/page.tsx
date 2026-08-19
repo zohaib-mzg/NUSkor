@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Assessment, Course, Student } from "@/lib/types";
-import { parseCsv } from "@/lib/utils";
+import type { Assessment, CourseSection, Student } from "@/lib/types";
+import { one, parseCsv } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -19,9 +19,9 @@ interface EnrolledStudent extends Student {
 
 export default function MarksPage() {
   const { success, error, info } = useToast();
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [sections, setSections] = useState<CourseSection[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [courseId, setCourseId] = useState("");
+  const [sectionId, setSectionId] = useState("");
   const [assessmentId, setAssessmentId] = useState("");
   const [rows, setRows] = useState<EnrolledStudent[]>([]);
   const [dirty, setDirty] = useState(false);
@@ -30,11 +30,15 @@ export default function MarksPage() {
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const [cRes, aRes] = await Promise.all([
-      supabase.from("courses").select("*").eq("is_archived", false).order("code"),
-      supabase.from("assessments").select("id, course_id, title, type, total_marks"),
+    const [secRes, aRes] = await Promise.all([
+      supabase
+        .from("course_sections")
+        .select("*, course:courses(code, title)")
+        .eq("status", "active")
+        .order("section_code"),
+      supabase.from("assessments").select("id, section_id, title, type, total_marks"),
     ]);
-    if (!cRes.error) setCourses((cRes.data ?? []) as Course[]);
+    if (!secRes.error) setSections((secRes.data ?? []) as CourseSection[]);
     if (!aRes.error) setAssessments((aRes.data ?? []) as Assessment[]);
   }, []);
 
@@ -43,14 +47,14 @@ export default function MarksPage() {
   }, [load]);
 
   useEffect(() => {
-    if (!courseId) {
+    if (!sectionId) {
       setAssessmentId("");
       setRows([]);
       return;
     }
     setAssessmentId("");
     setRows([]);
-  }, [courseId]);
+  }, [sectionId]);
 
   const loadMarks = useCallback(async (assId: string) => {
     const supabase = createClient();
@@ -58,7 +62,7 @@ export default function MarksPage() {
       supabase
         .from("enrollments")
         .select("student_id, student:students(*, profiles(email, full_name))")
-        .eq("course_id", courseId),
+        .eq("section_id", sectionId),
       supabase
         .from("marks")
         .select("student_id, obtained")
@@ -84,7 +88,7 @@ export default function MarksPage() {
       }))
     );
     setDirty(false);
-  }, [courseId]);
+  }, [sectionId]);
 
   useEffect(() => {
     if (assessmentId) loadMarks(assessmentId);
@@ -173,18 +177,21 @@ export default function MarksPage() {
       {/* Selectors */}
       <div className="card mb-6 grid gap-4 p-5 sm:grid-cols-2">
         <div>
-          <label className="label">Course</label>
+          <label className="label">Section</label>
           <select
             className="input"
-            value={courseId}
-            onChange={(e) => setCourseId(e.target.value)}
+            value={sectionId}
+            onChange={(e) => setSectionId(e.target.value)}
           >
-            <option value="">Select a course</option>
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code} · {c.title}
-              </option>
-            ))}
+            <option value="">Select a section</option>
+            {sections.map((s) => {
+              const course = one(s.course);
+              return (
+                <option key={s.id} value={s.id}>
+                  {course?.code ?? "Course"} · Section {s.section_code}
+                </option>
+              );
+            })}
           </select>
         </div>
         <div>
@@ -193,13 +200,13 @@ export default function MarksPage() {
             className="input"
             value={assessmentId}
             onChange={(e) => setAssessmentId(e.target.value)}
-            disabled={!courseId}
+            disabled={!sectionId}
           >
             <option value="">
-              {courseId ? "Select an assessment" : "Choose a course first"}
+              {sectionId ? "Select an assessment" : "Choose a section first"}
             </option>
             {assessments
-              .filter((a) => a.course_id === courseId)
+              .filter((a) => a.section_id === sectionId)
               .map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.title} ({a.type}, {a.total_marks} marks)
@@ -212,7 +219,7 @@ export default function MarksPage() {
       {!assessmentId ? (
         <div className="card">
           <EmptyState
-            title="Pick a course and assessment"
+            title="Pick a section and assessment"
             description="Then edit marks inline or upload a CSV of student_email,score."
           />
         </div>
@@ -367,7 +374,7 @@ function CsvImportModal({
       const { data } = await supabase
         .from("enrollments")
         .select("student:students(id, profiles(email))")
-        .eq("course_id", assessment?.course_id ?? "");
+        .eq("section_id", assessment?.section_id ?? "");
       const emailToId = new Map<string, string>();
       (data ?? []).forEach((en: {
         student?: { id: string; profiles?: { email?: string }[] | null }[] | null;
@@ -452,7 +459,7 @@ function CsvImportModal({
               <Upload className="mx-auto mb-2 h-8 w-8 text-gold-deep" />
               <span className="font-semibold">Click to choose a .csv file</span>
               <span className="mt-1 block text-xs text-ink/45">
-                Only students enrolled in this course will be matched.
+                Only students enrolled in this section will be matched.
               </span>
             </button>
             <input

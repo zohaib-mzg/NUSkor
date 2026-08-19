@@ -15,7 +15,7 @@ import type {
   EvaluationPeriod,
   SlotWithBookings,
 } from "@/lib/types";
-import { formatDate, formatTime } from "@/lib/utils";
+import { formatDate, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -45,13 +45,13 @@ export default function EvaluationsPage() {
     const [periodRes, bookingRes] = await Promise.all([
       supabase
         .from("evaluation_periods")
-        .select("*, course:courses(code, title)")
+        .select("*, section:course_sections(section_code, course:courses(code, title))")
         .eq("is_closed", false)
         .gte("ends_on", new Date().toISOString().slice(0, 10))
         .order("starts_on", { ascending: true }),
       supabase
         .from("bookings")
-        .select("*, evaluation_slots(slot_date, slot_time)")
+        .select("*, evaluation_slots(slot_date, start_time, end_time)")
         .eq("student_id", user.id),
     ]);
 
@@ -171,7 +171,12 @@ export default function EvaluationsPage() {
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <Users className="h-3.5 w-3.5 text-gold-deep" />
-                      {period.course?.code ?? "Course"} · {period.course?.title ?? ""}
+                      {(() => {
+                        const sec = one(period.section);
+                        return sec
+                          ? `${sec.course?.code ?? "Course"} · Section ${sec.section_code}`
+                          : "Course";
+                      })()}
                     </span>
                   </p>
                 </div>
@@ -185,7 +190,7 @@ export default function EvaluationsPage() {
                       <p className="font-bold text-ink">Your slot is confirmed</p>
                       <p className="text-sm text-ink/60">
                         {period.booking.evaluation_slots
-                          ? `${formatDate(period.booking.evaluation_slots.slot_date)} at ${formatTime(period.booking.evaluation_slots.slot_time)}`
+                          ? `${formatDate(period.booking.evaluation_slots.slot_date)}, ${period.booking.evaluation_slots.start_time}–${period.booking.evaluation_slots.end_time}`
                           : "Booking confirmed"}
                         {" "}· {period.booking.status}
                       </p>
@@ -225,7 +230,7 @@ export default function EvaluationsPage() {
                             <div className="flex items-center justify-between">
                               <span className="inline-flex items-center gap-1.5 font-bold text-ink">
                                 <Clock className="h-4 w-4 text-gold-deep" />
-                                {formatTime(slot.slot_time)}
+                                {slot.start_time}–{slot.end_time}
                               </span>
                               <Badge
                                 tone={

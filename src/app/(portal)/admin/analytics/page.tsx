@@ -14,7 +14,7 @@ import {
 import { BarChart3, TrendingUp, Users, Percent } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { one } from "@/lib/utils";
-import type { Assessment, Course } from "@/lib/types";
+import type { Assessment, CourseSection } from "@/lib/types";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
@@ -23,8 +23,8 @@ import EmptyState from "@/components/ui/EmptyState";
 
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [courseId, setCourseId] = useState("");
+  const [sections, setSections] = useState<CourseSection[]>([]);
+  const [sectionId, setSectionId] = useState("");
   const [summary, setSummary] = useState<Record<string, number>>({});
   const [assessmentBars, setAssessmentBars] = useState<
     { name: string; avg: number; max: number; normalized: number }[]
@@ -38,12 +38,12 @@ export default function AnalyticsPage() {
     (async () => {
       const supabase = createClient();
       const { data, error: err } = await supabase
-        .from("courses")
-        .select("*")
-        .eq("is_archived", false)
-        .order("code");
+        .from("course_sections")
+        .select("*, course:courses(code, title)")
+        .eq("status", "active")
+        .order("section_code");
       if (!cancelled) {
-        if (!err) setCourses((data ?? []) as Course[]);
+        if (!err) setSections((data ?? []) as CourseSection[]);
         setLoading(false);
       }
     })();
@@ -52,23 +52,23 @@ export default function AnalyticsPage() {
     };
   }, []);
 
-  async function analyze(courseId: string) {
-    if (!courseId) return;
+  async function analyze(sectionId: string) {
+    if (!sectionId) return;
     setLoading(true);
     const supabase = createClient();
     const [assRes, markRes, enRes, allMarksRes] = await Promise.all([
       supabase
         .from("assessments")
         .select("*")
-        .eq("course_id", courseId),
+        .eq("section_id", sectionId),
       supabase
         .from("marks")
-        .select("obtained, assessment_id, assessments(total_marks, title, course_id)")
+        .select("obtained, assessment_id, assessments(total_marks, title, section_id)")
         .order("created_at"),
       supabase
         .from("enrollments")
         .select("id", { count: "exact", head: true })
-        .eq("course_id", courseId),
+        .eq("section_id", sectionId),
       supabase.from("marks").select("obtained"),
     ]);
 
@@ -90,14 +90,14 @@ export default function AnalyticsPage() {
       assessments: {
         total_marks: number;
         title: string;
-        course_id: string;
+        section_id: string;
       }[] | null;
     }[];
     const byAss = new Map<string, { sum: number; max: number; n: number }>();
 
     marksOfCourse.forEach((m) => {
       const ass = one(m.assessments);
-      if (ass?.course_id !== courseId) return;
+      if (ass?.section_id !== sectionId) return;
       const rec = byAss.get(m.assessment_id) ?? { sum: 0, max: 0, n: 0 };
       rec.sum += Number(m.obtained);
       rec.n += 1;
@@ -186,28 +186,31 @@ export default function AnalyticsPage() {
       />
 
       <div className="card mb-6 p-5">
-        <label className="label">Course</label>
+        <label className="label">Section</label>
         <select
           className="input sm:max-w-md"
-          value={courseId}
+          value={sectionId}
           onChange={(e) => {
-            setCourseId(e.target.value);
+            setSectionId(e.target.value);
             analyze(e.target.value);
           }}
         >
-          <option value="">Select a course</option>
-          {courses.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.code} · {c.title}
-            </option>
-          ))}
+          <option value="">Select a section</option>
+          {sections.map((s) => {
+            const course = one(s.course);
+            return (
+              <option key={s.id} value={s.id}>
+                {course?.code ?? "Course"} · Section {s.section_code}
+              </option>
+            );
+          })}
         </select>
       </div>
 
-      {!courseId ? (
+      {!sectionId ? (
         <div className="card">
           <EmptyState
-            title="Pick a course to see analytics"
+            title="Pick a section to see analytics"
             description="Charts show assessment averages, grade distribution and overall class health."
           />
         </div>
@@ -217,7 +220,7 @@ export default function AnalyticsPage() {
         <div className="card">
           <EmptyState
             title="No data yet"
-            description="Add assessments and marks for this course to see analytics."
+            description="Add assessments and marks for this section to see analytics."
           />
         </div>
       ) : (

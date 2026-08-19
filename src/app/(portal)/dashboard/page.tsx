@@ -15,7 +15,7 @@ import type {
   Booking,
   EvaluationPeriod,
 } from "@/lib/types";
-import { cn, formatDate, formatTime, gradeFor, one, percent } from "@/lib/utils";
+import { cn, formatDate, gradeFor, one, percent } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
@@ -48,7 +48,7 @@ export default function StudentDashboard() {
         supabase
           .from("announcements")
           .select("*")
-          .eq("is_published", true)
+          .eq("status", "published")
           .order("created_at", { ascending: false })
           .limit(3),
         supabase
@@ -57,7 +57,7 @@ export default function StudentDashboard() {
           .eq("student_id", user.id),
         supabase
           .from("evaluation_periods")
-          .select("*, course:courses(code, title)")
+          .select("*, section:course_sections(section_code, course:courses(code, title))")
           .eq("is_closed", false)
           .gt("ends_on", new Date().toISOString().slice(0, 10))
           .order("starts_on", { ascending: true })
@@ -68,7 +68,7 @@ export default function StudentDashboard() {
           .eq("student_id", user.id),
         supabase
           .from("bookings")
-          .select("*, evaluation_slots(slot_date, slot_time)")
+          .select("*, evaluation_slots(slot_date, start_time, end_time)")
           .eq("student_id", user.id),
       ]);
 
@@ -200,12 +200,15 @@ export default function StudentDashboard() {
             <ul className="grid gap-3 sm:grid-cols-2">
               {periods.map((p) => {
                 const ongoing = p.starts_on <= today && p.ends_on >= today;
+                const sec = one(p.section);
                 return (
                   <li key={p.id} className="rounded-xl border border-black/[0.07] bg-paper p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/45">
-                          {p.course?.code ?? "Course"}
+                          {sec
+                            ? `${sec.course?.code ?? "Course"} · Sec ${sec.section_code}`
+                            : "Course"}
                         </p>
                         <h3 className="font-semibold text-ink">{p.title}</h3>
                       </div>
@@ -221,7 +224,7 @@ export default function StudentDashboard() {
                         <Badge tone="green" className="w-full justify-center">
                           Booked ·{" "}
                           {p.booking.evaluation_slots
-                            ? `${formatDate(p.booking.evaluation_slots.slot_date)}, ${formatTime(p.booking.evaluation_slots.slot_time)}`
+                            ? `${formatDate(p.booking.evaluation_slots.slot_date)}, ${p.booking.evaluation_slots.start_time}–${p.booking.evaluation_slots.end_time}`
                             : "see details"}
                         </Badge>
                       ) : (
@@ -245,10 +248,10 @@ export default function StudentDashboard() {
 
       {/* Courses summary */}
       <section className="card mt-6 p-6">
-        <h2 className="font-bold text-ink">Your courses</h2>
+        <h2 className="font-bold text-ink">Your sections</h2>
         <p className="mt-1 text-sm text-ink/55">
           You are enrolled in <span className="font-semibold text-ink">{enrollCount}</span>{" "}
-          {enrollCount === 1 ? "course" : "courses"}.
+          {enrollCount === 1 ? "section" : "sections"}.
         </p>
         <div className={cn("mt-4 flex flex-wrap gap-2")}>
           <Link href="/marks" className="btn-outline">

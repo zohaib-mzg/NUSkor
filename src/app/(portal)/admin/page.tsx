@@ -26,7 +26,10 @@ type RecentBooking = {
   id: string;
   status: string;
   created_at: string;
-  evaluation_periods: { title: string; course: { code: string } } | null;
+  evaluation_periods: {
+    title: string;
+    section: { section_code: string; course: { code: string } };
+  } | null;
   students: { profiles: { full_name: string; email: string } } | null;
 };
 export default function AdminDashboard() {
@@ -59,14 +62,14 @@ export default function AdminDashboard() {
           supabase
             .from("bookings")
             .select(
-              "id, status, created_at, evaluation_periods(title, course:courses(code)), students(profiles(full_name, email))",
+              "id, status, created_at, evaluation_periods(title, section:course_sections(section_code, course:courses(code))), students(profiles(full_name, email))",
               { count: "exact", head: true }
             )
             .gte("created_at", new Date().toISOString().slice(0, 10)),
           supabase
             .from("bookings")
             .select(
-              "*, evaluation_periods(title, course:courses(code)), students(profiles(full_name, email))"
+              "*, evaluation_periods(title, section:course_sections(section_code, course:courses(code))), students(profiles(full_name, email))"
             )
             .order("created_at", { ascending: false })
             .limit(5),
@@ -146,7 +149,8 @@ export default function AdminDashboard() {
                     </p>
                     <p className="truncate text-xs text-ink/50">
                       {period?.title ?? "Evaluation"} ·{" "}
-                      {period?.course?.code ?? ""}
+                      {period?.section?.course?.code ?? ""} —{" "}
+                      {period?.section?.section_code ?? ""}
                     </p>
                   </div>
                   <Badge tone={b.status === "confirmed" ? "green" : b.status === "pending" ? "gold" : "red"}>
@@ -200,8 +204,8 @@ export default function AdminDashboard() {
               <li key={a.id} className="rounded-lg border border-black/[0.05] bg-paper px-4 py-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-semibold text-ink">{a.title}</p>
-                  <Badge tone={a.is_published ? "green" : "neutral"}>
-                    {a.is_published ? "Published" : "Draft"}
+                  <Badge tone={a.status === "published" ? "green" : "neutral"}>
+                    {a.status === "published" ? "Published" : a.status}
                   </Badge>
                 </div>
                 <p className="mt-1 line-clamp-1 text-sm text-ink/55">{a.body}</p>

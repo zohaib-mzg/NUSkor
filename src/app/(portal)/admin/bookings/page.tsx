@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, Search, CheckCircle2, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Booking } from "@/lib/types";
-import { formatDate, formatTime, one } from "@/lib/utils";
+import { formatDate, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -23,7 +23,7 @@ export default function BookingsPage() {
     const { data, error: err } = await supabase
       .from("bookings")
       .select(
-        "*, evaluation_slots(slot_date, slot_time), evaluation_periods(title, course:courses(code)), students(profiles(full_name, email))"
+        "*, evaluation_slots(slot_date, start_time, end_time), evaluation_periods(title, section:course_sections(section_code, course:courses(code))), students(registration_no, profiles(full_name, email))"
       )
       .order("created_at", { ascending: false });
     if (err) {
@@ -43,10 +43,11 @@ export default function BookingsPage() {
     const student = one(b.students);
     const profile = one(student?.profiles);
     return (
+      (student?.registration_no ?? "").toLowerCase().includes(q) ||
       (profile?.email ?? "").toLowerCase().includes(q) ||
       (profile?.full_name ?? "").toLowerCase().includes(q) ||
       (b.evaluation_periods?.title ?? "").toLowerCase().includes(q) ||
-      (b.evaluation_periods?.course?.code ?? "").toLowerCase().includes(q)
+      (b.evaluation_periods?.section?.course?.code ?? "").toLowerCase().includes(q)
     );
   });
 
@@ -100,7 +101,9 @@ export default function BookingsPage() {
             <table className="w-full min-w-[760px]">
               <thead className="bg-paper">
                 <tr>
+                  <th className="th">Reg. No.</th>
                   <th className="th">Student</th>
+                  <th className="th">Course · Section</th>
                   <th className="th">Evaluation</th>
                   <th className="th">Slot</th>
                   <th className="th">Status</th>
@@ -113,6 +116,9 @@ export default function BookingsPage() {
                   const profile = one(student?.profiles);
                   return (
                   <tr key={b.id} className="bg-white">
+                    <td className="td font-mono text-xs text-ink/70">
+                      {student?.registration_no ?? "N/A"}
+                    </td>
                     <td className="td">
                       <p className="font-semibold text-ink">
                         {profile?.full_name ?? "Student"}
@@ -121,15 +127,20 @@ export default function BookingsPage() {
                     </td>
                     <td className="td">
                       <p className="font-semibold text-ink">
-                        {b.evaluation_periods?.title ?? "N/A"}
+                        {b.evaluation_periods?.section?.course?.code ?? "Course"}
                       </p>
                       <p className="text-xs text-ink/50">
-                        {b.evaluation_periods?.course?.code ?? ""}
+                        Section {b.evaluation_periods?.section?.section_code ?? ""}
+                      </p>
+                    </td>
+                    <td className="td">
+                      <p className="font-semibold text-ink">
+                        {b.evaluation_periods?.title ?? "N/A"}
                       </p>
                     </td>
                     <td className="td text-ink/70">
                       {b.evaluation_slots
-                        ? `${formatDate(b.evaluation_slots.slot_date)}, ${formatTime(b.evaluation_slots.slot_time)}`
+                        ? `${formatDate(b.evaluation_slots.slot_date)}, ${b.evaluation_slots.start_time}–${b.evaluation_slots.end_time}`
                         : "N/A"}
                     </td>
                     <td className="td">
@@ -162,7 +173,7 @@ export default function BookingsPage() {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="td text-center text-ink/40">
+                    <td colSpan={7} className="td text-center text-ink/40">
                       No bookings match your search.
                     </td>
                   </tr>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Announcement } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import { formatDate, one } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
@@ -20,9 +20,9 @@ export default function AnnouncementsPage() {
       const supabase = createClient();
       const { data } = await supabase
         .from("announcements")
-        .select("*, profiles(full_name)")
-        .eq("is_published", true)
-        .order("created_at", { ascending: false });
+        .select("*, profiles(full_name), section:course_sections(section_code, course:courses(code))")
+        .eq("status", "published")
+        .order("published_at", { ascending: false });
       if (!cancelled && data) setItems(data as Announcement[]);
       if (!cancelled) setLoading(false);
     })();
@@ -62,10 +62,15 @@ export default function AnnouncementsPage() {
                 <div className="min-w-0 flex-1">
                   <h2 className="font-bold text-ink">{a.title}</h2>
                   <p className="text-xs text-ink/50">
-                    {formatDate(a.created_at, true)}
-                    {a.profiles?.full_name
-                      ? ` · by ${a.profiles.full_name}`
-                      : ""}
+                    {formatDate(a.published_at ?? a.created_at, true)}
+                    {a.profiles?.full_name ? ` · by ${a.profiles.full_name}` : ""}
+                    {a.section_id &&
+                      (() => {
+                        const sec = one(a.section);
+                        return sec
+                          ? ` · ${sec.course?.code ?? "Course"} Sec ${sec.section_code}`
+                          : "";
+                      })()}
                   </p>
                 </div>
                 {idx === 0 && <Badge tone="gold">New</Badge>}

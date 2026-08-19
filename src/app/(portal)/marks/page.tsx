@@ -22,10 +22,11 @@ import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
 
-interface CourseMarks {
-  courseId: string;
+interface SectionMarks {
+  sectionId: string;
   code: string;
   title: string;
+  sectionCode: string;
   assessments: {
     id: string;
     title: string;
@@ -43,7 +44,7 @@ interface CourseMarks {
 
 export default function MarksPage() {
   const [loading, setLoading] = useState(true);
-  const [courses, setCourses] = useState<CourseMarks[]>([]);
+  const [sections, setSections] = useState<SectionMarks[]>([]);
   const [myRegNo, setMyRegNo] = useState<string | null>(null);
 
   useEffect(() => {
@@ -65,16 +66,16 @@ export default function MarksPage() {
             .maybeSingle(),
           supabase
             .from("enrollments")
-            .select("course_id, course:courses(code, title, id)"),
+            .select("section_id, section:course_sections(section_code, course:courses(code, title, id))"),
           supabase.from("marks").select("obtained, assessment_id").eq("student_id", user.id),
-          supabase.from("assessments").select("id, course_id, title, type, total_marks"),
+          supabase.from("assessments").select("id, section_id, title, type, total_marks"),
         ]);
 
       if (cancelled) return;
 
       const enrollments = (enrollRes.data ?? []) as {
-        course_id: string;
-        course: { code: string; title: string; id: string }[];
+        section_id: string;
+        section: { id: string; section_code: string; course: { code: string; title: string; id: string }[] }[];
       }[];
       const marks = (markRes.data ?? []) as Mark[];
       const assessments = (assRes.data ?? []) as Assessment[];
@@ -84,12 +85,13 @@ export default function MarksPage() {
         marks.map((m) => [m.assessment_id, Number(m.obtained)])
       );
 
-      const perCourse = await Promise.all(
+      const perSection = await Promise.all(
         enrollments.map(async (en) => {
-          const course = one(en.course);
-          if (!course) return null;
+          const sec = one(en.section);
+          if (!sec) return null;
+          const course = one(sec.course);
           const courseAssessments = assessments.filter(
-            (a) => a.course_id === course.id
+            (a) => a.section_id === sec.id
           );
           const rows = courseAssessments.map((a) => {
             const obtained = myMarksByAssessment.get(a.id) ?? null;
@@ -108,7 +110,7 @@ export default function MarksPage() {
             supabase.rpc("get_assessment_stats_many", {
               p_assessment_ids: courseAssessments.map((a) => a.id),
             }),
-            supabase.rpc("get_leaderboard", { p_course_id: course.id }),
+            supabase.rpc("get_leaderboard", { p_section_id: sec.id }),
           ]);
 
           if (cancelled) return;
@@ -127,9 +129,10 @@ export default function MarksPage() {
             ) ?? null;
 
           return {
-            courseId: course.id,
-            code: course.code,
-            title: course.title,
+            sectionId: sec.id,
+            code: course?.code ?? "",
+            title: course?.title ?? "",
+            sectionCode: sec.section_code,
             assessments: rows,
             totalObtained: rows.reduce((s, r) => s + (r.obtained ?? 0), 0),
             totalPossible: rows.reduce((s, r) => s + r.total, 0),
@@ -139,7 +142,7 @@ export default function MarksPage() {
         })
       );
 
-      if (!cancelled) setCourses(perCourse.filter(Boolean) as CourseMarks[]);
+      if (!cancelled) setSections(perSection.filter(Boolean) as SectionMarks[]);
     }
 
     load().finally(() => !cancelled && setLoading(false));
@@ -149,19 +152,19 @@ export default function MarksPage() {
   }, []);
 
   const summary = useMemo(() => {
-    const total = courses.reduce((s, c) => s + c.totalObtained, 0);
-    const possible = courses.reduce((s, c) => s + c.totalPossible, 0);
+    const total = sections.reduce((s, c) => s + c.totalObtained, 0);
+    const possible = sections.reduce((s, c) => s + c.totalPossible, 0);
     return {
       total,
       possible,
       pct: possible ? percent(total, possible) : 0,
-      assessments: courses.reduce((s, c) => s + c.assessments.length, 0),
-      topRank: courses.reduce(
+      assessments: sections.reduce((s, c) => s + c.assessments.length, 0),
+      topRank: sections.reduce(
         (best, c) => (c.myRank ? Math.min(best, c.myRank.rank) : best),
         Infinity
       ),
     };
-  }, [courses]);
+  }, [sections]);
 
   if (loading) return <Spinner label="Loading your marks..." />;
 
@@ -200,23 +203,23 @@ export default function MarksPage() {
         />
         <StatCard
           icon={Users}
-          label="Enrolled courses"
-          value={courses.length}
+          label="Enrolled sections"
+          value={sections.length}
           hint="With published assessments"
         />
       </div>
 
-      {courses.length === 0 ? (
+      {sections.length === 0 ? (
         <div className="card mt-6">
           <EmptyState
-            title="No courses yet"
+            title="No sections yet"
             description="Once your TA enrolls you and publishes marks, they'll show up here."
           />
         </div>
       ) : (
         <div className="mt-6 space-y-8">
-          {courses.map((course) => (
-            <CourseSection key={course.courseId} course={course} myRegNo={myRegNo} />
+          {sections.map((sec) => (
+            <SectionBlock key={sec.sectionId} section={sec} myRegNo={myRegNo} />
           ))}
         </div>
       )}
@@ -224,7 +227,7 @@ export default function MarksPage() {
   );
 }
 
-function CourseSection({ course, myRegNo }: { course: CourseMarks; myRegNo: string | null }) {
+function SectionBlock({ section, myRegNo }: { section: SectionMarks; myRegNo: string | null }) {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   return (
@@ -232,20 +235,20 @@ function CourseSection({ course, myRegNo }: { course: CourseMarks; myRegNo: stri
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] bg-white px-5 py-4">
         <div>
           <h2 className="font-bold text-ink">
-            {course.code} <span className="font-medium text-ink/45">·</span>{" "}
-            <span className="font-medium text-ink/70">{course.title}</span>
+            {section.code} <span className="font-medium text-ink/45">·</span>{" "}
+            <span className="font-medium text-ink/70">{section.title}</span>
           </h2>
           <p className="mt-0.5 text-xs text-ink/50">
-            {course.assessments.length} assessments ·{" "}
-            {course.totalPossible > 0
-              ? `${percent(course.totalObtained, course.totalPossible).toFixed(1)}% overall · Grade ${gradeFor(course.totalObtained, course.totalPossible).grade}`
+            Section {section.sectionCode} · {section.assessments.length} assessments ·{" "}
+            {section.totalPossible > 0
+              ? `${percent(section.totalObtained, section.totalPossible).toFixed(1)}% overall · Grade ${gradeFor(section.totalObtained, section.totalPossible).grade}`
               : "No marks published yet"}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {course.myRank && (
+          {section.myRank && (
             <Badge tone="gold">
-              <Trophy className="h-3 w-3" /> Rank #{course.myRank.rank}
+              <Trophy className="h-3 w-3" /> Rank #{section.myRank.rank}
             </Badge>
           )}
           <button
@@ -271,7 +274,7 @@ function CourseSection({ course, myRegNo }: { course: CourseMarks; myRegNo: stri
             </tr>
           </thead>
           <tbody>
-            {course.assessments.map((a) => (
+            {section.assessments.map((a) => (
               <tr key={a.id} className="bg-white">
                 <td className="td font-semibold text-ink">{a.title}</td>
                 <td className="td">
@@ -327,7 +330,7 @@ function CourseSection({ course, myRegNo }: { course: CourseMarks; myRegNo: stri
               (student IDs only: privacy protected)
             </span>
           </h3>
-          {course.leaderboard.length === 0 ? (
+          {section.leaderboard.length === 0 ? (
             <EmptyState title="No marks on the board yet" />
           ) : (
             <div className="overflow-x-auto">
@@ -341,7 +344,7 @@ function CourseSection({ course, myRegNo }: { course: CourseMarks; myRegNo: stri
                   </tr>
                 </thead>
                 <tbody>
-                  {course.leaderboard.map((e) => {
+                  {section.leaderboard.map((e) => {
                     const isMe =
                       myRegNo && e.registration_no === myRegNo;
                     return (

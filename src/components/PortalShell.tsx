@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   Bell,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,8 +37,14 @@ const studentNav: NavItem[] = [
   { href: "/announcements", label: "Announcements", icon: <Megaphone className="h-[18px] w-[18px]" />, match: ["/announcements"] },
 ];
 
+const taNav: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-[18px] w-[18px]" />, match: ["/dashboard"] },
+  { href: "/ta/sections", label: "My Sections", icon: <BookOpen className="h-[18px] w-[18px]" />, match: ["/ta/sections"] },
+];
+
 const adminNav: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: <LayoutDashboard className="h-[18px] w-[18px]" />, match: ["/admin"] },
+  { href: "/admin/tas", label: "TA Management", icon: <ShieldCheck className="h-[18px] w-[18px]" />, match: ["/admin/tas"] },
   { href: "/admin/students", label: "Students", icon: <Users className="h-[18px] w-[18px]" />, match: ["/admin/students"] },
   { href: "/admin/courses", label: "Courses", icon: <BookOpen className="h-[18px] w-[18px]" />, match: ["/admin/courses"] },
   { href: "/admin/assessments", label: "Assessments", icon: <FolderKanban className="h-[18px] w-[18px]" />, match: ["/admin/assessments"] },
@@ -56,15 +63,16 @@ export default function PortalShell({
 }: {
   email: string;
   displayName: string;
-  role: "admin" | "student";
+  role: "admin" | "ta" | "student";
   children: ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const isAdmin = role === "admin";
+  const isTa = role === "ta";
 
-  const nav = isAdmin ? adminNav : studentNav;
+  const nav = isAdmin ? adminNav : isTa ? taNav : studentNav;
 
   const isActive = (item: NavItem) =>
     item.match?.some((m) => pathname === m || pathname.startsWith(m + "/")) ??
@@ -127,7 +135,7 @@ export default function PortalShell({
             isAdmin ? "text-white/40" : "text-ink/40"
           )}
         >
-          {isAdmin ? "Admin Panel" : "Student Panel"}
+          {isAdmin ? "Admin Panel" : isTa ? "TA Panel" : "Student Panel"}
         </p>
         {nav.map((item) => {
           const active = isActive(item);
@@ -252,7 +260,7 @@ export default function PortalShell({
           </span>
         </div>
         <button
-          onClick={() => router.push(isAdmin ? "/admin" : "/dashboard")}
+          onClick={() => router.push(isAdmin ? "/admin" : isTa ? "/ta/sections" : "/dashboard")}
           className="rounded-lg p-2 text-ink transition-colors hover:bg-black/5"
           aria-label="Home"
         >

@@ -71,7 +71,7 @@ function LoginContent() {
           <div className="my-4 flex items-center gap-3">
             <span className="h-px flex-1 bg-black/[0.08]" />
             <span className="text-xs font-semibold uppercase tracking-wide text-ink/35">
-              Are you the TA?
+              Want TA access?
             </span>
             <span className="h-px flex-1 bg-black/[0.08]" />
           </div>
@@ -82,12 +82,12 @@ function LoginContent() {
             className="btn-primary w-full gap-3 py-3"
           >
             <Users className="h-4 w-4" />
-            {busy === "ta" ? "Redirecting to Google..." : "Sign in as TA"}
+            {busy === "ta" ? "Redirecting to Google..." : "Apply as TA"}
           </button>
 
           <p className="mt-5 text-center text-xs leading-relaxed text-ink/45">
-            Students get marks, evaluations and announcements. TAs get one
-            dashboard to run it all.
+            Students get marks, evaluations and announcements. TA access is
+            granted by an admin after review.
           </p>
         </div>
       </main>

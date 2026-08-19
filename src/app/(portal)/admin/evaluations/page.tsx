@@ -9,8 +9,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Course, EvaluationPeriod, SlotWithBookings } from "@/lib/types";
-import { formatDate, formatTime } from "@/lib/utils";
+import type { CourseSection, EvaluationPeriod, SlotWithBookings } from "@/lib/types";
+import { formatDate, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -26,7 +26,7 @@ interface PeriodAdmin extends EvaluationPeriod {
 export default function EvaluationPeriodsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [sections, setSections] = useState<CourseSection[]>([]);
   const [periods, setPeriods] = useState<PeriodAdmin[]>([]);
   const [modal, setModal] = useState(false);
   const [slotFor, setSlotFor] = useState<PeriodAdmin | null>(null);
@@ -38,14 +38,18 @@ export default function EvaluationPeriodsPage() {
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const [cRes, pRes] = await Promise.all([
-      supabase.from("courses").select("*").eq("is_archived", false),
+    const [sRes, pRes] = await Promise.all([
+      supabase
+        .from("course_sections")
+        .select("*, course:courses(code, title)")
+        .eq("status", "active")
+        .order("section_code"),
       supabase
         .from("evaluation_periods")
-        .select("*, course:courses(code, title)")
+        .select("*, section:course_sections(section_code, course:courses(code, title))")
         .order("starts_on", { ascending: false }),
     ]);
-    if (!cRes.error) setCourses((cRes.data ?? []) as Course[]);
+    if (!sRes.error) setSections((sRes.data ?? []) as CourseSection[]);
     if (!pRes.error) {
       const raw = (pRes.data ?? []) as EvaluationPeriod[];
       const withSlots = await Promise.all(
@@ -68,18 +72,18 @@ export default function EvaluationPeriodsPage() {
   async function createPeriod(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const el = e.currentTarget.elements as unknown as {
-      course_id: HTMLSelectElement;
+      section_id: HTMLSelectElement;
       title: HTMLInputElement;
       starts_on: HTMLInputElement;
       ends_on: HTMLInputElement;
     };
     const payload = {
-      course_id: el.course_id.value,
+      section_id: el.section_id.value,
       title: el.title.value.trim(),
       starts_on: el.starts_on.value,
       ends_on: el.ends_on.value,
     };
-    if (!payload.course_id || !payload.title || !payload.starts_on || !payload.ends_on) return;
+    if (!payload.section_id || !payload.title || !payload.starts_on || !payload.ends_on) return;
     if (payload.ends_on < payload.starts_on) {
       return error("End date must be on or after the start date.");
     }
@@ -96,18 +100,21 @@ export default function EvaluationPeriodsPage() {
     if (!slotFor) return;
     const el = e.currentTarget.elements as unknown as {
       slot_date: HTMLInputElement;
-      slot_time: HTMLInputElement;
+      start_time: HTMLInputElement;
+      end_time: HTMLInputElement;
       capacity: HTMLInputElement;
     };
     const slotDate = el.slot_date.value;
-    const slotTime = el.slot_time.value;
+    const startTime = el.start_time.value;
+    const endTime = el.end_time.value;
     const capacity = Number(el.capacity.value || 1);
 
     const supabase = createClient();
     const { error: err } = await supabase.from("evaluation_slots").insert({
       evaluation_period_id: slotFor.id,
       slot_date: slotDate,
-      slot_time: slotTime,
+      start_time: startTime,
+      end_time: endTime,
       capacity,
     });
     if (err) return error(err.message);
@@ -193,9 +200,18 @@ export default function EvaluationPeriodsPage() {
                       </Badge>
                     </div>
                     <p className="mt-1 text-sm text-ink/55">
-                      {period.course?.code} · {formatDate(period.starts_on)} to{" "}
-                      {formatDate(period.ends_on)} · {period.slots.length} slots ·{" "}
-                      {totalBooked} bookings
+                      {(() => {
+                        const sec = one(period.section);
+                        return sec ? (
+                          <>
+                            {sec.course?.code} · Section {sec.section_code}
+                          </>
+                        ) : (
+                          "Unknown section"
+                        );
+                      })()}{" "}
+                      · {formatDate(period.starts_on)} to {formatDate(period.ends_on)} ·{" "}
+                      {period.slots.length} slots · {totalBooked} bookings
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -244,7 +260,9 @@ export default function EvaluationPeriodsPage() {
                               <td className="td font-semibold text-ink">
                                 {formatDate(slot.slot_date)}
                               </td>
-                              <td className="td">{formatTime(slot.slot_time)}</td>
+                              <td className="td">
+                                {slot.start_time}–{slot.end_time}
+                              </td>
                               <td className="td">
                                 <Badge
                                   tone={
@@ -295,16 +313,19 @@ export default function EvaluationPeriodsPage() {
       <Modal open={modal} onClose={() => setModal(false)} title="New evaluation period">
         <form onSubmit={createPeriod} className="space-y-4">
           <div>
-            <label className="label">Course</label>
-            <select name="course_id" className="input" required defaultValue="">
+            <label className="label">Section</label>
+            <select name="section_id" className="input" required defaultValue="">
               <option value="" disabled>
-                Select a course
+                Select a section
               </option>
-              {courses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code} · {c.title}
-                </option>
-              ))}
+              {sections.map((s) => {
+                const course = one(s.course);
+                return (
+                  <option key={s.id} value={s.id}>
+                    {course?.code ?? "Course"} · Section {s.section_code}
+                  </option>
+                );
+              })}
             </select>
           </div>
           <div>
@@ -348,12 +369,17 @@ export default function EvaluationPeriodsPage() {
               <input name="slot_date" type="date" className="input" required min={slotFor?.starts_on} max={slotFor?.ends_on} />
             </div>
             <div>
-              <label className="label">Time</label>
-              <input name="slot_time" type="time" className="input" required />
+              <label className="label">Start time</label>
+              <input name="start_time" type="time" className="input" required />
             </div>
           </div>
-          <div>
-            <label className="label">Capacity</label>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">End time</label>
+              <input name="end_time" type="time" className="input" required />
+            </div>
+            <div>
+              <label className="label">Capacity</label>
             <input
               name="capacity"
               type="number"
@@ -366,6 +392,7 @@ export default function EvaluationPeriodsPage() {
               Number of students who can book this slot. The database refuses
               overbooking.
             </p>
+          </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" className="btn-outline" onClick={() => setSlotFor(null)}>

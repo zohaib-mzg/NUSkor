@@ -36,7 +36,23 @@ drop table if exists public.courses cascade;
 drop table if exists public.students cascade;
 drop table if exists public.profiles cascade;
 
--- ---------- 3. VERIFY ----------
+-- ---------- 3. DROP ALL PUBLIC FUNCTIONS ----------
+-- (stale v1-era signatures block schema.sql's create or replace)
+do $$
+declare
+  r record;
+begin
+  for r in
+    select p.proname, pg_get_function_identity_arguments(p.oid) as args
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+  loop
+    execute format('drop function if exists public.%I(%s) cascade', r.proname, r.args);
+  end loop;
+end $$;
+
+-- ---------- 4. VERIFY ----------
 select email from auth.users order by email;
 select 'tables remaining' as msg, count(*) from pg_tables
 where schemaname = 'public';

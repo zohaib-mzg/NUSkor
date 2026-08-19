@@ -854,6 +854,7 @@ as $$
 $$;
 
 -- Slots for a period with live confirmed-booking counts
+drop function if exists public.get_slots_with_counts(uuid);
 create or replace function public.get_slots_with_counts(p_period_id uuid)
 returns table (slot_id uuid, slot_date date, start_time time, end_time time, capacity int, is_open boolean, booked bigint)
 language sql security definer stable

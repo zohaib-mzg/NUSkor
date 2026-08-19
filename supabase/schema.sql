@@ -5,6 +5,26 @@
 -- =========================================================
 
 -- ---------------------------------------------------------
+-- 0. Drop any stale public functions first: older schema
+--    versions changed OUT/returns-table signatures, and
+--    "create or replace" cannot alter those. Dropping all
+--    public functions here makes re-runs self-healing.
+-- ---------------------------------------------------------
+do $$
+declare
+  r record;
+begin
+  for r in
+    select p.proname, pg_get_function_identity_arguments(p.oid) as args
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+  loop
+    execute format('drop function if exists public.%I(%s) cascade', r.proname, r.args);
+  end loop;
+end $$;
+
+-- ---------------------------------------------------------
 -- 0. Extension needed for gen_random_uuid()
 -- ---------------------------------------------------------
 create extension if not exists "pgcrypto";

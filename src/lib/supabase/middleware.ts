@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const ALLOWED_DOMAIN = "@lhr.nu.edu.pk";
-const PUBLIC_ROUTES = ["/", "/login", "/access-denied", "/auth/callback", "/_next"];
+const PUBLIC_ROUTES = ["/", "/login", "/join", "/access-denied", "/auth/callback", "/_next"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

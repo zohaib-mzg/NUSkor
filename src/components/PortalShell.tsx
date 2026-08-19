@@ -40,6 +40,11 @@ const studentNav: NavItem[] = [
 const taNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-[18px] w-[18px]" />, match: ["/dashboard"] },
   { href: "/ta/sections", label: "My Sections", icon: <BookOpen className="h-[18px] w-[18px]" />, match: ["/ta/sections"] },
+  { href: "/ta/students", label: "Students & Invites", icon: <Users className="h-[18px] w-[18px]" />, match: ["/ta/students"] },
+  { href: "/ta/assessments", label: "Assessments", icon: <FolderKanban className="h-[18px] w-[18px]" />, match: ["/ta/assessments"] },
+  { href: "/ta/marks", label: "Marks", icon: <Star className="h-[18px] w-[18px]" />, match: ["/ta/marks"] },
+  { href: "/ta/evaluations", label: "Evaluation Periods", icon: <CalendarClock className="h-[18px] w-[18px]" />, match: ["/ta/evaluations"] },
+  { href: "/ta/announcements", label: "Announcements", icon: <Megaphone className="h-[18px] w-[18px]" />, match: ["/ta/announcements"] },
 ];
 
 const adminNav: NavItem[] = [

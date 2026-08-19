@@ -11,14 +11,18 @@ function LoginContent() {
   const [busy, setBusy] = useState<"student" | "ta" | null>(null);
   const params = useSearchParams();
   const error = params.get("error");
+  const next = params.get("next") ?? "";
 
   async function signInWithGoogle(flow: "student" | "ta") {
     setBusy(flow);
     const supabase = createClient();
+    const redirectTo = `${window.location.origin}/auth/callback?flow=${flow}${
+      next ? `&next=${encodeURIComponent(next)}` : ""
+    }`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?flow=${flow}`,
+        redirectTo,
         queryParams: {
           hd: "lhr.nu.edu.pk",
           prompt: "select_account",

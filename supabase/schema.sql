@@ -40,6 +40,7 @@ create table if not exists profiles (
   created_at timestamptz not null default now()
 );
 
+drop function if exists public.handle_new_user();
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -221,6 +222,7 @@ create table if not exists bookings (
 );
 
 -- Prevent overbooking a slot beyond its capacity via a trigger
+drop function if exists public.check_slot_capacity();
 create or replace function public.check_slot_capacity()
 returns trigger as $$
 declare
@@ -328,6 +330,7 @@ alter table ta_applications enable row level security;
 alter table student_invites enable row level security;
 alter table announcement_email_deliveries enable row level security;
 
+drop function if exists public.is_admin();
 create or replace function public.is_admin()
 returns boolean as $$
   select exists (
@@ -337,12 +340,14 @@ $$ language sql security definer stable;
 
 -- Current signed-in user's role (security definer: used inside
 -- profiles policies without re-entering RLS on profiles).
+drop function if exists public.my_role();
 create or replace function public.my_role()
 returns text
 language sql security definer stable as $$
   select role from profiles where id = auth.uid();
 $$;
 
+drop function if exists public.is_ta_of_section(uuid);
 create or replace function public.is_ta_of_section(p_section_id uuid)
 returns boolean
 language sql security definer stable as $$
@@ -352,6 +357,7 @@ language sql security definer stable as $$
   );
 $$;
 
+drop function if exists public.is_ta_of_student(uuid);
 create or replace function public.is_ta_of_student(p_student_id uuid)
 returns boolean
 language sql security definer stable as $$
@@ -490,6 +496,7 @@ create policy "enrollments_ta_delete" on enrollments
 -- Enroll a registered student into one of the caller's sections
 -- by email. TAs cannot SELECT students outside their sections,
 -- so this is a security-definer helper that validates ownership.
+drop function if exists public.enroll_student_by_email(uuid, text);
 create or replace function public.enroll_student_by_email(p_section_id uuid, p_email text)
 returns uuid
 language plpgsql security definer as $$
@@ -752,6 +759,7 @@ create policy "email_deliveries_select_ta_admin" on announcement_email_deliverie
 
 -- Enroll the signed-in student via a secure invitation token.
 -- Validates expiry/status/usage, enrolls, increments used_count.
+drop function if exists public.join_section(text);
 create or replace function public.join_section(p_token text)
 returns uuid
 language plpgsql security definer as $$
@@ -788,6 +796,7 @@ $$;
 
 -- Create in-app notifications for an announcement's target section
 -- (NULL section = all students). Returns rows created.
+drop function if exists public.create_announcement_notifications(uuid);
 create or replace function public.create_announcement_notifications(p_announcement_id uuid)
 returns int
 language plpgsql security definer as $$
@@ -822,6 +831,7 @@ $$;
 
 -- Class stats for ONE assessment: avg / min / max / count
 -- (excludes archived students)
+drop function if exists public.get_assessment_stats(uuid);
 create or replace function public.get_assessment_stats(p_assessment_id uuid)
 returns table (avg_marks numeric, min_marks numeric, max_marks numeric, total_students bigint)
 language sql security definer stable
@@ -837,6 +847,7 @@ as $$
 $$;
 
 -- Batch variant: stats for MANY assessments in a single round trip.
+drop function if exists public.get_assessment_stats_many(uuid[]);
 create or replace function public.get_assessment_stats_many(p_assessment_ids uuid[])
 returns table (assessment_id uuid, avg_marks numeric, min_marks numeric, max_marks numeric, total_students bigint)
 language sql security definer stable
@@ -875,6 +886,7 @@ $$;
 
 -- Privacy-conscious leaderboard: registration numbers ONLY, never names.
 -- Students can match their own row via their registration number.
+drop function if exists public.get_leaderboard(uuid);
 create or replace function public.get_leaderboard(p_section_id uuid)
 returns table (registration_no text, total numeric, percent numeric, rank bigint)
 language sql security definer stable
@@ -931,6 +943,7 @@ create unique index if not exists idx_slots_unique
 -- end_time in p_duration_minutes steps, creating one slot per step.
 -- Validates the caller is the section's TA or an admin, and that every
 -- date falls inside the period's date range.
+drop function if exists public.generate_slots(uuid, date[], time, time, int, int);
 create or replace function public.generate_slots(
   p_period_id uuid,
   p_dates date[],
@@ -981,6 +994,7 @@ $$;
 
 -- Create "pending" email delivery rows for an announcement's targets
 -- (NULL section = every student). Returns newly created rows.
+drop function if exists public.prepare_email_deliveries(uuid);
 create or replace function public.prepare_email_deliveries(p_announcement_id uuid)
 returns int
 language plpgsql security definer as $$
@@ -1017,6 +1031,7 @@ end;
 $$;
 
 -- Mark one delivery row sent/failed (caller must be the section's TA/admin).
+drop function if exists public.mark_email_delivery(uuid, text, text, text);
 create or replace function public.mark_email_delivery(
   p_delivery_id uuid,
   p_status text,

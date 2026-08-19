@@ -35,6 +35,13 @@ begin
     new.raw_user_meta_data->>'full_name',
     case when new.email = 'l242530@lhr.nu.edu.pk' then 'admin' else 'student' end
   );
+
+  -- Auto-register every non-admin user as a student on first sign-in,
+  -- so they appear in the admin Students list immediately.
+  if new.email <> 'l242530@lhr.nu.edu.pk' then
+    insert into public.students (id) values (new.id);
+  end if;
+
   return new;
 end;
 $$ language plpgsql security definer;
@@ -441,6 +448,15 @@ create index if not exists idx_assessments_course on assessments(course_id);
 create index if not exists idx_bookings_slot on bookings(slot_id);
 create index if not exists idx_bookings_student on bookings(student_id);
 create index if not exists idx_slots_period on evaluation_slots(evaluation_period_id);
+
+-- ---------------------------------------------------------
+-- Backfill: register existing non-admin users as students
+-- (for anyone who signed in before auto-registration existed).
+-- ---------------------------------------------------------
+insert into students (id)
+select id from profiles
+where role = 'student'
+on conflict do nothing;
 
 -- =========================================================
 -- END v1.1

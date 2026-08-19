@@ -32,6 +32,23 @@ export default function StudentDashboard() {
   });
   const [enrollCount, setEnrollCount] = useState(0);
   const [name, setName] = useState("");
+  const [latest, setLatest] = useState<{
+    title: string;
+    type: string;
+    obtained: number;
+    total: number;
+    pct: number;
+    sectionLabel: string;
+  } | null>(null);
+  const [recent, setRecent] = useState<
+    {
+      title: string;
+      obtained: number;
+      total: number;
+      pct: number;
+      sectionLabel: string;
+    }[]
+  >([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,33 +61,34 @@ export default function StudentDashboard() {
 
       setName(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "");
 
-      const [annRes, enrollRes, perRes, markRes, bookingRes] = await Promise.all([
-        supabase
-          .from("announcements")
-          .select("*")
-          .eq("status", "published")
-          .order("created_at", { ascending: false })
-          .limit(3),
-        supabase
-          .from("enrollments")
-          .select("id")
-          .eq("student_id", user.id),
-        supabase
-          .from("evaluation_periods")
-          .select("*, section:course_sections(section_code, course:courses(code, title))")
-          .eq("is_closed", false)
-          .gt("ends_on", new Date().toISOString().slice(0, 10))
-          .order("starts_on", { ascending: true })
-          .limit(5),
-        supabase
-          .from("marks")
-          .select("obtained, assessment_id, assessments(total_marks)")
-          .eq("student_id", user.id),
-        supabase
-          .from("bookings")
-          .select("*, evaluation_slots(slot_date, start_time, end_time)")
-          .eq("student_id", user.id),
-      ]);
+      const [annRes, enrollRes, perRes, markRes, bookingRes] =
+        await Promise.all([
+          supabase
+            .from("announcements")
+            .select("*")
+            .eq("status", "published")
+            .order("created_at", { ascending: false })
+            .limit(3),
+          supabase
+            .from("enrollments")
+            .select("id")
+            .eq("student_id", user.id),
+          supabase
+            .from("evaluation_periods")
+            .select("*, section:course_sections(section_code, course:courses(code, title))")
+            .eq("is_closed", false)
+            .gt("ends_on", new Date().toISOString().slice(0, 10))
+            .order("starts_on", { ascending: true })
+            .limit(5),
+          supabase
+            .from("marks")
+            .select("obtained, assessment_id, assessments(total_marks, title, type, release_date, created_at, section:course_sections(section_code, course:courses(code)))")
+            .eq("student_id", user.id),
+          supabase
+            .from("bookings")
+            .select("*, evaluation_slots(slot_date, start_time, end_time)")
+            .eq("student_id", user.id),
+        ]);
 
       if (cancelled) return;
 
@@ -96,7 +114,19 @@ export default function StudentDashboard() {
       const marks = (markRes.data ?? []) as {
         obtained: number;
         assessment_id: string;
-        assessments: { total_marks: number }[] | null;
+        assessments:
+          | {
+              total_marks: number;
+              title: string;
+              type: string;
+              release_date: string | null;
+              created_at: string;
+              section?: {
+                section_code: string;
+                course?: { code: string }[] | null;
+              }[] | null;
+            }[]
+          | null;
       }[];
       const total = marks.reduce((s, m) => s + Number(m.obtained), 0);
       const possible = marks.reduce(
@@ -104,6 +134,31 @@ export default function StudentDashboard() {
         0
       );
       setMyMarks({ total, possible });
+
+      const today = new Date().toISOString().slice(0, 10);
+      const scored = marks
+        .map((m) => {
+          const a = one(m.assessments);
+          const sec = a ? one(a.section) : null;
+          const released = !a?.release_date || a.release_date <= today;
+          if (!a || !released) return null;
+          const totalMarks = Number(a.total_marks);
+          return {
+            title: a.title,
+            type: a.type,
+            obtained: Number(m.obtained),
+            total: totalMarks,
+            pct: totalMarks > 0 ? (Number(m.obtained) / totalMarks) * 100 : 0,
+            releasedAt: a.release_date ?? a.created_at,
+            sectionLabel: sec
+              ? `${one(sec.course)?.code ?? "Course"} Sec ${sec.section_code}`
+              : "",
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null)
+        .sort((a, b) => b.releasedAt.localeCompare(a.releasedAt));
+      setLatest(scored[0] ?? null);
+      setRecent(scored.slice(0, 4));
     }
     load().finally(() => !cancelled && setLoading(false));
     return () => {
@@ -152,6 +207,62 @@ export default function StudentDashboard() {
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
+        {/* Latest + recent assessments */}
+        <section className="card p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-bold text-ink">Latest assessment</h2>
+            <Link
+              href="/marks"
+              className="flex items-center gap-1 text-xs font-semibold text-gold-deep hover:underline"
+            >
+              View marks <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          {!latest ? (
+            <EmptyState
+              title="No released assessments yet"
+              description="When your TA publishes and releases marks, the latest one appears here."
+            />
+          ) : (
+            <div className="rounded-xl border border-black/[0.07] bg-paper p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/45">
+                {latest.sectionLabel}
+              </p>
+              <h3 className="mt-1 font-bold text-ink">{latest.title}</h3>
+              <p className="mt-1 text-xs text-ink/50">
+                <Badge tone="neutral">{latest.type}</Badge>
+              </p>
+              <p className="mt-3 text-2xl font-extrabold text-ink">
+                {latest.obtained} <span className="text-ink/40">/ {latest.total}</span>
+              </p>
+              <p className="text-sm font-semibold text-gold-deep">
+                {latest.pct.toFixed(1)}%
+              </p>
+            </div>
+          )}
+
+          {recent.length > 1 && (
+            <div className="mt-5">
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-ink/40">
+                Recent assessments
+              </h3>
+              <ul className="space-y-2">
+                {recent.map((r) => (
+                  <li
+                    key={r.title + r.sectionLabel}
+                    className="flex items-center justify-between rounded-lg border border-black/[0.05] bg-white px-3 py-2"
+                  >
+                    <span className="text-sm font-semibold text-ink">{r.title}</span>
+                    <span className="text-sm text-ink/70">
+                      {r.obtained} / {r.total}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+
         {/* Announcements */}
         <section className="card p-6">
           <div className="mb-4 flex items-center justify-between">

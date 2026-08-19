@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Download } from "lucide-react";import { createClient } from "@/lib/supabase/client";
+import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Download, FileDown, Loader2 } from "lucide-react";import { createClient } from "@/lib/supabase/client";
 import type { Assessment, CourseSection, Student } from "@/lib/types";
 import { one, parseCsv } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
@@ -26,8 +26,10 @@ export default function MarksPage() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportBusy, setExportBusy] = useState(false);
 
-  const load = useCallback(async () => {
+const load = useCallback(async () => {
     const supabase = createClient();
     const [secRes, aRes] = await Promise.all([
       supabase
@@ -35,7 +37,9 @@ export default function MarksPage() {
         .select("*, course:courses(code, title)")
         .eq("status", "active")
         .order("section_code"),
-      supabase.from("assessments").select("id, section_id, title, type, total_marks"),
+      supabase
+        .from("assessments")
+        .select("id, section_id, title, type, total_marks, weightage, status, release_date"),
     ]);
     if (!secRes.error) setSections((secRes.data ?? []) as CourseSection[]);
     if (!aRes.error) setAssessments((aRes.data ?? []) as Assessment[]);
@@ -160,28 +164,111 @@ export default function MarksPage() {
     await loadMarks(selectedAssessment.id);
   }
 
-  function exportCsv() {
-    if (!selectedAssessment) return;
-    const header = ["student_email", "registration_no", "full_name", "score"];
-    const lines = rows.map((r) =>
-      [
-        r.profiles?.email ?? "",
-        r.registration_no ?? "",
-        (r.profiles?.full_name ?? "").replace(/"/g, '""'),
-        r.mark.trim() !== "" ? r.mark : "",
-      ]
-        .map((v) => `"${v}"`)
-        .join(",")
-    );
-    const blob = new Blob([[header.join(","), ...lines].join("\n")], {
-      type: "text/csv",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `marks_${selectedAssessment.title.replace(/[^\w]+/g, "_")}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+async function exportOneAssessment() {
+    if (!selectedAssessment || rows.length === 0) return;
+    setExportBusy(true);
+    try {
+      const { exportOneAssessment } = await import("@/lib/excel");
+      const section = sections.find((s) => s.id === sectionId);
+      const course = section ? one(section.course) : null;
+      exportOneAssessment(
+        {
+          courseCode: course?.code ?? "",
+          courseTitle: course?.title ?? "",
+          sectionCode: section?.section_code ?? "",
+          students: rows.map((r) => ({
+            id: r.id,
+            registration_no: r.registration_no,
+            full_name: r.profiles?.full_name ?? "",
+          })),
+          marksByStudent: new Map(
+            rows.map((r) => [
+              r.id,
+              new Map([
+                [
+                  selectedAssessment.id,
+                  r.saved !== null
+                    ? r.saved
+                    : r.mark.trim() !== ""
+                      ? Number(r.mark)
+                      : null,
+                ],
+              ]),
+            ])
+          ),
+        },
+        selectedAssessment,
+        `${(course?.code ?? "Section").replace(/[^\w]+/g, "_")}_Section_${section?.section_code ?? ""}_${selectedAssessment.title.replace(/[^\w]+/g, "_")}.xlsx`
+      );
+    } finally {
+      setExportBusy(false);
+    }
+  }
+
+  async function exportSectionWorkbook(mode: "entire" | "completed") {
+    if (!sectionId) return;
+    const secAssessments = assessments.filter((a) => a.section_id === sectionId);
+    if (secAssessments.length === 0) return error("This section has no assessments.");
+    setExportBusy(true);
+    try {
+      const supabase = createClient();
+      const [enRes, markRes] = await Promise.all([
+        supabase
+          .from("enrollments")
+          .select("student_id, student:students(*, profiles(email, full_name))")
+          .eq("section_id", sectionId),
+        supabase
+          .from("marks")
+          .select("student_id, assessment_id, obtained")
+          .in(
+            "assessment_id",
+            secAssessments.map((a) => a.id)
+          ),
+      ]);
+      if (enRes.error || markRes.error) {
+        error(enRes.error?.message ?? markRes.error?.message ?? "Export failed.");
+        return;
+      }
+
+      const students = (enRes.data ?? [])
+        .map((en: { student?: (import("@/lib/types").Student & { profiles?: { email?: string; full_name?: string } })[] | null }) =>
+          Array.isArray(en.student) ? en.student[0] ?? null : (en.student ?? null)
+        )
+        .filter((s): s is NonNullable<typeof s> => s !== null);
+
+      const marksByStudent = new Map<string, Map<string, number | null>>();
+      for (const m of markRes.data ?? []) {
+        if (!marksByStudent.has(m.student_id)) marksByStudent.set(m.student_id, new Map());
+        marksByStudent.get(m.student_id)!.set(m.assessment_id, Number(m.obtained));
+      }
+
+      const withMarks = secAssessments.filter((a) =>
+        (markRes.data ?? []).some((m) => m.assessment_id === a.id)
+      );
+      const include = mode === "entire" ? secAssessments : withMarks;
+      if (include.length === 0) return error("No released assessments with marks to export.");
+
+      const section = sections.find((s) => s.id === sectionId);
+      const course = section ? one(section.course) : null;
+      const { exportAllAssessments } = await import("@/lib/excel");
+      exportAllAssessments(
+        {
+          courseCode: course?.code ?? "",
+          courseTitle: course?.title ?? "",
+          sectionCode: section?.section_code ?? "",
+          students: students.map((s) => ({
+            id: s.id,
+            registration_no: s.registration_no,
+            full_name: s.profiles?.full_name ?? "",
+          })),
+          marksByStudent,
+        },
+        include,
+        `${(course?.code ?? "Section").replace(/[^\w]+/g, "_")}_Section_${section?.section_code ?? ""}_${mode === "entire" ? "All_Marks" : "Completed_Assessments"}.xlsx`
+      );
+    } finally {
+      setExportBusy(false);
+    }
   }
 
   return (
@@ -211,7 +298,7 @@ export default function MarksPage() {
               const course = one(s.course);
               return (
                 <option key={s.id} value={s.id}>
-                  {course?.code ?? "Course"} · Section {s.section_code}
+                  {course?.code ?? "Course"} Â· Section {s.section_code}
                 </option>
               );
             })}
@@ -252,19 +339,61 @@ export default function MarksPage() {
             <div>
               <h2 className="font-bold text-ink">{selectedAssessment?.title}</h2>
               <p className="text-xs text-ink/50">
-                {selectedAssessment?.type} · out of {selectedAssessment?.total_marks}{" "}
-                marks · {rows.length} enrolled students
+                {selectedAssessment?.type} Â· out of {selectedAssessment?.total_marks}{" "}
+                marks Â· {rows.length} enrolled students
               </p>
             </div>
-            <div className="flex items-center gap-2">
+<div className="flex items-center gap-2">
               {dirty && <Badge tone="gold">Unsaved changes</Badge>}
-              <button
-                className="btn-outline px-3 py-1.5 text-xs"
-                onClick={exportCsv}
-                disabled={rows.length === 0}
-              >
-                <Download className="h-3.5 w-3.5" /> Export CSV
-              </button>
+              <div className="relative">
+                <button
+                  className="btn-outline px-3 py-1.5 text-xs"
+                  onClick={() => setExportOpen((v) => !v)}
+                  disabled={rows.length === 0 || exportBusy}
+                >
+                  {exportBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <FileDown className="h-3.5 w-3.5" />
+                  )}
+                  Export Excel
+                </button>
+                {exportOpen && (
+                  <div className="absolute right-0 top-full z-40 mt-1 w-64 overflow-hidden rounded-xl border border-black/[0.08] bg-white py-1 shadow-lift">
+                    <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-widest text-ink/40">
+                      Export workbook
+                    </p>
+                    <button
+                      className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-paper"
+                      onClick={() => {
+                        setExportOpen(false);
+                        exportOneAssessment();
+                      }}
+                      disabled={!assessmentId}
+                    >
+                      One assessment (current)
+                    </button>
+                    <button
+                      className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-paper"
+                      onClick={() => {
+                        setExportOpen(false);
+                        exportSectionWorkbook("completed");
+                      }}
+                    >
+                      All completed assessments
+                    </button>
+                    <button
+                      className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-paper"
+                      onClick={() => {
+                        setExportOpen(false);
+                        exportSectionWorkbook("entire");
+                      }}
+                    >
+                      Entire section
+                    </button>
+                  </div>
+                )}
+              </div>
               <button className="btn-dark" onClick={saveAll} disabled={saving || rows.length === 0}>
                 {saving ? "Saving..." : "Save all marks"}
               </button>
@@ -328,7 +457,7 @@ export default function MarksPage() {
                             {r.saved !== null && r.mark.trim() === "" ? (
                               <Badge tone="red">Pending removal</Badge>
                             ) : r.saved !== null ? (
-                              <Badge tone="green">Saved · {r.saved}</Badge>
+                              <Badge tone="green">Saved Â· {r.saved}</Badge>
                             ) : r.mark.trim() !== "" ? (
                               <Badge tone="gold">New</Badge>
                             ) : (
@@ -379,16 +508,38 @@ function CsvImportModal({
     duplicates: string[];
     invalid: string[];
   }>(null);
-  const [busy, setBusy] = useState(false);
+const [busy, setBusy] = useState(false);
+  const [templateEmails, setTemplateEmails] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       setFile(null);
       setReport(null);
+      setTemplateEmails([]);
       if (inputRef.current) inputRef.current.value = "";
+      if (assessment?.section_id) {
+        const supabase = createClient();
+        supabase
+          .from("enrollments")
+          .select("student:students(profiles(email))")
+          .eq("section_id", assessment.section_id)
+          .then(({ data }) => {
+            const emails: string[] = [];
+            (data ?? []).forEach((en: {
+              student?: { profiles?: { email?: string }[] | null }[] | null;
+            }) => {
+              const student = Array.isArray(en.student) ? en.student[0] : en.student;
+              const profile = Array.isArray(student?.profiles)
+                ? student.profiles[0]
+                : student?.profiles;
+              if (profile?.email) emails.push(profile.email);
+            });
+            setTemplateEmails(emails);
+          });
+      }
     }
-  }, [open]);
+  }, [open, assessment?.section_id]);
 
   function analyzeFile(f: File) {
     setFile(f);
@@ -505,9 +656,13 @@ function CsvImportModal({
             <div className="flex items-center justify-between text-xs text-ink/45">
               <span>Template:</span>
               <button
-                onClick={() => {
+onClick={() => {
+                  const lines =
+                    templateEmails.length > 0
+                      ? templateEmails.map((email) => `${email},`)
+                      : ["student@lhr.nu.edu.pk,"];
                   const blob = new Blob(
-                    ["student_email,score\nl242530@lhr.nu.edu.pk,24\n"],
+                    [["student_email,score", ...lines].join("\n")],
                     { type: "text/csv" }
                   );
                   const url = URL.createObjectURL(blob);
@@ -558,7 +713,7 @@ function CsvImportModal({
                   <AlertTriangle className="h-4 w-4" /> {report.duplicates.length + report.invalid.length} skipped
                 </p>
                 <p className="text-xs text-amber-600/70">
-                  {report.duplicates.length} duplicates · {report.invalid.length} invalid
+                  {report.duplicates.length} duplicates Â· {report.invalid.length} invalid
                 </p>
               </div>
             </div>
@@ -592,3 +747,4 @@ function CsvImportModal({
     </Modal>
   );
 }
+

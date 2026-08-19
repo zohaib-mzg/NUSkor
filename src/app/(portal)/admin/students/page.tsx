@@ -1,16 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Users, Pencil, Search, BookOpen } from "lucide-react";
+import { Users, Pencil, Search, BookOpen, Archive, ArchiveRestore } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Student, CourseSection } from "@/lib/types";
-import { one } from "@/lib/utils";
+import { cn, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
 import Modal from "@/components/ui/Modal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 export default function StudentsPage() {
   const { success, error } = useToast();
@@ -21,8 +22,10 @@ export default function StudentsPage() {
     { student_id: string; section_id: string }[]
   >([]);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"active" | "archived" | "all">("active");
   const [editing, setEditing] = useState<Student | null>(null);
   const [enrollStudent, setEnrollStudent] = useState<Student | null>(null);
+  const [toArchive, setToArchive] = useState<Student | null>(null);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -53,12 +56,47 @@ export default function StudentsPage() {
 
   const filtered = students.filter((s) => {
     const q = query.toLowerCase();
+    const archived = s.archived_at !== null;
+    if (statusFilter === "active" && archived) return false;
+    if (statusFilter === "archived" && !archived) return false;
     return (
       (s.profiles?.full_name ?? "").toLowerCase().includes(q) ||
       (s.profiles?.email ?? "").toLowerCase().includes(q) ||
       (s.registration_no ?? "").toLowerCase().includes(q)
     );
   });
+
+  async function archiveStudent() {
+    if (!toArchive) return;
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { error: err } = await supabase
+      .from("students")
+      .update({
+        archived_at: new Date().toISOString(),
+        archived_by: user?.id ?? null,
+      })
+      .eq("id", toArchive.id);
+    if (err) return error(err.message);
+    success(
+      `"${toArchive.profiles?.full_name ?? "Student"}" deactivated. Marks and history are preserved for auditing.`
+    );
+    setToArchive(null);
+    load();
+  }
+
+  async function restoreStudent(s: Student) {
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("students")
+      .update({ archived_at: null, archived_by: null })
+      .eq("id", s.id);
+    if (err) return error(err.message);
+    success("Student restored.");
+    load();
+  }
 
   async function saveStudent(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -123,14 +161,32 @@ export default function StudentsPage() {
         subtitle="Profiles are created automatically at first sign-in. Edit their academic details and enroll them in sections."
         icon={Users}
         actions={
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
-            <input
-              className="input pl-9 sm:w-72"
-              placeholder="Search name, email, reg #..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex overflow-hidden rounded-lg border border-black/[0.1]">
+              {(["active", "archived", "all"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setStatusFilter(f)}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-semibold transition-colors",
+                    statusFilter === f
+                      ? "bg-gold text-ink"
+                      : "bg-white text-ink/50 hover:text-ink"
+                  )}
+                >
+                  {f === "active" ? "Active" : f === "archived" ? "Deactivated" : "All"}
+                </button>
+              ))}
+            </div>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
+              <input
+                className="input pl-9 sm:w-72"
+                placeholder="Search name, email, reg #..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
           </div>
         }
       />
@@ -153,6 +209,7 @@ export default function StudentsPage() {
                   <th className="th">Program</th>
                   <th className="th">Semester</th>
                   <th className="th">Courses</th>
+                  <th className="th">Status</th>
                   <th className="th text-right">Actions</th>
                 </tr>
               </thead>
@@ -197,19 +254,43 @@ export default function StudentsPage() {
                         </div>
                       </td>
                       <td className="td">
+                        {s.archived_at ? (
+                          <Badge tone="red">Deactivated</Badge>
+                        ) : (
+                          <Badge tone="green">Active</Badge>
+                        )}
+                      </td>
+                      <td className="td">
                         <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => setEnrollStudent(s)}
-                            className="btn-outline px-3 py-1.5 text-xs"
-                          >
-                            <BookOpen className="h-3.5 w-3.5" /> Enroll
-                          </button>
-                          <button
-                            onClick={() => setEditing(s)}
-                            className="btn-outline px-3 py-1.5 text-xs"
-                          >
-                            <Pencil className="h-3.5 w-3.5" /> Edit
-                          </button>
+                          {s.archived_at ? (
+                            <button
+                              onClick={() => restoreStudent(s)}
+                              className="btn-outline px-3 py-1.5 text-xs text-green-700 hover:border-green-300 hover:bg-green-50"
+                            >
+                              <ArchiveRestore className="h-3.5 w-3.5" /> Restore
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => setEnrollStudent(s)}
+                                className="btn-outline px-3 py-1.5 text-xs"
+                              >
+                                <BookOpen className="h-3.5 w-3.5" /> Enroll
+                              </button>
+                              <button
+                                onClick={() => setEditing(s)}
+                                className="btn-outline px-3 py-1.5 text-xs"
+                              >
+                                <Pencil className="h-3.5 w-3.5" /> Edit
+                              </button>
+                              <button
+                                onClick={() => setToArchive(s)}
+                                className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                              >
+                                <Archive className="h-3.5 w-3.5" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -217,7 +298,7 @@ export default function StudentsPage() {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="td text-center text-ink/40">
+                    <td colSpan={7} className="td text-center text-ink/40">
                       No students match your search.
                     </td>
                   </tr>
@@ -339,6 +420,15 @@ export default function StudentsPage() {
           </div>
         )}
       </Modal>
+    {/* Archive confirmation */}
+      <ConfirmDialog
+        open={!!toArchive}
+        onClose={() => setToArchive(null)}
+        onConfirm={archiveStudent}
+        title="Are you sure you want to delete this student?"
+        message={`"${toArchive?.profiles?.full_name ?? "This student"}" will be deactivated and removed from all active lists, TA views, bookings and exports. Their marks and academic history are preserved and can be restored by an admin at any time.`}
+        confirmLabel="Deactivate student"
+      />
     </div>
   );
 }

@@ -8,9 +8,15 @@ import {
   Power,
   Trash2,
   Wand2,
+  CalendarCheck2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { CourseSection, EvaluationPeriod, SlotWithBookings } from "@/lib/types";
+import type {
+  Booking,
+  CourseSection,
+  EvaluationPeriod,
+  SlotWithBookings,
+} from "@/lib/types";
 import { formatDate, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
@@ -31,8 +37,11 @@ export default function TaEvaluationPeriodsPage() {
   const [periods, setPeriods] = useState<PeriodAdmin[]>([]);
   const [modal, setModal] = useState(false);
   const [slotFor, setSlotFor] = useState<PeriodAdmin | null>(null);
-  const [genFor, setGenFor] = useState<PeriodAdmin | null>(null);
+const [genFor, setGenFor] = useState<PeriodAdmin | null>(null);
   const [genBusy, setGenBusy] = useState(false);
+  const [bookingsFor, setBookingsFor] = useState<PeriodAdmin | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
   const [toClose, setToClose] = useState<PeriodAdmin | null>(null);
   const [toDeleteSlot, setToDeleteSlot] = useState<{
     period: PeriodAdmin;
@@ -79,6 +88,21 @@ const load = useCallback(async () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function openBookings(period: PeriodAdmin) {
+    setBookingsFor(period);
+    setBookingsLoading(true);
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("bookings")
+      .select(
+        "*, evaluation_slots(slot_date, start_time, end_time), students(registration_no, profiles(full_name, email))"
+      )
+      .eq("evaluation_period_id", period.id)
+      .order("created_at", { ascending: false });
+    setBookings((data ?? []) as Booking[]);
+    setBookingsLoading(false);
+  }
 
   async function createPeriod(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -273,7 +297,15 @@ const load = useCallback(async () => {
                       {period.slots.length} slots Â· {totalBooked} bookings
                     </p>
                   </div>
-                  <div className="flex gap-2">
+<div className="flex gap-2">
+                    {totalBooked > 0 && (
+                      <button
+                        className="btn-outline px-3 py-1.5 text-xs"
+                        onClick={() => openBookings(period)}
+                      >
+                        <CalendarCheck2 className="h-3.5 w-3.5" /> Bookings ({totalBooked})
+                      </button>
+                    )}
                     {!period.is_closed && (
                       <button
                         className="btn-outline px-3 py-1.5 text-xs"
@@ -550,7 +582,7 @@ const load = useCallback(async () => {
         confirmLabel="Close period"
       />
 
-      <ConfirmDialog
+<ConfirmDialog
         open={!!toDeleteSlot}
         onClose={() => setToDeleteSlot(null)}
         onConfirm={deleteSlot}
@@ -558,6 +590,77 @@ const load = useCallback(async () => {
         message="The slot and any bookings on it will be removed. Students with bookings on this slot will need to book again."
         confirmLabel="Delete slot"
       />
+
+      {/* Bookings list */}
+      <Modal
+        open={!!bookingsFor}
+        onClose={() => setBookingsFor(null)}
+        title={`Bookings · ${bookingsFor?.title ?? ""}`}
+        wide
+      >
+        {bookingsLoading ? (
+          <Spinner label="Loading bookings..." />
+        ) : bookings.length === 0 ? (
+          <EmptyState title="No bookings yet" />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[620px]">
+              <thead className="bg-paper">
+                <tr>
+                  <th className="th">Reg. No.</th>
+                  <th className="th">Student</th>
+                  <th className="th">Section</th>
+                  <th className="th">Slot</th>
+                  <th className="th">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bookings.map((b) => {
+                  const student = one(b.students);
+                  const profile = one(student?.profiles);
+                  const sec = one(bookingsFor?.section);
+                  return (
+                    <tr key={b.id} className="bg-white">
+                      <td className="td font-mono text-xs text-ink/70">
+                        {student?.registration_no ?? "N/A"}
+                      </td>
+                      <td className="td">
+                        <p className="font-semibold text-ink">
+                          {profile?.full_name ?? "Student"}
+                        </p>
+                        <p className="text-xs text-ink/50">{profile?.email}</p>
+                      </td>
+                      <td className="td">
+                        {sec
+                          ? `${sec.course?.code ?? "Course"} · Section ${sec.section_code}`
+                          : "—"}
+                      </td>
+                      <td className="td text-ink/70">
+                        {b.evaluation_slots
+                          ? `${formatDate(b.evaluation_slots.slot_date)}, ${b.evaluation_slots.start_time}–${b.evaluation_slots.end_time}`
+                          : "N/A"}
+                      </td>
+                      <td className="td">
+                        <Badge
+                          tone={
+                            b.status === "confirmed"
+                              ? "green"
+                              : b.status === "pending"
+                                ? "gold"
+                                : "red"
+                          }
+                        >
+                          {b.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

@@ -13,6 +13,8 @@ export interface Student {
   registration_no: string | null;
   program: string | null;
   semester: string | null;
+  archived_at: string | null;
+  archived_by: string | null;
   created_at: string;
   profiles?: Profile | null;
 }
@@ -146,6 +148,8 @@ export interface Announcement {
   created_by: string | null;
   created_at: string;
   published_at: string | null;
+  deleted_at: string | null;
+  deleted_by: string | null;
   profiles?: { full_name?: string } | null;
   section?: (CourseSection & { course?: { code: string; title: string } }) | null;
 }

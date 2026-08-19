@@ -170,9 +170,15 @@ const load = useCallback(async () => {
   async function deleteItem() {
     if (!toDelete) return;
     const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     const { error: err } = await supabase
       .from("announcements")
-      .delete()
+      .update({
+        deleted_at: new Date().toISOString(),
+        deleted_by: user?.id ?? null,
+      })
       .eq("id", toDelete.id);
     if (err) return error(err.message);
     success("Announcement deleted.");
@@ -349,8 +355,8 @@ const load = useCallback(async () => {
         open={!!toDelete}
         onClose={() => setToDelete(null)}
         onConfirm={deleteItem}
-        title={`Delete "${toDelete?.title}"?`}
-        message="Students will no longer see this announcement. This cannot be undone."
+        title="Are you sure you want to delete this announcement?"
+        message={`"${toDelete?.title}" will be hidden from students, TAs and the portal. Any notifications already delivered stay in student inboxes for history, and this action can be audited.`}
       />
     </div>
   );

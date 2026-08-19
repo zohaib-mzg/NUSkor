@@ -58,6 +58,8 @@ create table if not exists students (
   registration_no text unique,
   program text,
   semester text,
+  archived_at timestamptz,
+  archived_by uuid references profiles(id),
   created_at timestamptz not null default now()
 );
 
@@ -234,7 +236,9 @@ create table if not exists announcements (
     check (status in ('draft', 'published', 'archived')),
   created_by uuid references profiles(id),
   created_at timestamptz not null default now(),
-  published_at timestamptz
+  published_at timestamptz,
+  deleted_at timestamptz,
+  deleted_by uuid references profiles(id)
 );
 
 -- ---------------------------------------------------------
@@ -359,10 +363,13 @@ create policy "students_select_own_admin_or_section_ta" on students
   for select using (
     id = auth.uid()
     or is_admin()
-    or exists (
-      select 1 from enrollments e
-      join section_tas st on st.section_id = e.section_id
-      where e.student_id = students.id and st.ta_id = auth.uid()
+    or (
+      archived_at is null
+      and exists (
+        select 1 from enrollments e
+        join section_tas st on st.section_id = e.section_id
+        where e.student_id = students.id and st.ta_id = auth.uid()
+      )
     )
   );
 drop policy if exists "students_admin_write" on students;
@@ -468,10 +475,11 @@ begin
   select s.id into v_student_id
   from students s
   join profiles p on p.id = s.id
-  where lower(p.email) = lower(p_email);
+  where lower(p.email) = lower(p_email)
+    and s.archived_at is null;
 
   if v_student_id is null then
-    raise exception 'No registered student with that email';
+    raise exception 'No registered active student with that email';
   end if;
 
   insert into enrollments (student_id, section_id)
@@ -626,15 +634,23 @@ drop policy if exists "announcements_select_section_members" on announcements;
 create policy "announcements_select_section_members" on announcements
   for select using (
     is_admin()
-    or is_ta_of_section(section_id)
-    or (status = 'published' and (
-      section_id is null
-      or exists (
-        select 1 from enrollments e
-        where e.section_id = announcements.section_id
-          and e.student_id = auth.uid()
+    or (
+      deleted_at is null
+      and (
+        is_ta_of_section(section_id)
+        or (
+          status = 'published'
+          and (
+            section_id is null
+            or exists (
+              select 1 from enrollments e
+              where e.section_id = announcements.section_id
+                and e.student_id = auth.uid()
+            )
+          )
+        )
       )
-    ))
+    )
   );
 drop policy if exists "announcements_admin_or_ta_write" on announcements;
 create policy "announcements_admin_or_ta_write" on announcements
@@ -751,8 +767,8 @@ declare
   v_ann announcements%rowtype;
   v_count int;
 begin
-  select * into v_ann from announcements where id = p_announcement_id;
-  if v_ann is null then
+  select * into v_ann from announcements where id = p_announcement_id and deleted_at is null;
+  if v_ann.id is null then
     raise exception 'Announcement not found';
   end if;
 
@@ -760,13 +776,14 @@ begin
     insert into notifications (user_id, announcement_id, title, message)
     select p.id, v_ann.id, v_ann.title, v_ann.body
     from profiles p
-    join students s on s.id = p.id
+    join students s on s.id = p.id and s.archived_at is null
     on conflict (user_id, announcement_id) do nothing;
   else
     insert into notifications (user_id, announcement_id, title, message)
     select p.id, v_ann.id, v_ann.title, v_ann.body
     from profiles p
     join enrollments e on e.student_id = p.id and e.section_id = v_ann.section_id
+    join students s on s.id = p.id and s.archived_at is null
     on conflict (user_id, announcement_id) do nothing;
   end if;
 
@@ -776,17 +793,19 @@ end;
 $$;
 
 -- Class stats for ONE assessment: avg / min / max / count
+-- (excludes archived students)
 create or replace function public.get_assessment_stats(p_assessment_id uuid)
 returns table (avg_marks numeric, min_marks numeric, max_marks numeric, total_students bigint)
 language sql security definer stable
 as $$
   select
-    round(avg(obtained)::numeric, 2),
-    min(obtained),
-    max(obtained),
+    round(avg(m.obtained)::numeric, 2),
+    min(m.obtained),
+    max(m.obtained),
     count(*)
-  from marks
-  where assessment_id = p_assessment_id;
+  from marks m
+  join students s on s.id = m.student_id and s.archived_at is null
+  where m.assessment_id = p_assessment_id;
 $$;
 
 -- Batch variant: stats for MANY assessments in a single round trip.
@@ -801,6 +820,7 @@ as $$
     max(m.obtained),
     count(*)
   from marks m
+  join students s on s.id = m.student_id and s.archived_at is null
   where m.assessment_id = any(p_assessment_ids)
   group by m.assessment_id;
 $$;
@@ -838,6 +858,7 @@ as $$
     join enrollments e on e.student_id = s.id and e.section_id = p_section_id
     left join marks m on m.student_id = s.id
     left join assessments a on a.id = m.assessment_id and a.section_id = p_section_id
+    where s.archived_at is null
     group by s.id, s.registration_no
   ),
   ranked as (
@@ -870,6 +891,8 @@ create index if not exists idx_notifications_user on notifications(user_id, is_r
 create index if not exists idx_email_deliveries_announcement
   on announcement_email_deliveries(announcement_id);
 create index if not exists idx_student_invites_section on student_invites(section_id);
+create index if not exists idx_announcements_deleted on announcements(deleted_at);
+create index if not exists idx_students_archived on students(archived_at);
 
 -- Exact-duplicate slot guard (auto-generation safety)
 create unique index if not exists idx_slots_unique
@@ -933,25 +956,29 @@ create or replace function public.prepare_email_deliveries(p_announcement_id uui
 returns int
 language plpgsql security definer as $$
 declare
-  v_section uuid;
+  v_ann announcements%rowtype;
   v_count int;
 begin
-  select section_id into v_section from announcements where id = p_announcement_id;
-  if v_section is null then
+  select * into v_ann from announcements where id = p_announcement_id and deleted_at is null;
+  if v_ann.id is null then
     raise exception 'Announcement not found';
   end if;
-  if not (is_admin() or is_ta_of_section(v_section)) then
+  if not (is_admin() or is_ta_of_section(v_ann.section_id)) then
     raise exception 'You do not have access to this announcement';
   end if;
 
-  if v_section is null then
+  if v_ann.section_id is null then
     insert into announcement_email_deliveries (announcement_id, student_id)
-    select p_announcement_id, s.id from students s
+    select p_announcement_id, s.id
+    from students s
+    where s.archived_at is null
     on conflict (announcement_id, student_id) do nothing;
   else
     insert into announcement_email_deliveries (announcement_id, student_id)
-    select p_announcement_id, e.student_id from enrollments e
-    where e.section_id = v_section
+    select p_announcement_id, e.student_id
+    from enrollments e
+    join students s on s.id = e.student_id and s.archived_at is null
+    where e.section_id = v_ann.section_id
     on conflict (announcement_id, student_id) do nothing;
   end if;
 

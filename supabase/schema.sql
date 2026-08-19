@@ -59,7 +59,7 @@ create table if not exists students (
   program text,
   semester text,
   archived_at timestamptz,
-  archived_by uuid references profiles(id),
+  archived_by uuid,
   created_at timestamptz not null default now()
 );
 
@@ -238,7 +238,7 @@ create table if not exists announcements (
   created_at timestamptz not null default now(),
   published_at timestamptz,
   deleted_at timestamptz,
-  deleted_by uuid references profiles(id)
+  deleted_by uuid
 );
 
 -- ---------------------------------------------------------

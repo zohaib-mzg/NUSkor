@@ -8,14 +8,17 @@
 -- =========================================================
 
 -- ---------- 1. ANNOUNCEMENT SOFT DELETE ----------
+-- NOTE: deleted_by is a plain uuid on purpose. An FK here would create a
+-- second relationship announcements->profiles and break PostgREST embeds.
 alter table announcements
   add column if not exists deleted_at timestamptz,
-  add column if not exists deleted_by uuid references profiles(id);
+  add column if not exists deleted_by uuid;
 
 -- ---------- 2. STUDENT ARCHIVE ----------
+-- NOTE: archived_by is a plain uuid on purpose (see note above).
 alter table students
   add column if not exists archived_at timestamptz,
-  add column if not exists archived_by uuid references profiles(id);
+  add column if not exists archived_by uuid;
 
 -- ---------- 3. RLS: STUDENTS ----------
 -- Students see their own row. TAs/admin see active students; archived

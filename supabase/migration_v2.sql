@@ -333,6 +333,8 @@ language sql security definer stable as $$
 $$;
 
 -- Slots with live confirmed-booking counts (start/end times)
+-- v1 returned slot_time; return type changed, so DROP first.
+drop function if exists public.get_slots_with_counts(uuid);
 create or replace function public.get_slots_with_counts(p_period_id uuid)
 returns table (slot_id uuid, slot_date date, start_time time, end_time time,
                capacity int, is_open boolean, booked bigint)

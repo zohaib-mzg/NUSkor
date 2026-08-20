@@ -51,10 +51,15 @@ export async function subscribeToPush(): Promise<PushSubscription | null> {
 
 export async function savePushSubscription(sub: PushSubscription): Promise<boolean> {
   const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
   const { error } = await supabase
     .from("push_subscriptions")
     .upsert(
       {
+        user_id: user.id,
         endpoint: sub.endpoint,
         p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey("p256dh")!))),
         auth: btoa(String.fromCharCode(...new Uint8Array(sub.getKey("auth")!))),

@@ -53,8 +53,10 @@ export interface Enrollment {
   id: string;
   student_id: string;
   section_id: string;
+  invited_by: string | null;
   created_at: string;
   section?: (CourseSection & { course?: { code: string; title: string } }) | null;
+  profiles?: { email?: string; full_name?: string } | null;
 }
 
 export type AssessmentType =
@@ -154,15 +156,56 @@ export interface Announcement {
   section?: (CourseSection & { course?: { code: string; title: string } }) | null;
 }
 
+export type NotificationType =
+  | "announcement"
+  | "marks_released"
+  | "evaluation_created"
+  | "booking_confirmed"
+  | "booking_cancelled"
+  | "important_update";
+
 export interface Notification {
   id: string;
   user_id: string;
+  type: NotificationType;
+  related_id: string | null;
   announcement_id: string | null;
   title: string;
   message: string;
   is_read: boolean;
   created_at: string;
   announcement?: Announcement | null;
+}
+
+export interface PushSubscriptionRow {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationSettings {
+  user_id: string;
+  announcements: boolean;
+  marks_released: boolean;
+  evaluation_updates: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotifyPayload {
+  title: string;
+  message: string;
+  url: string;
+}
+
+export interface NotifyResult {
+  created: number;
+  recipients: string[];
+  payload: NotifyPayload | null;
 }
 
 export interface TaApplication {
@@ -186,8 +229,24 @@ export interface StudentInvite {
   expires_at: string;
   max_uses: number | null;
   used_count: number;
-  status: "active" | "inactive";
+  accepted_at: string | null;
+  accepted_by: string | null;
+  status: "active" | "inactive" | "accepted" | "revoked";
   section?: (CourseSection & { course?: { code: string; title: string } }) | null;
+}
+
+export interface InviteDetails {
+  section_id: string;
+  section_code: string;
+  course_code: string;
+  course_title: string;
+  ta_name: string | null;
+  created_at: string;
+}
+
+export interface JoinSectionResult {
+  section_id: string;
+  already_enrolled: boolean;
 }
 
 export interface LeaderboardEntry {

@@ -90,8 +90,9 @@ function LoginContent() {
           </button>
 
           <p className="mt-5 text-center text-xs leading-relaxed text-ink/45">
-            Students get marks, evaluations and announcements. TA access is
-            granted by an admin after review.
+            Students get marks, evaluations and announcements. New students must
+            first open the invitation link sent by their TA. TA access is granted
+            by an admin after review.
           </p>
         </div>
       </main>

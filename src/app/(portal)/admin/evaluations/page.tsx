@@ -150,9 +150,13 @@ export default function EvaluationPeriodsPage() {
     const dates: string[] = [];
     const cur = new Date(from + "T00:00:00");
     const end = new Date(to + "T00:00:00");
+    const isoDate = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+        d.getDate()
+      ).padStart(2, "0")}`;
     while (cur <= end) {
       if (weekdays.includes(cur.getDay())) {
-        dates.push(cur.toISOString().slice(0, 10));
+        dates.push(isoDate(cur));
       }
       cur.setDate(cur.getDate() + 1);
     }

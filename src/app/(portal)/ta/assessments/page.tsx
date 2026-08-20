@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { FolderKanban, Plus, Pencil, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { notifyAll } from "@/lib/push";
 import type { Assessment, CourseSection } from "@/lib/types";
 import { one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
@@ -49,7 +50,7 @@ export default function TaAssessmentsPage() {
     }
     const { data } = await supabase
       .from("assessments")
-      .select("*, section:course_sections(section_code, course:courses(code))")
+      .select("*, section:course_sections(id, section_code, course:courses(code))")
       .in("section_id", ids)
       .order("created_at", { ascending: false });
     setAssessments((data ?? []) as Assessment[]);
@@ -87,10 +88,16 @@ export default function TaAssessmentsPage() {
     };
     if (!payload.section_id || !payload.title || !payload.total_marks) return;
 
-    const supabase = createClient();
+const supabase = createClient();
+    let savedId: string | null = null;
     if (modal?.mode === "create") {
-      const { error: err } = await supabase.from("assessments").insert(payload);
+      const { data, error: err } = await supabase
+        .from("assessments")
+        .insert(payload)
+        .select("id")
+        .single();
       if (err) return error(err.message);
+      savedId = data.id;
       success(`"${payload.title}" created.`);
     } else if (modal?.mode === "edit" && modal.assessment) {
       const { error: err } = await supabase
@@ -98,7 +105,18 @@ export default function TaAssessmentsPage() {
         .update(payload)
         .eq("id", modal.assessment.id);
       if (err) return error(err.message);
+      savedId = modal.assessment.id;
       success("Assessment updated.");
+    }
+    if (savedId && payload.status === "published") {
+      const today = new Date().toISOString().slice(0, 10);
+      if (!payload.release_date || payload.release_date <= today) {
+        try {
+          await notifyAll("marks_released", savedId);
+        } catch (err) {
+          console.error("marks notification failed", err);
+        }
+      }
     }
     setModal(null);
     load();
@@ -174,7 +192,7 @@ export default function TaAssessmentsPage() {
                       : "btn-outline px-3 py-1.5 text-xs"
                   }
                 >
-                  {course?.code ?? ""} Â· {s.section_code}
+                  {course?.code ?? ""} · {s.section_code}
                 </button>
               );
             })}
@@ -201,7 +219,7 @@ export default function TaAssessmentsPage() {
                     </div>
                     <h3 className="mt-3 font-bold text-ink">{a.title}</h3>
                     <p className="text-xs font-semibold text-gold-deep">
-                      {course?.code ?? ""} Â· Section {a.section?.section_code ?? ""}
+                      {course?.code ?? ""} · Section {a.section?.section_code ?? ""}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-ink/55">
                       <span>Marks: <span className="font-bold text-ink">{a.total_marks}</span></span>
@@ -246,7 +264,7 @@ export default function TaAssessmentsPage() {
                 const course = one(s.course);
                 return (
                   <option key={s.id} value={s.id}>
-                    {course?.code ?? "Course"} Â· Section {s.section_code}
+                    {course?.code ?? "Course"} · Section {s.section_code}
                   </option>
                 );
               })}

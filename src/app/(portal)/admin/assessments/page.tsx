@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FolderKanban, Plus, Pencil, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { notifyAll } from "@/lib/push";
 import type { Assessment, CourseSection } from "@/lib/types";
 import { one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
@@ -31,7 +32,7 @@ export default function AssessmentsPage() {
     const [aRes, secRes] = await Promise.all([
       supabase
         .from("assessments")
-        .select("*, section:course_sections(section_code, course:courses(code))")
+        .select("*, section:course_sections(id, section_code, course:courses(code))")
         .order("created_at", { ascending: false }),
       supabase
         .from("course_sections")
@@ -75,9 +76,15 @@ export default function AssessmentsPage() {
     if (!payload.section_id || !payload.title || !payload.total_marks) return;
 
     const supabase = createClient();
+    let savedId: string | null = null;
     if (modal?.mode === "create") {
-      const { error: err } = await supabase.from("assessments").insert(payload);
+      const { data, error: err } = await supabase
+        .from("assessments")
+        .insert(payload)
+        .select("id")
+        .single();
       if (err) return error(err.message);
+      savedId = data.id;
       success(`"${payload.title}" created.`);
     } else if (modal?.mode === "edit" && modal.assessment) {
       const { error: err } = await supabase
@@ -85,7 +92,18 @@ export default function AssessmentsPage() {
         .update(payload)
         .eq("id", modal.assessment.id);
       if (err) return error(err.message);
+      savedId = modal.assessment.id;
       success("Assessment updated.");
+    }
+    if (savedId && payload.status === "published") {
+      const today = new Date().toISOString().slice(0, 10);
+      if (!payload.release_date || payload.release_date <= today) {
+        try {
+          await notifyAll("marks_released", savedId);
+        } catch (err) {
+          console.error("marks notification failed", err);
+        }
+      }
     }
     setModal(null);
     load();

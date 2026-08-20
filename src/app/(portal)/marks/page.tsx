@@ -68,7 +68,7 @@ export default function MarksPage() {
             .maybeSingle(),
           supabase
             .from("enrollments")
-            .select("section_id, section:course_sections(section_code, course:courses(code, title, id))"),
+            .select("section_id, section:course_sections(id, section_code, course:courses(code, title, id))"),
           supabase.from("marks").select("obtained, assessment_id").eq("student_id", user.id),
           supabase.from("assessments").select("id, section_id, title, type, total_marks, weightage"),
         ]);

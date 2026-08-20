@@ -25,6 +25,17 @@ export default async function PortalLayout({
 
   if (!profile) redirect("/login");
 
+  // Students must have a student account (created via a TA invitation).
+  // Without one, they are sent to the invitation flow.
+  if (profile.role === "student") {
+    const { data: studentRow } = await supabase
+      .from("students")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!studentRow) redirect("/join?missing=1");
+  }
+
   return (
     <ToastProvider>
       <PortalShell

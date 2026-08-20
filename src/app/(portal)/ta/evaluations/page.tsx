@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -179,12 +179,16 @@ const load = useCallback(async () => {
       .map((cb) => Number(cb.value));
     if (weekdays.length === 0) return error("Pick at least one weekday.");
 
-    const dates: string[] = [];
+const dates: string[] = [];
     const cur = new Date(from + "T00:00:00");
     const end = new Date(to + "T00:00:00");
+    const isoDate = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+        d.getDate()
+      ).padStart(2, "0")}`;
     while (cur <= end) {
       if (weekdays.includes(cur.getDay())) {
-        dates.push(cur.toISOString().slice(0, 10));
+        dates.push(isoDate(cur));
       }
       cur.setDate(cur.getDate() + 1);
     }
@@ -287,14 +291,14 @@ const load = useCallback(async () => {
                         const sec = one(period.section);
                         return sec ? (
                           <>
-                            {sec.course?.code} Â· Section {sec.section_code}
+                            {sec.course?.code} · Section {sec.section_code}
                           </>
                         ) : (
                           "Unknown section"
                         );
                       })()}{" "}
-                      Â· {formatDate(period.starts_on)} to {formatDate(period.ends_on)} Â·{" "}
-                      {period.slots.length} slots Â· {totalBooked} bookings
+                      · {formatDate(period.starts_on)} to {formatDate(period.ends_on)} ·{" "}
+                      {period.slots.length} slots · {totalBooked} bookings
                     </p>
                   </div>
 <div className="flex gap-2">
@@ -360,7 +364,7 @@ const load = useCallback(async () => {
                                 {formatDate(slot.slot_date)}
                               </td>
                               <td className="td">
-                                {slot.start_time}â€“{slot.end_time}
+                                {slot.start_time}–{slot.end_time}
                               </td>
                               <td className="td">
                                 <Badge
@@ -373,7 +377,7 @@ const load = useCallback(async () => {
                                   }
                                 >
                                   {slot.booked}/{slot.capacity}{" "}
-                                  {!slot.is_open ? "Â· closed" : full ? "Â· full" : ""}
+                                  {!slot.is_open ? "· closed" : full ? "· full" : ""}
                                 </Badge>
                               </td>
                               <td className="td">
@@ -421,7 +425,7 @@ const load = useCallback(async () => {
                 const course = one(s.course);
                 return (
                   <option key={s.id} value={s.id}>
-                    {course?.code ?? "Course"} Â· Section {s.section_code}
+                    {course?.code ?? "Course"} · Section {s.section_code}
                   </option>
                 );
               })}
@@ -459,7 +463,7 @@ const load = useCallback(async () => {
       <Modal
         open={!!slotFor}
         onClose={() => setSlotFor(null)}
-        title={`Add slot Â· ${slotFor?.title ?? ""}`}
+        title={`Add slot · ${slotFor?.title ?? ""}`}
       >
         <form onSubmit={addSlot} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -506,7 +510,7 @@ const load = useCallback(async () => {
       <Modal
         open={!!genFor}
         onClose={() => setGenFor(null)}
-        title={`Auto-generate slots Â· ${genFor?.title ?? ""}`}
+        title={`Auto-generate slots · ${genFor?.title ?? ""}`}
       >
         <form onSubmit={generateSlots} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -560,7 +564,7 @@ const load = useCallback(async () => {
             <p className="font-semibold text-gold-deep">How it works</p>
             One slot is created for every {`"slot length"`} step on each selected
             day, between the start and end times. Running this again skips
-            duplicates â€” existing bookings are never touched.
+            duplicates — existing bookings are never touched.
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" className="btn-outline" onClick={() => setGenFor(null)}>

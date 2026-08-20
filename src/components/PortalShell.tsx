@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   ShieldCheck,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import NotificationBell from "@/components/NotificationBell";
@@ -35,6 +36,7 @@ const studentNav: NavItem[] = [
   { href: "/marks", label: "My Marks", icon: <ClipboardList className="h-[18px] w-[18px]" />, match: ["/marks"] },
   { href: "/evaluations", label: "Evaluations", icon: <CalendarDays className="h-[18px] w-[18px]" />, match: ["/evaluations"] },
   { href: "/announcements", label: "Announcements", icon: <Megaphone className="h-[18px] w-[18px]" />, match: ["/announcements"] },
+  { href: "/settings", label: "Settings", icon: <Settings className="h-[18px] w-[18px]" />, match: ["/settings"] },
 ];
 
 const taNav: NavItem[] = [

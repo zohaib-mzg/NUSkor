@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Megaphone, Plus, Pencil, Trash2, Eye, EyeOff, Mail } from "lucide-react";
+import { Megaphone, Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { notifyAll } from "@/lib/push";
 import type { Announcement, CourseSection } from "@/lib/types";
 import { formatDate, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
@@ -14,7 +15,7 @@ import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 export default function AdminAnnouncementsPage() {
-  const { success, error, info } = useToast();
+  const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<Announcement[]>([]);
   const [sections, setSections] = useState<CourseSection[]>([]);
@@ -22,7 +23,6 @@ export default function AdminAnnouncementsPage() {
     { mode: "create" } | { mode: "edit"; item: Announcement } | null
   >(null);
   const [toDelete, setToDelete] = useState<Announcement | null>(null);
-  const [sendingId, setSendingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -46,11 +46,11 @@ export default function AdminAnnouncementsPage() {
   }, [load]);
 
   async function publishNotifications(id: string) {
-    const supabase = createClient();
-    const { error: err } = await supabase.rpc("create_announcement_notifications", {
-      p_announcement_id: id,
-    });
-    if (err) console.error("notification RPC failed", err);
+    try {
+      await notifyAll("announcement", id);
+    } catch (err) {
+      console.error("notification RPC failed", err);
+    }
   }
 
   async function save(e: React.FormEvent<HTMLFormElement>) {
@@ -122,37 +122,6 @@ export default function AdminAnnouncementsPage() {
     if (publishing) await publishNotifications(item.id);
     success(publishing ? "Published to students." : "Unpublished.");
     load();
-  }
-
-  async function sendEmails(item: Announcement) {
-    setSendingId(item.id);
-    try {
-      const res = await fetch("/api/announcements/send-emails", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ announcementId: item.id }),
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        error?: string;
-        skipped?: boolean;
-        prepared?: number;
-        sent?: number;
-        failed?: number;
-        message?: string;
-      };
-      if (!res.ok) {
-        error(json.error ?? "Could not send emails.");
-      } else if (json.skipped) {
-        info(json.message ?? "Emails staged, but not sent.");
-      } else {
-        success(
-          `Emails: ${json.sent ?? 0} sent, ${json.failed ?? 0} failed, ${json.prepared ?? 0} new recipients staged.`
-        );
-      }
-    } catch {
-      error("Network error while sending emails.");
-    }
-    setSendingId(null);
   }
 
   async function deleteItem() {
@@ -250,17 +219,6 @@ export default function AdminAnnouncementsPage() {
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
-                  {a.status === "published" && (
-                    <button
-                      onClick={() => sendEmails(a)}
-                      disabled={sendingId === a.id}
-                      className="btn-outline px-3 py-1.5 text-xs"
-                      title="Email the announcement to every recipient"
-                    >
-                      <Mail className="h-3.5 w-3.5" />
-                      {sendingId === a.id ? "Sending..." : "Send email"}
-                    </button>
-                  )}
                 </div>
               </div>
               <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink/70">

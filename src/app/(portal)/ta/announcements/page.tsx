@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Megaphone, Plus, Pencil, Trash2, Eye, EyeOff, Mail } from "lucide-react";
+import { Megaphone, Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { notifyAll } from "@/lib/push";
 import type { Announcement, CourseSection } from "@/lib/types";
 import { formatDate, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
@@ -14,15 +15,14 @@ import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 export default function TaAnnouncementsPage() {
-  const { success, error, info } = useToast();
+  const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<Announcement[]>([]);
   const [sections, setSections] = useState<CourseSection[]>([]);
   const [modal, setModal] = useState<
     { mode: "create" } | { mode: "edit"; item: Announcement } | null
   >(null);
-  const [toDelete, setToDelete] = useState<Announcement | null>(null);
-  const [sendingId, setSendingId] = useState<string | null>(null);
+const [toDelete, setToDelete] = useState<Announcement | null>(null);
 
 const load = useCallback(async () => {
     const supabase = createClient();
@@ -42,10 +42,11 @@ const load = useCallback(async () => {
     const ids = secs.map((s) => s.id);
     let items: Announcement[] = [];
     if (ids.length > 0) {
+      const orClause = `section_id.in.(${ids.join(",")}),section_id.is.null`;
       const aRes = await supabase
         .from("announcements")
         .select("*, section:course_sections(section_code, course:courses(code))")
-        .in("section_id", ids)
+        .or(orClause)
         .order("created_at", { ascending: false });
       items = (aRes.data ?? []) as Announcement[];
     }
@@ -57,12 +58,12 @@ const load = useCallback(async () => {
     load();
   }, [load]);
 
-  async function publishNotifications(id: string) {
-    const supabase = createClient();
-    const { error: err } = await supabase.rpc("create_announcement_notifications", {
-      p_announcement_id: id,
-    });
-    if (err) console.error("notification RPC failed", err);
+async function publishNotifications(id: string) {
+    try {
+      await notifyAll("announcement", id);
+    } catch (err) {
+      console.error("notification RPC failed", err);
+    }
   }
 
   async function save(e: React.FormEvent<HTMLFormElement>) {
@@ -136,38 +137,7 @@ const load = useCallback(async () => {
     load();
   }
 
-  async function sendEmails(item: Announcement) {
-    setSendingId(item.id);
-    try {
-      const res = await fetch("/api/announcements/send-emails", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ announcementId: item.id }),
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        error?: string;
-        skipped?: boolean;
-        prepared?: number;
-        sent?: number;
-        failed?: number;
-        message?: string;
-      };
-      if (!res.ok) {
-        error(json.error ?? "Could not send emails.");
-      } else if (json.skipped) {
-        info(json.message ?? "Emails staged, but not sent.");
-      } else {
-        success(
-          `Emails: ${json.sent ?? 0} sent, ${json.failed ?? 0} failed, ${json.prepared ?? 0} new recipients staged.`
-        );
-      }
-    } catch {
-      error("Network error while sending emails.");
-    }
-    setSendingId(null);
-  }
-
-  async function deleteItem() {
+async function deleteItem() {
     if (!toDelete) return;
     const supabase = createClient();
     const {
@@ -195,7 +165,7 @@ const load = useCallback(async () => {
     if (!a.section_id) return "All sections";
     const sec = one(a.section);
     return sec
-      ? `${sec.course?.code ?? "Course"} Â· Section ${sec.section_code}`
+      ? `${sec.course?.code ?? "Course"} · Section ${sec.section_code}`
       : "A section";
   };
 
@@ -231,7 +201,7 @@ const load = useCallback(async () => {
                   <div>
                     <h2 className="font-bold text-ink">{a.title}</h2>
                     <p className="text-xs text-ink/50">
-                      {formatDate(a.created_at, true)} Â· To:{" "}
+                      {formatDate(a.created_at, true)} · To:{" "}
                       <span className="font-semibold text-gold-deep">{targetLabel(a)}</span>
                     </p>
                   </div>
@@ -256,23 +226,12 @@ const load = useCallback(async () => {
                   >
                     <Pencil className="h-3.5 w-3.5" /> Edit
                   </button>
-                  <button
+<button
                     onClick={() => setToDelete(a)}
                     className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
-                  {a.status === "published" && (
-                    <button
-                      onClick={() => sendEmails(a)}
-                      disabled={sendingId === a.id}
-                      className="btn-outline px-3 py-1.5 text-xs"
-                      title="Email the announcement to every recipient"
-                    >
-                      <Mail className="h-3.5 w-3.5" />
-                      {sendingId === a.id ? "Sending..." : "Send email"}
-                    </button>
-                  )}
                 </div>
               </div>
               <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink/70">
@@ -321,7 +280,7 @@ const load = useCallback(async () => {
                 const course = one(s.course);
                 return (
                   <option key={s.id} value={s.id}>
-                    {course?.code ?? "Course"} Â· Section {s.section_code}
+                    {course?.code ?? "Course"} · Section {s.section_code}
                   </option>
                 );
               })}

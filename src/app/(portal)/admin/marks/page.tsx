@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Download, FileDown, Loader2 } from "lucide-react";import { createClient } from "@/lib/supabase/client";
@@ -298,7 +298,7 @@ async function exportOneAssessment() {
               const course = one(s.course);
               return (
                 <option key={s.id} value={s.id}>
-                  {course?.code ?? "Course"} Â· Section {s.section_code}
+                  {course?.code ?? "Course"} · Section {s.section_code}
                 </option>
               );
             })}
@@ -339,8 +339,8 @@ async function exportOneAssessment() {
             <div>
               <h2 className="font-bold text-ink">{selectedAssessment?.title}</h2>
               <p className="text-xs text-ink/50">
-                {selectedAssessment?.type} Â· out of {selectedAssessment?.total_marks}{" "}
-                marks Â· {rows.length} enrolled students
+                {selectedAssessment?.type} · out of {selectedAssessment?.total_marks}{" "}
+                marks · {rows.length} enrolled students
               </p>
             </div>
 <div className="flex items-center gap-2">
@@ -457,7 +457,7 @@ async function exportOneAssessment() {
                             {r.saved !== null && r.mark.trim() === "" ? (
                               <Badge tone="red">Pending removal</Badge>
                             ) : r.saved !== null ? (
-                              <Badge tone="green">Saved Â· {r.saved}</Badge>
+                              <Badge tone="green">Saved · {r.saved}</Badge>
                             ) : r.mark.trim() !== "" ? (
                               <Badge tone="gold">New</Badge>
                             ) : (
@@ -713,7 +713,7 @@ onClick={() => {
                   <AlertTriangle className="h-4 w-4" /> {report.duplicates.length + report.invalid.length} skipped
                 </p>
                 <p className="text-xs text-amber-600/70">
-                  {report.duplicates.length} duplicates Â· {report.invalid.length} invalid
+                  {report.duplicates.length} duplicates · {report.invalid.length} invalid
                 </p>
               </div>
             </div>

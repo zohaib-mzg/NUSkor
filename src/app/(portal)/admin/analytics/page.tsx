@@ -56,23 +56,12 @@ export default function AnalyticsPage() {
     if (!sectionId) return;
     setLoading(true);
     const supabase = createClient();
-    const [assRes, markRes, enRes, allMarksRes] = await Promise.all([
-      supabase
-        .from("assessments")
-        .select("*")
-        .eq("section_id", sectionId),
-      supabase
-        .from("marks")
-        .select("obtained, assessment_id, assessments(total_marks, title, section_id)")
-        .order("created_at"),
-      supabase
-        .from("enrollments")
-        .select("id", { count: "exact", head: true })
-        .eq("section_id", sectionId),
-      supabase.from("marks").select("obtained"),
-    ]);
-
+    const assRes = await supabase
+      .from("assessments")
+      .select("*")
+      .eq("section_id", sectionId);
     const assessments = (assRes.data ?? []) as Assessment[];
+
     if (!assessments.length) {
       setAssessmentBars([]);
       setGradeDist([]);
@@ -82,6 +71,23 @@ export default function AnalyticsPage() {
       setLoading(false);
       return;
     }
+
+    const [markRes, enRes, allMarksRes] = await Promise.all([
+      supabase
+        .from("marks")
+        .select("obtained, assessment_id, assessments(total_marks, title, section_id)"),
+      supabase
+        .from("enrollments")
+        .select("id", { count: "exact", head: true })
+        .eq("section_id", sectionId),
+      supabase
+        .from("marks")
+        .select("obtained")
+        .in(
+          "assessment_id",
+          assessments.map((a) => a.id)
+        ),
+    ]);
 
     const enrolled = enRes.count ?? 0;
     const marksOfCourse = (markRes.data ?? []) as {

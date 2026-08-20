@@ -56,11 +56,9 @@ begin
     case when new.email = 'l242530@lhr.nu.edu.pk' then 'admin' else 'student' end
   );
 
-  -- Auto-register every non-admin user as a student on first sign-in,
-  -- so they appear in the admin Students list immediately.
-  if new.email <> 'l242530@lhr.nu.edu.pk' then
-    insert into public.students (id) values (new.id);
-  end if;
+  -- NOTE: no student row is auto-created here. Students are registered
+  -- ONLY through a TA invitation via join_section(). The dashboard gates
+  -- student accounts without a students row to the invitation flow.
 
   return new;
 end;
@@ -113,14 +111,14 @@ create table if not exists course_sections (
 );
 
 -- ---------------------------------------------------------
--- 5. SECTION TAs (many-to-many: section <-> TA)
+-- 5. SECTION TAs (one TA per section)
 -- ---------------------------------------------------------
 create table if not exists section_tas (
   id uuid primary key default gen_random_uuid(),
   section_id uuid not null references course_sections(id) on delete cascade,
   ta_id uuid not null references profiles(id) on delete cascade,
   assigned_at timestamptz not null default now(),
-  unique (section_id, ta_id)
+  unique (section_id)
 );
 
 -- ---------------------------------------------------------
@@ -146,6 +144,7 @@ create table if not exists enrollments (
   id uuid primary key default gen_random_uuid(),
   student_id uuid not null references students(id) on delete cascade,
   section_id uuid not null references course_sections(id) on delete cascade,
+  invited_by uuid references profiles(id),
   created_at timestamptz not null default now(),
   unique (student_id, section_id)
 );
@@ -269,28 +268,48 @@ create table if not exists announcements (
 create table if not exists notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,
+  type text not null default 'announcement'
+    check (type in (
+      'announcement',
+      'marks_released',
+      'evaluation_created',
+      'booking_confirmed',
+      'booking_cancelled',
+      'important_update'
+    )),
+  related_id uuid,
   announcement_id uuid references announcements(id) on delete cascade,
   title text not null,
   message text not null,
   is_read boolean not null default false,
   created_at timestamptz not null default now(),
-  unique (user_id, announcement_id)
+  unique (user_id, type, related_id)
 );
 
 -- ---------------------------------------------------------
--- 15. ANNOUNCEMENT EMAIL DELIVERIES (idempotent Resend tracking)
+-- 15. WEB PUSH SUBSCRIPTIONS (one per device; a user may
+--     have many, e.g. laptop + phone browsers)
 -- ---------------------------------------------------------
-create table if not exists announcement_email_deliveries (
+create table if not exists push_subscriptions (
   id uuid primary key default gen_random_uuid(),
-  announcement_id uuid not null references announcements(id) on delete cascade,
-  student_id uuid not null references students(id) on delete cascade,
-  status text not null default 'pending'
-    check (status in ('pending', 'sent', 'failed')),
-  resend_message_id text,
-  sent_at timestamptz,
-  error_message text,
+  user_id uuid not null references profiles(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
   created_at timestamptz not null default now(),
-  unique (announcement_id, student_id)
+  updated_at timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------
+-- 15b. USER NOTIFICATION SETTINGS (push category toggles)
+-- ---------------------------------------------------------
+create table if not exists user_notification_settings (
+  user_id uuid primary key references profiles(id) on delete cascade,
+  announcements boolean not null default true,
+  marks_released boolean not null default true,
+  evaluation_updates boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 -- ---------------------------------------------------------
@@ -305,8 +324,10 @@ create table if not exists student_invites (
   expires_at timestamptz not null,
   max_uses int check (max_uses is null or max_uses > 0),
   used_count int not null default 0,
+  accepted_at timestamptz,
+  accepted_by uuid references profiles(id),
   status text not null default 'active'
-    check (status in ('active', 'inactive'))
+    check (status in ('active', 'inactive', 'accepted', 'revoked'))
 );
 
 -- =========================================================
@@ -326,9 +347,10 @@ alter table evaluation_slots enable row level security;
 alter table bookings enable row level security;
 alter table announcements enable row level security;
 alter table notifications enable row level security;
+alter table push_subscriptions enable row level security;
+alter table user_notification_settings enable row level security;
 alter table ta_applications enable row level security;
 alter table student_invites enable row level security;
-alter table announcement_email_deliveries enable row level security;
 
 drop function if exists public.is_admin();
 create or replace function public.is_admin()
@@ -739,17 +761,31 @@ drop policy if exists "invites_delete_owner_admin" on student_invites;
 create policy "invites_delete_owner_admin" on student_invites
   for delete using (created_by_ta = auth.uid() or is_admin());
 
--- ---- ANNOUNCEMENT EMAIL DELIVERIES ----
-drop policy if exists "email_deliveries_select_ta_admin" on announcement_email_deliveries;
-create policy "email_deliveries_select_ta_admin" on announcement_email_deliveries
-  for select using (
-    is_admin()
-    or exists (
-      select 1 from announcements a
-      where a.id = announcement_email_deliveries.announcement_id
-        and is_ta_of_section(a.section_id)
-    )
-  );
+-- ---- PUSH SUBSCRIPTIONS (own only; the Edge Function uses
+--      the service role to read recipients' subscriptions) ----
+drop policy if exists "push_subs_select_own" on push_subscriptions;
+create policy "push_subs_select_own" on push_subscriptions
+  for select using (user_id = auth.uid());
+drop policy if exists "push_subs_insert_own" on push_subscriptions;
+create policy "push_subs_insert_own" on push_subscriptions
+  for insert with check (user_id = auth.uid());
+drop policy if exists "push_subs_update_own" on push_subscriptions;
+create policy "push_subs_update_own" on push_subscriptions
+  for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "push_subs_delete_own" on push_subscriptions;
+create policy "push_subs_delete_own" on push_subscriptions
+  for delete using (user_id = auth.uid());
+
+-- ---- USER NOTIFICATION SETTINGS (own only) ----
+drop policy if exists "notif_settings_select_own" on user_notification_settings;
+create policy "notif_settings_select_own" on user_notification_settings
+  for select using (user_id = auth.uid());
+drop policy if exists "notif_settings_insert_own" on user_notification_settings;
+create policy "notif_settings_insert_own" on user_notification_settings
+  for insert with check (user_id = auth.uid());
+drop policy if exists "notif_settings_update_own" on user_notification_settings;
+create policy "notif_settings_update_own" on user_notification_settings
+  for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- =========================================================
 -- HELPER FUNCTIONS / RPC USED BY THE WEB APP
@@ -757,19 +793,26 @@ create policy "email_deliveries_select_ta_admin" on announcement_email_deliverie
 --  without ever being able to read other students' marks)
 -- =========================================================
 
--- Enroll the signed-in student via a secure invitation token.
--- Validates expiry/status/usage, enrolls, increments used_count.
+-- Enroll the signed-in user via a secure invitation token.
+-- Creates a student row on first join (invitation-only registration),
+-- validates expiry/status/usage and that the invitation belongs to the
+-- section's CURRENT single TA. Returns jsonb:
+--   { "section_id": uuid, "already_enrolled": bool }
 drop function if exists public.join_section(text);
 create or replace function public.join_section(p_token text)
-returns uuid
+returns jsonb
 language plpgsql security definer as $$
 declare
   v_invite student_invites%rowtype;
-  v_student_id uuid;
+  v_ta_id uuid;
+  v_inserted int;
+  v_already boolean := false;
 begin
   select * into v_invite from student_invites where token = p_token;
   if v_invite is null then
     raise exception 'Invalid invitation link';
+  elsif v_invite.status = 'revoked' then
+    raise exception 'This invitation is no longer valid';
   elsif v_invite.status <> 'active' then
     raise exception 'This invitation is no longer active';
   elsif v_invite.expires_at < now() then
@@ -778,56 +821,300 @@ begin
     raise exception 'This invitation has reached its usage limit';
   end if;
 
-  select id into v_student_id from students where id = auth.uid();
-  if v_student_id is null then
-    raise exception 'Only registered students can join through an invitation';
+  -- Security: the invitation must belong to the section's current TA.
+  select st.ta_id into v_ta_id
+  from section_tas st
+  where st.section_id = v_invite.section_id
+  limit 1;
+  if v_ta_id is null then
+    raise exception 'This section no longer has an assigned TA';
+  elsif v_ta_id <> v_invite.created_by_ta then
+    raise exception 'This invitation is no longer valid';
   end if;
 
-  insert into enrollments (student_id, section_id)
-  values (auth.uid(), v_invite.section_id)
+  -- Only student accounts may join. First-time students are created here
+  -- (the handle_new_user trigger no longer auto-registers students).
+  if not exists (select 1 from students where id = auth.uid()) then
+    if public.my_role() in ('ta', 'admin') then
+      raise exception 'Only student accounts can join a section';
+    end if;
+    insert into students (id) values (auth.uid());
+  end if;
+
+  insert into enrollments (student_id, section_id, invited_by)
+  values (auth.uid(), v_invite.section_id, v_invite.created_by_ta)
   on conflict (student_id, section_id) do nothing;
 
-  update student_invites set used_count = used_count + 1
-  where id = v_invite.id;
+  get diagnostics v_inserted = row_count;
+  if v_inserted > 0 then
+    update student_invites
+    set used_count = used_count + 1,
+        status = 'accepted',
+        accepted_at = now(),
+        accepted_by = auth.uid()
+    where id = v_invite.id;
+  else
+    v_already := true;
+  end if;
 
-  return v_invite.section_id;
+  return jsonb_build_object(
+    'section_id', v_invite.section_id,
+    'already_enrolled', v_already
+  );
 end;
 $$;
 
--- Create in-app notifications for an announcement's target section
--- (NULL section = all students). Returns rows created.
-drop function if exists public.create_announcement_notifications(uuid);
-create or replace function public.create_announcement_notifications(p_announcement_id uuid)
-returns int
+-- Public preview of an invitation (safe, minimal data) so the landing page
+-- can show course/section/TA info BEFORE sign-in. Security definer: anon
+-- callers never touch the invites table directly via RLS.
+drop function if exists public.get_invite_details(text);
+create or replace function public.get_invite_details(p_token text)
+returns jsonb
+language plpgsql security definer stable as $$
+declare
+  v_invite student_invites%rowtype;
+  v_result jsonb;
+begin
+  select * into v_invite from student_invites where token = p_token;
+  if v_invite is null or v_invite.status = 'revoked' then
+    raise exception 'This invitation is no longer valid';
+  elsif v_invite.status <> 'active' then
+    raise exception 'This invitation is no longer active';
+  elsif v_invite.expires_at < now() then
+    raise exception 'This invitation has expired';
+  elsif v_invite.max_uses is not null and v_invite.used_count >= v_invite.max_uses then
+    raise exception 'This invitation has reached its usage limit';
+  end if;
+
+  select jsonb_build_object(
+    'section_id', s.id,
+    'section_code', s.section_code,
+    'course_code', c.code,
+    'course_title', c.title,
+    'ta_name', p.full_name,
+    'created_at', v_invite.created_at
+  )
+  into v_result
+  from course_sections s
+  join courses c on c.id = s.course_id
+  join profiles p on p.id = v_invite.created_by_ta
+  where s.id = v_invite.section_id;
+
+  if v_result is null then
+    raise exception 'This invitation is no longer valid';
+  end if;
+
+  return v_result;
+end;
+$$;
+
+grant execute on function public.join_section(text) to anon, authenticated;
+grant execute on function public.get_invite_details(text) to anon, authenticated;
+
+-- =========================================================
+-- NOTIFICATIONS RPCs (in-app + Web Push)
+--
+-- Recipients and payloads are ALWAYS derived server-side.
+-- The caller must be an admin or the section's TA. Two entry
+-- points for the client (both security definer):
+--   create_notifications(type, related_id) -> jsonb
+--     inserts in-app rows (idempotent per user) and returns
+--     { created, recipients, payload } so the caller can then
+--     invoke the send-push-notification Edge Function.
+--   get_push_recipients(type, related_id) -> jsonb
+--     read-only variant used by the Edge Function to
+--     re-validate the caller and re-derive recipients before
+--     sending push. Never insertable from the client.
+-- resolve_notification_target() is internal ONLY (execute
+-- revoked from clients).
+-- =========================================================
+
+drop function if exists public.resolve_notification_target(text, uuid);
+create or replace function public.resolve_notification_target(p_type text, p_related_id uuid)
+returns table (recipient_id uuid, title text, message text)
 language plpgsql security definer as $$
 declare
   v_ann announcements%rowtype;
-  v_count int;
+  v_assess assessments%rowtype;
+  v_period evaluation_periods%rowtype;
+  v_course_code text;
+  v_subject text;
+  v_section_code text;
 begin
-  select * into v_ann from announcements where id = p_announcement_id and deleted_at is null;
-  if v_ann.id is null then
-    raise exception 'Announcement not found';
-  end if;
+  if p_type = 'announcement' then
+    select * into v_ann from announcements
+    where id = p_related_id and deleted_at is null;
+    if v_ann.id is null then
+      raise exception 'Announcement not found';
+    end if;
+    if not (is_admin() or is_ta_of_section(v_ann.section_id)) then
+      raise exception 'You do not have access to this announcement';
+    end if;
 
-  if v_ann.section_id is null then
-    insert into notifications (user_id, announcement_id, title, message)
-    select p.id, v_ann.id, v_ann.title, v_ann.body
-    from profiles p
-    join students s on s.id = p.id and s.archived_at is null
-    on conflict (user_id, announcement_id) do nothing;
+    return query
+      select p.id, v_ann.title, v_ann.body
+      from profiles p
+      join students s on s.id = p.id and s.archived_at is null
+      left join enrollments e
+        on e.student_id = p.id and e.section_id = v_ann.section_id
+      where v_ann.section_id is null or e.student_id is not null;
+
+  elsif p_type = 'marks_released' then
+    select * into v_assess from assessments where id = p_related_id;
+    if v_assess.id is null then
+      raise exception 'Assessment not found';
+    end if;
+    if v_assess.status <> 'published'
+       or (v_assess.release_date is not null and v_assess.release_date > current_date) then
+      raise exception 'Assessment is not released yet';
+    end if;
+    if not (is_admin() or is_ta_of_section(v_assess.section_id)) then
+      raise exception 'You do not have access to this assessment';
+    end if;
+
+    select c.code, c.title, s.section_code
+      into v_course_code, v_subject, v_section_code
+    from course_sections s
+    join courses c on c.id = s.course_id
+    where s.id = v_assess.section_id;
+
+    return query
+      select p.id,
+             'Your ' || v_assess.title || ' marks have been uploaded.',
+             'Course: ' || v_course_code || E'\nSubject: ' || v_subject ||
+             E'\nSection: ' || v_section_code || E'\n\nTap to view your marks.'
+      from profiles p
+      join students s on s.id = p.id and s.archived_at is null
+      join enrollments e
+        on e.student_id = p.id and e.section_id = v_assess.section_id
+      where exists (
+        select 1 from marks m
+        where m.student_id = p.id and m.assessment_id = v_assess.id
+      );
+
+  elsif p_type = 'evaluation_created' then
+    select * into v_period from evaluation_periods where id = p_related_id;
+    if v_period.id is null then
+      raise exception 'Evaluation period not found';
+    end if;
+    if not (is_admin() or is_ta_of_section(v_period.section_id)) then
+      raise exception 'You do not have access to this section';
+    end if;
+
+    select c.code, c.title, s.section_code
+      into v_course_code, v_subject, v_section_code
+    from course_sections s
+    join courses c on c.id = s.course_id
+    where s.id = v_period.section_id;
+
+    return query
+      select p.id,
+             'New evaluation period created.',
+             'Course: ' || v_course_code || E'\nSubject: ' || v_subject ||
+             E'\nSection: ' || v_section_code || E'\n\nBook your evaluation slot.'
+      from profiles p
+      join students s on s.id = p.id and s.archived_at is null
+      join enrollments e
+        on e.student_id = p.id and e.section_id = v_period.section_id;
+
   else
-    insert into notifications (user_id, announcement_id, title, message)
-    select p.id, v_ann.id, v_ann.title, v_ann.body
-    from profiles p
-    join enrollments e on e.student_id = p.id and e.section_id = v_ann.section_id
-    join students s on s.id = p.id and s.archived_at is null
-    on conflict (user_id, announcement_id) do nothing;
+    raise exception 'Unsupported notification type';
   end if;
-
-  get diagnostics v_count = row_count;
-  return v_count;
 end;
 $$;
+
+revoke execute on function public.resolve_notification_target(text, uuid)
+  from public, anon, authenticated;
+
+-- Inserts in-app notifications (idempotent) and returns the
+-- recipient list + payload for the push Edge Function.
+drop function if exists public.create_notifications(text, uuid);
+create or replace function public.create_notifications(p_type text, p_related_id uuid)
+returns jsonb
+language plpgsql security definer as $$
+declare
+  v_created int := 0;
+  v_out jsonb;
+begin
+  create temp table t_target on commit drop as
+    select recipient_id, title, message
+    from resolve_notification_target(p_type, p_related_id);
+
+  if not exists (select 1 from t_target) then
+    return jsonb_build_object('created', 0, 'recipients', '[]'::jsonb, 'payload', null);
+  end if;
+
+  insert into notifications (user_id, type, related_id, announcement_id, title, message)
+  select t.recipient_id,
+         p_type,
+         p_related_id,
+         case when p_type = 'announcement' then p_related_id end,
+         t.title,
+         t.message
+  from t_target t
+  on conflict (user_id, type, related_id) do nothing;
+
+  get diagnostics v_created = row_count;
+
+  select jsonb_build_object(
+    'created', v_created,
+    'recipients', coalesce(jsonb_agg(t.recipient_id), '[]'::jsonb),
+    'payload', (select jsonb_build_object(
+                  'title', t2.title,
+                  'message', t2.message,
+                  'url', case p_type
+                           when 'announcement' then '/announcements'
+                           when 'marks_released' then '/marks'
+                           else '/evaluations'
+                         end
+                ) from t_target t2 limit 1)
+  )
+  into v_out
+  from t_target t;
+
+  return v_out;
+end;
+$$;
+
+-- Read-only recipient derivation for the Edge Function.
+drop function if exists public.get_push_recipients(text, uuid);
+create or replace function public.get_push_recipients(p_type text, p_related_id uuid)
+returns jsonb
+language plpgsql security definer as $$
+declare
+  v_out jsonb;
+begin
+  create temp table t_target on commit drop as
+    select recipient_id, title, message
+    from resolve_notification_target(p_type, p_related_id);
+
+  if not exists (select 1 from t_target) then
+    return jsonb_build_object('recipients', '[]'::jsonb, 'payload', null);
+  end if;
+
+  select jsonb_build_object(
+    'recipients', coalesce(jsonb_agg(t.recipient_id), '[]'::jsonb),
+    'payload', (select jsonb_build_object(
+                  'title', t2.title,
+                  'message', t2.message,
+                  'url', case p_type
+                           when 'announcement' then '/announcements'
+                           when 'marks_released' then '/marks'
+                           else '/evaluations'
+                         end
+                ) from t_target t2 limit 1)
+  )
+  into v_out
+  from t_target t;
+
+  return v_out;
+end;
+$$;
+
+grant execute on function public.create_notifications(text, uuid)
+  to authenticated;
+grant execute on function public.get_push_recipients(text, uuid)
+  to authenticated;
 
 -- Class stats for ONE assessment: avg / min / max / count
 -- (excludes archived students)
@@ -929,8 +1216,7 @@ create index if not exists idx_slots_period on evaluation_slots(evaluation_perio
 create index if not exists idx_ta_applications_status on ta_applications(status);
 create index if not exists idx_ta_applications_user on ta_applications(user_id);
 create index if not exists idx_notifications_user on notifications(user_id, is_read);
-create index if not exists idx_email_deliveries_announcement
-  on announcement_email_deliveries(announcement_id);
+create index if not exists idx_push_subs_user on push_subscriptions(user_id);
 create index if not exists idx_student_invites_section on student_invites(section_id);
 create index if not exists idx_announcements_deleted on announcements(deleted_at);
 create index if not exists idx_students_archived on students(archived_at);
@@ -992,75 +1278,11 @@ begin
 end;
 $$;
 
--- Create "pending" email delivery rows for an announcement's targets
--- (NULL section = every student). Returns newly created rows.
+-- Email notification mechanism was removed in v2.7 (replaced by
+-- Web Push). Old functions/table are dropped for fresh rebuilds.
 drop function if exists public.prepare_email_deliveries(uuid);
-create or replace function public.prepare_email_deliveries(p_announcement_id uuid)
-returns int
-language plpgsql security definer as $$
-declare
-  v_ann announcements%rowtype;
-  v_count int;
-begin
-  select * into v_ann from announcements where id = p_announcement_id and deleted_at is null;
-  if v_ann.id is null then
-    raise exception 'Announcement not found';
-  end if;
-  if not (is_admin() or is_ta_of_section(v_ann.section_id)) then
-    raise exception 'You do not have access to this announcement';
-  end if;
-
-  if v_ann.section_id is null then
-    insert into announcement_email_deliveries (announcement_id, student_id)
-    select p_announcement_id, s.id
-    from students s
-    where s.archived_at is null
-    on conflict (announcement_id, student_id) do nothing;
-  else
-    insert into announcement_email_deliveries (announcement_id, student_id)
-    select p_announcement_id, e.student_id
-    from enrollments e
-    join students s on s.id = e.student_id and s.archived_at is null
-    where e.section_id = v_ann.section_id
-    on conflict (announcement_id, student_id) do nothing;
-  end if;
-
-  get diagnostics v_count = row_count;
-  return v_count;
-end;
-$$;
-
--- Mark one delivery row sent/failed (caller must be the section's TA/admin).
 drop function if exists public.mark_email_delivery(uuid, text, text, text);
-create or replace function public.mark_email_delivery(
-  p_delivery_id uuid,
-  p_status text,
-  p_message_id text default null,
-  p_error text default null
-) returns void
-language plpgsql security definer as $$
-declare
-  v_ann announcements%rowtype;
-begin
-  select a.* into v_ann
-  from announcements a
-  join announcement_email_deliveries d on d.announcement_id = a.id
-  where d.id = p_delivery_id;
-  if v_ann.id is null then
-    raise exception 'Delivery not found';
-  end if;
-  if not (is_admin() or is_ta_of_section(v_ann.section_id)) then
-    raise exception 'You do not have access to this announcement';
-  end if;
-
-  update announcement_email_deliveries
-  set status = p_status,
-      resend_message_id = coalesce(p_message_id, resend_message_id),
-      error_message = p_error,
-      sent_at = case when p_status = 'sent' then now() else sent_at end
-  where id = p_delivery_id;
-end;
-$$;
+drop table if exists announcement_email_deliveries;
 
 -- ---------------------------------------------------------
 -- Backfill: register existing non-admin users as students

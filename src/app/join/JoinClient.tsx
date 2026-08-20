@@ -3,21 +3,33 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Link2, LogIn, CheckCircle2, XCircle } from "lucide-react";
+import { Link2, LogIn, CheckCircle2, XCircle, UserX } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { one } from "@/lib/utils";
 import { ToastProvider } from "@/components/ui/Toast";
 import Spinner from "@/components/ui/Spinner";
 
-export default function JoinClient({ initialToken }: { initialToken: string }) {
+export default function JoinClient({
+  initialToken,
+  missing,
+}: {
+  initialToken: string;
+  missing: boolean;
+}) {
   return (
     <ToastProvider>
-      <JoinInner initialToken={initialToken} />
+      <JoinInner initialToken={initialToken} missing={missing} />
     </ToastProvider>
   );
 }
 
-function JoinInner({ initialToken }: { initialToken: string }) {
+function JoinInner({
+  initialToken,
+  missing,
+}: {
+  initialToken: string;
+  missing: boolean;
+}) {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
@@ -60,7 +72,8 @@ function JoinInner({ initialToken }: { initialToken: string }) {
         setResult({ ok: false, message: err.message });
         return;
       }
-      const sectionId = data as string;
+      const res = data as { section_id: string; already_enrolled: boolean } | null;
+      const sectionId = res?.section_id;
       const { data: sec } = await supabase
         .from("course_sections")
         .select("section_code, course:courses(code)")
@@ -99,6 +112,20 @@ function JoinInner({ initialToken }: { initialToken: string }) {
         <div className="card p-6">
           {checking ? (
             <Spinner label="Checking your session..." />
+          ) : missing && signedIn ? (
+            <div className="text-center">
+              <UserX className="mx-auto h-10 w-10 text-ink/40" />
+              <h2 className="mt-3 font-bold text-ink">Student Account Not Found</h2>
+              <p className="mt-1 text-sm text-ink/55">
+                You need an invitation from your TA to join NUSkor. Please ask
+                your TA to send you a NUSkor invitation link.
+              </p>
+              <form action="/auth/signout" method="post" className="mt-4">
+                <button type="submit" className="btn-outline w-full">
+                  <LogIn className="h-4 w-4" /> Back to Login
+                </button>
+              </form>
+            </div>
           ) : !signedIn ? (
             <div className="text-center">
               <Link2 className="mx-auto h-10 w-10 text-gold-deep" />

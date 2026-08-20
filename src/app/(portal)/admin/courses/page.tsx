@@ -170,6 +170,8 @@ export default function CoursesPage() {
   async function assignTa() {
     if (!assignSection || !newSectionTa) return;
     const supabase = createClient();
+    // One TA per section: replace any existing assignment.
+    await supabase.from("section_tas").delete().eq("section_id", assignSection.id);
     const { error: err } = await supabase
       .from("section_tas")
       .insert({ section_id: assignSection.id, ta_id: newSectionTa });
@@ -205,7 +207,7 @@ export default function CoursesPage() {
     <div>
       <PageHeader
         title="Courses & Sections"
-        subtitle="Create courses, add sections, and assign TAs. A course can have many sections, each with multiple TAs."
+        subtitle="Create courses, add sections, and assign exactly one TA per section."
         icon={BookOpen}
         actions={
           <button className="btn-primary" onClick={() => setModal({ mode: "create" })}>

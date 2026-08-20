@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -11,6 +11,7 @@ import {
   UserPlus,
   Mail,
   Download,
+  XCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { CourseSection, Student, StudentInvite } from "@/lib/types";
@@ -29,7 +30,10 @@ interface SectionWithCourse extends CourseSection {
 
 interface EnrollmentRow {
   id: string;
+  created_at: string;
+  invited_by: string | null;
   student?: Student | Student[] | null;
+  profiles?: { full_name?: string | null; email?: string | null } | null;
 }
 
 function makeToken() {
@@ -71,9 +75,9 @@ export default function TaStudentsPage() {
   const loadSection = useCallback(async (id: string) => {
     const supabase = createClient();
     const [enRes, invRes] = await Promise.all([
-      supabase
+supabase
         .from("enrollments")
-        .select("id, student:students(*, profiles(email, full_name))")
+        .select("id, created_at, invited_by, student:students(*, profiles(email, full_name)), profiles(full_name, email)")
         .eq("section_id", id)
         .order("created_at", { ascending: true }),
       supabase
@@ -158,7 +162,7 @@ export default function TaStudentsPage() {
     loadSection(sectionId);
   }
 
-  async function toggleInvite(invite: StudentInvite) {
+async function toggleInvite(invite: StudentInvite) {
     const supabase = createClient();
     const { error: err } = await supabase
       .from("student_invites")
@@ -169,9 +173,20 @@ export default function TaStudentsPage() {
     loadSection(sectionId);
   }
 
+  async function revokeInvite(invite: StudentInvite) {
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("student_invites")
+      .update({ status: "revoked" })
+      .eq("id", invite.id);
+    if (err) return error(err.message);
+    success("Invitation revoked. Anyone opening it will see it is no longer valid.");
+    loadSection(sectionId);
+  }
+
 async function copyLink(token: string) {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/join?token=${token}`);
+      await navigator.clipboard.writeText(`${window.location.origin}/invite/${token}`);
       setCopied(token);
       setTimeout(() => setCopied(null), 1500);
     } catch {
@@ -233,7 +248,7 @@ async function copyLink(token: string) {
                     : "btn-outline px-3 py-1.5 text-xs"
                 }
               >
-                {s.course?.code ?? "Course"} Â· Section {s.section_code}
+                {s.course?.code ?? "Course"} · Section {s.section_code}
               </button>
             ))}
           </div>
@@ -247,7 +262,7 @@ async function copyLink(token: string) {
                     <h2 className="font-bold text-ink">
                       Enrolled students
                       <span className="ml-2 text-sm font-medium text-ink/45">
-                        {activeSection?.course?.code ?? "Course"} Â·{" "}
+                        {activeSection?.course?.code ?? "Course"} ·{" "}
                         {activeSection?.section_code ?? ""}
                       </span>
                     </h2>
@@ -277,9 +292,11 @@ async function copyLink(token: string) {
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[480px]">
                       <thead className="bg-paper">
-                        <tr>
+<tr>
                           <th className="th">Student</th>
                           <th className="th">Reg. No.</th>
+                          <th className="th">Enrolled</th>
+                          <th className="th">Invited By</th>
                           <th className="th text-right">Action</th>
                         </tr>
                       </thead>
@@ -290,11 +307,26 @@ async function copyLink(token: string) {
                             <tr key={row.id} className="bg-white">
                               <td className="td">
                                 <p className="font-semibold text-ink">
-                                  {st?.profiles?.full_name || "â€”"}
+                                  {st?.profiles?.full_name || "—"}
                                 </p>
                                 <p className="text-xs text-ink/50">{st?.profiles?.email}</p>
                               </td>
-                              <td className="td text-ink/70">{st?.registration_no ?? "â€”"}</td>
+                              <td className="td text-ink/70">{st?.registration_no ?? "—"}</td>
+                              <td className="td text-ink/70">
+                                {formatDate(row.created_at)}
+                              </td>
+                              <td className="td text-ink/70">
+                                {row.invited_by ? (
+                                  <>
+                                    <p className="text-sm font-medium text-ink/80">
+                                      {row.profiles?.full_name || "—"}
+                                    </p>
+                                    <p className="text-xs text-ink/45">{row.profiles?.email}</p>
+                                  </>
+                                ) : (
+                                  <span className="text-xs text-ink/40">—</span>
+                                )}
+                              </td>
                               <td className="td">
                                 <div className="flex justify-end">
                                   <button
@@ -332,8 +364,18 @@ async function copyLink(token: string) {
                   </div>
                 ) : (
                   <ul className="divide-y divide-black/[0.05]">
-                    {invites.map((inv) => {
+{invites.map((inv) => {
                       const expired = inv.expires_at < new Date().toISOString();
+                      const statusLabel =
+                        inv.status === "active"
+                          ? expired
+                            ? "Expired"
+                            : "Active"
+                          : inv.status === "accepted"
+                            ? "Accepted"
+                            : inv.status === "revoked"
+                              ? "Revoked"
+                              : "Inactive";
                       return (
                         <li key={inv.id} className="px-5 py-4">
                           <div className="flex items-start justify-between gap-2">
@@ -344,22 +386,20 @@ async function copyLink(token: string) {
                               <p className="mt-1 text-xs text-ink/50">
                                 Expires {formatDate(inv.expires_at)}
                                 {inv.max_uses
-                                  ? ` Â· ${inv.used_count}/${inv.max_uses} used`
-                                  : ` Â· ${inv.used_count} used`}
+                                  ? ` · ${inv.used_count}/${inv.max_uses} used`
+                                  : ` · ${inv.used_count} used`}
                               </p>
                             </div>
                             <Badge
                               tone={
-                                inv.status !== "active" || expired
-                                  ? "red"
-                                  : "green"
+                                inv.status === "active" && !expired
+                                  ? "green"
+                                  : inv.status === "accepted"
+                                    ? "gold"
+                                    : "red"
                               }
                             >
-                              {inv.status !== "active"
-                                ? "Inactive"
-                                : expired
-                                  ? "Expired"
-                                  : "Active"}
+                              {statusLabel}
                             </Badge>
                           </div>
                           <div className="mt-3 flex gap-2">
@@ -370,22 +410,44 @@ async function copyLink(token: string) {
                               <Copy className="h-3.5 w-3.5" />
                               {copied === inv.token ? "Copied!" : "Copy link"}
                             </button>
-                            <button
-                              onClick={() => toggleInvite(inv)}
-                              className="btn-outline px-3 py-1.5 text-xs"
-                              title={inv.status === "active" ? "Deactivate" : "Reactivate"}
-                            >
-                              <Power className="h-3.5 w-3.5" />
-                            </button>
+                            {inv.status === "active" && !expired && (
+                              <button
+                                onClick={() => toggleInvite(inv)}
+                                className="btn-outline px-3 py-1.5 text-xs"
+                                title="Deactivate"
+                              >
+                                <Power className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {inv.status === "inactive" && !expired && (
+                              <button
+                                onClick={() => toggleInvite(inv)}
+                                className="btn-outline px-3 py-1.5 text-xs"
+                                title="Reactivate"
+                              >
+                                <Power className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {(inv.status === "active" || inv.status === "inactive") &&
+                              !expired && (
+                                <button
+                                  onClick={() => revokeInvite(inv)}
+                                  className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                                  title="Revoke permanently"
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                           </div>
                         </li>
                       );
                     })}
                   </ul>
                 )}
-                <div className="border-t border-black/[0.05] bg-paper px-5 py-3 text-xs text-ink/50">
-                  Students open <span className="font-mono">/join?token=â€¦</span> and are
-                  enrolled instantly, without needing an admin.
+<div className="border-t border-black/[0.05] bg-paper px-5 py-3 text-xs text-ink/50">
+                  Students open your <span className="font-mono">/invite/…</span> link,
+                  sign in with their university Google account, and are enrolled
+                  instantly — their student account is created automatically.
                 </div>
               </section>
             </div>
@@ -405,9 +467,9 @@ async function copyLink(token: string) {
               placeholder="l24xxxx@lhr.nu.edu.pk"
               required
             />
-            <p className="mt-1 text-xs text-ink/45">
-              The student must have signed in at least once, and must be on the
-              @lhr.nu.edu.pk domain.
+<p className="mt-1 text-xs text-ink/45">
+              The student must already have a NUSkor account on the
+              @lhr.nu.edu.pk domain (e.g. they joined via an invitation link).
             </p>
           </div>
           <div className="flex justify-end gap-3 pt-2">
@@ -448,12 +510,13 @@ async function copyLink(token: string) {
               />
             </div>
           </div>
-          <div className="rounded-xl bg-gold/10 p-4 text-xs leading-relaxed text-ink/60">
+<div className="rounded-xl bg-gold/10 p-4 text-xs leading-relaxed text-ink/60">
             <p className="font-semibold text-gold-deep">How it works</p>
-            A unique link is created. Any signed-in student who opens it is
-            enrolled in{" "}
-            {activeSection?.course?.code ?? "the section"} Â· Section{" "}
-            {activeSection?.section_code ?? ""} automatically.
+            A unique link is created. Any student who opens it and signs in with
+            their university Google account is enrolled in{" "}
+            {activeSection?.course?.code ?? "the section"} · Section{" "}
+            {activeSection?.section_code ?? ""} automatically — new students are
+            registered on first use.
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" className="btn-outline" onClick={() => setInviteOpen(false)}>

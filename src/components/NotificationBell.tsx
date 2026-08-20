@@ -53,7 +53,13 @@ export default function NotificationBell() {
       await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
     }
     setOpen(false);
-    router.push(/mark/i.test(n.title) ? "/marks" : "/announcements");
+    const url =
+      n.type === "marks_released"
+        ? "/marks"
+        : n.type === "evaluation_created"
+          ? "/evaluations"
+          : "/announcements";
+    router.push(url);
     load();
   }
 

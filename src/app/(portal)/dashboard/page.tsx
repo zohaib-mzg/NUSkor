@@ -10,6 +10,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { getPushSubscription, listDeviceSubscriptions } from "@/lib/push";
 import type {
   Announcement,
   Booking,
@@ -32,6 +33,8 @@ export default function StudentDashboard() {
   });
   const [enrollCount, setEnrollCount] = useState(0);
   const [name, setName] = useState("");
+  const [pushOn, setPushOn] = useState(false);
+  const [pushChecked, setPushChecked] = useState(false);
   const [latest, setLatest] = useState<{
     title: string;
     type: string;
@@ -166,6 +169,15 @@ export default function StudentDashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      const sub = await getPushSubscription();
+      const dev = await listDeviceSubscriptions();
+      setPushOn(!!sub && dev.length > 0);
+      setPushChecked(true);
+    })();
+  }, []);
+
   if (loading) return <Spinner label="Loading your dashboard..." />;
 
   const overall = percent(myMarks.total, myMarks.possible);
@@ -205,6 +217,26 @@ export default function StudentDashboard() {
           hint="Newest first"
         />
       </div>
+
+      {pushChecked && !pushOn && (
+        <section className="card mt-6 flex flex-wrap items-center justify-between gap-4 border-gold/40 bg-gold/[0.06] p-6">
+          <div className="flex items-center gap-4">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold text-ink">
+              <Megaphone className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 className="font-bold text-ink">Stay updated</h2>
+              <p className="text-sm text-ink/55">
+                Turn on browser notifications so you never miss announcements, marks or
+                evaluation slots.
+              </p>
+            </div>
+          </div>
+          <Link href="/settings" className="btn-primary">
+            Enable notifications <ArrowRight className="h-4 w-4" />
+          </Link>
+        </section>
+      )}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
         {/* Latest + recent assessments */}

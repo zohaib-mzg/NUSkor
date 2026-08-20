@@ -42,12 +42,18 @@ export default function EvaluationsPage() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
+    const today = new Date();
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(today.getDate()).padStart(2, "0")}`;
+
     const [periodRes, bookingRes] = await Promise.all([
       supabase
         .from("evaluation_periods")
         .select("*, section:course_sections(section_code, course:courses(code, title))")
         .eq("is_closed", false)
-        .gte("ends_on", new Date().toISOString().slice(0, 10))
+        .gte("ends_on", todayIso)
         .order("starts_on", { ascending: true }),
       supabase
         .from("bookings")
@@ -69,7 +75,10 @@ export default function EvaluationsPage() {
           ...p,
           slots: (data ?? []) as SlotWithBookings[],
           booking:
-            bookings.find((b) => b.evaluation_period_id === p.id) ?? null,
+            bookings.find(
+              (b) =>
+                b.evaluation_period_id === p.id && b.status !== "cancelled"
+            ) ?? null,
         };
       })
     );
@@ -123,7 +132,7 @@ export default function EvaluationsPage() {
     const supabase = createClient();
     const { error: err } = await supabase
       .from("bookings")
-      .update({ status: "cancelled" })
+      .delete()
       .eq("id", cancelTarget.id);
     setActing(null);
     setCancelTarget(null);

@@ -108,13 +108,22 @@ export default function SettingsPage() {
     setBusy(true);
     try {
       const supabase = createClient();
-      const { error: err } = await supabase.functions.invoke("send-push-notification", {
+      const { data, error: err } = await supabase.functions.invoke("send-push-notification", {
         body: { test: true },
       });
-      if (err) throw new Error(err.message);
-      success("Test push sent to this device.");
-    } catch {
-      error("Could not send the test push. Check your browser permission and device list.");
+      if (err) {
+        let msg = err.message;
+        try {
+          const parsed = JSON.parse(msg) as { error?: string };
+          if (parsed.error) msg = parsed.error;
+        } catch {
+          // keep raw message
+        }
+        throw new Error(msg || "Function call failed");
+      }
+      success(`Test push sent. Delivered to ${(data as { sent?: number })?.sent ?? 0} device(s).`);
+    } catch (e) {
+      error(`Could not send the test push: ${e instanceof Error ? e.message : "unknown error"}`);
     } finally {
       setBusy(false);
     }

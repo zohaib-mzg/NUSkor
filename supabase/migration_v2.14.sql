@@ -54,6 +54,7 @@ declare
   v_uid uuid := auth.uid();
   v_course_id uuid;
   v_section_id uuid;
+  v_full_semester text := p_semester || ' ' || p_year;
 begin
   if not exists (select 1 from profiles where id = v_uid and role = 'ta') then
     raise exception 'Only TAs can create sections';
@@ -67,11 +68,11 @@ begin
   end if;
 
   insert into course_sections (course_id, section_code, semester, academic_year, status, created_by)
-  values (v_course_id, p_section_code, p_semester, p_year, 'active', v_uid)
+  values (v_course_id, p_section_code, v_full_semester, p_year, 'active', v_uid)
   returning id into v_section_id;
 
   insert into section_tas (ta_id, section_id, semester)
-  values (v_uid, v_section_id, p_semester);
+  values (v_uid, v_section_id, v_full_semester);
 
   return v_section_id;
 end;

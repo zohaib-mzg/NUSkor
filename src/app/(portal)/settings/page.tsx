@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, BellOff, Loader2 } from "lucide-react";
+import { Bell, BellOff, Loader2, Trash2 } from "lucide-react";
 import {
   deletePushSubscription,
   getNotificationSettings,
@@ -15,8 +15,10 @@ import {
 import type { NotificationSettings } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
+import { createClient } from "@/lib/supabase/client";
 import PageHeader from "@/components/ui/PageHeader";
 import Spinner from "@/components/ui/Spinner";
+import Modal from "@/components/ui/Modal";
 
 export default function SettingsPage() {
   const { success, error } = useToast();
@@ -26,6 +28,8 @@ export default function SettingsPage() {
   const [enabled, setEnabled] = useState(false);
   const [devices, setDevices] = useState<{ id: string; endpoint: string; created_at: string }[]>([]);
   const [prefs, setPrefs] = useState<NotificationSettings | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const load = useCallback(async () => {
     const sub = await getPushSubscription();
@@ -95,6 +99,19 @@ export default function SettingsPage() {
   }
 
   if (loading) return <Spinner label="Loading settings..." />;
+
+  async function deleteAccount() {
+    setDeleteBusy(true);
+    const supabase = createClient();
+    const { error: err } = await supabase.rpc("delete_account");
+    if (err) {
+      setDeleteBusy(false);
+      return error(err.message);
+    }
+    // Sign out and redirect
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  }
 
   const prefRows: { key: "announcements" | "marks_released" | "evaluation_updates"; label: string; hint: string }[] = [
     { key: "announcements", label: "Announcements", hint: "New announcements from your TA and admins." },
@@ -201,6 +218,51 @@ export default function SettingsPage() {
           </div>
         </section>
       </div>
+
+      {/* Danger zone */}
+      <section className="card mt-6 border-red-200 bg-red-50/50 p-6">
+        <h2 className="font-bold text-red-700">Danger zone</h2>
+        <p className="mt-1 text-sm text-red-600/70">
+          Permanently delete your account and all associated data. This cannot be
+          undone. You will be removed from all courses, sections, and your marks
+          history will be erased.
+        </p>
+        <button
+          className="mt-4 btn-outline border-red-300 text-red-600 hover:border-red-400 hover:bg-red-100"
+          onClick={() => setDeleteOpen(true)}
+        >
+          <Trash2 className="h-4 w-4" /> Delete my account
+        </button>
+      </section>
+
+      <Modal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Delete your account?"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-ink/60">
+            This will permanently delete your account and all associated data
+            including marks, enrollments, bookings, and announcements. This
+            action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button
+              className="btn-outline"
+              onClick={() => setDeleteOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn-primary bg-red-600 hover:bg-red-700"
+              onClick={deleteAccount}
+              disabled={deleteBusy}
+            >
+              {deleteBusy ? "Deleting..." : "Yes, delete my account"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

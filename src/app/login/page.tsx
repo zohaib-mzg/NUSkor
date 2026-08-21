@@ -41,7 +41,7 @@ function LoginContent() {
     },
     ta: {
       icon: <Users className="h-6 w-6" />,
-      title: "Apply as TA",
+      title: "Login as TA",
       desc: "Manage sections, students, marks, and evaluations. Requires admin approval.",
       buttonLabel: "Continue with Google",
       buttonClass: "btn-primary",
@@ -135,7 +135,7 @@ function LoginContent() {
             )}
             {flow !== "ta" && (
               <Link href="/login?flow=ta" className="hover:text-ink/70">
-                Apply as TA
+                Login as TA
               </Link>
             )}
             {flow !== "admin" && (

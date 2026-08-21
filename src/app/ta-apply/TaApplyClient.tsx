@@ -103,7 +103,7 @@ function TaApplyInner({
           </div>
           <div>
             <p className="text-lg font-bold text-white">NUSkor</p>
-            <p className="text-xs text-white/50">TA Access</p>
+            <p className="text-xs text-white/50">TA Portal</p>
           </div>
         </div>
 

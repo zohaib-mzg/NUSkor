@@ -22,27 +22,18 @@ export async function GET(request: NextRequest) {
       if (user) {
         const email = user.email?.toLowerCase() ?? "";
 
-        // ── Admin flow ──
+        // ── Admin flow: only ADMIN_EMAIL gets admin role ──
         if (flow === "admin") {
-          const isDesignatedAdmin = email === ADMIN_EMAIL;
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("id, role")
-            .eq("id", user.id)
-            .maybeSingle();
-          const currentRole = (profile as { role?: string } | null)?.role;
-
-          if (isDesignatedAdmin || currentRole === "admin") {
+          if (email === ADMIN_EMAIL) {
             await supabase
               .from("profiles")
-              .update({ role: "admin" })
-              .eq("id", user.id);
+              .upsert({ id: user.id, email, role: "admin", full_name: user.user_metadata?.full_name ?? null }, { onConflict: "id" });
             return NextResponse.redirect(forwardedRedirect(request, origin, "/admin", next));
           }
-          // Not an admin — fall through to student redirect below
+          // Not admin email — fall through to student redirect
         }
 
-        // ── TA flow ──
+        // ── TA flow: everyone goes through TA application ──
         if (flow === "ta") {
           const { data: profile } = await supabase
             .from("profiles")
@@ -51,8 +42,8 @@ export async function GET(request: NextRequest) {
             .maybeSingle();
           const currentRole = (profile as { role?: string } | null)?.role;
 
-          // If already TA or admin, go to dashboard
-          if (currentRole === "ta" || currentRole === "admin") {
+          // If already TA, go to dashboard
+          if (currentRole === "ta") {
             // fall through to default redirect
           } else {
             // Record TA application
@@ -77,7 +68,7 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // ── Default: student or already-roles ──
+        // ── Default redirect ──
         const forwardedHost = request.headers.get("x-forwarded-host");
         const isLocalEnv = process.env.NODE_ENV === "development";
         const redirectTo =

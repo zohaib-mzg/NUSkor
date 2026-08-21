@@ -48,8 +48,8 @@ export default function LandingPage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/login?flow=student" className="btn-outline hidden sm:inline-flex text-sm">
-              Sign in
+            <Link href="/login?flow=ta" className="btn-primary hidden sm:inline-flex text-sm">
+              Login as TA
             </Link>
           </div>
         </div>
@@ -97,7 +97,7 @@ export default function LandingPage() {
               className="btn-primary flex w-full items-center justify-center gap-3 py-3.5 text-base"
             >
               <Users className="h-5 w-5" />
-              Apply as TA
+              Login as TA
             </Link>
             <Link
               href="/login?flow=admin"

@@ -10,9 +10,10 @@ import {
   Layers,
   Plus,
   Trash2,
+  BookOpen,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Profile, TaApplication, CourseSection } from "@/lib/types";
+import type { Profile, TaApplication, CourseSection, SectionRequest } from "@/lib/types";
 import { cleanName, courseSection, one } from "@/lib/utils";
 import { currentSemester, semesterOptions } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
@@ -47,6 +48,7 @@ export default function TaManagementPage() {
   const [rejecting, setRejecting] = useState<TaApplication | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sectionRequests, setSectionRequests] = useState<SectionRequest[]>([]);
   const [assignTarget, setAssignTarget] = useState<TaWithSections | null>(null);
   const [assignSectionId, setAssignSectionId] = useState("");
   const [removeTarget, setRemoveTarget] = useState<{
@@ -59,7 +61,7 @@ export default function TaManagementPage() {
   const load = useCallback(async () => {
     const supabase = createClient();
 
-    const [appRes, profileRes, stRes, secRes, semRes] = await Promise.all([
+    const [appRes, profileRes, stRes, secRes, semRes, srRes] = await Promise.all([
       supabase
         .from("ta_applications")
         .select("*")
@@ -77,6 +79,11 @@ export default function TaManagementPage() {
       supabase
         .from("section_tas")
         .select("semester"),
+      supabase
+        .from("section_requests")
+        .select("*, profiles:ta_id(full_name, email)")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false }),
     ]);
     setLoading(false);
 
@@ -134,6 +141,11 @@ export default function TaManagementPage() {
       if (r.semester) sems.add(r.semester);
     });
     setHistSems(Array.from(sems));
+
+    // Section requests
+    if (!srRes.error) {
+      setSectionRequests((srRes.data ?? []) as unknown as SectionRequest[]);
+    }
   }, []);
 
   useEffect(() => {
@@ -284,6 +296,38 @@ export default function TaManagementPage() {
     load();
   }
 
+  async function approveSectionRequest(req: SectionRequest) {
+    setBusy(true);
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("section_requests")
+      .update({ status: "approved", reviewed_at: new Date().toISOString() })
+      .eq("id", req.id);
+    if (err) {
+      setBusy(false);
+      return error(err.message);
+    }
+    success(`Section request for ${req.course_code} approved. Assign the TA from the section list below.`);
+    setBusy(false);
+    load();
+  }
+
+  async function rejectSectionRequest(req: SectionRequest) {
+    setBusy(true);
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("section_requests")
+      .update({ status: "rejected", reviewed_at: new Date().toISOString() })
+      .eq("id", req.id);
+    if (err) {
+      setBusy(false);
+      return error(err.message);
+    }
+    success("Section request rejected.");
+    setBusy(false);
+    load();
+  }
+
   if (loading) return <Spinner label="Loading TA management..." />;
 
   const pending = applications.filter((a) => a.status === "pending");
@@ -371,6 +415,54 @@ export default function TaManagementPage() {
           </ul>
         )}
       </section>
+
+      {/* Section requests from TAs */}
+      {sectionRequests.length > 0 && (
+        <section className="card mb-6 overflow-hidden">
+          <div className="flex items-center justify-between border-b border-black/[0.06] bg-white px-5 py-4">
+            <h2 className="flex items-center gap-2 font-bold text-ink">
+              <BookOpen className="h-4 w-4 text-gold-deep" />{" "}
+              Section requests
+            </h2>
+            <Badge tone="gold">{sectionRequests.length} pending</Badge>
+          </div>
+          <ul className="divide-y divide-black/[0.05]">
+            {sectionRequests.map((r) => {
+              const taProfile = r.profiles as { full_name?: string | null; email?: string } | null;
+              return (
+                <li
+                  key={r.id}
+                  className="flex flex-wrap items-center gap-3 bg-white px-5 py-4"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-ink">
+                      {cleanName(taProfile?.full_name) || taProfile?.email || "TA"}
+                    </p>
+                    <p className="text-xs text-ink/50">
+                      Wants <span className="font-semibold text-ink">{r.course_code}</span> · {r.semester} {r.year}
+                      {r.notes && <span className="italic text-ink/40"> — {r.notes}</span>}
+                    </p>
+                  </div>
+                  <button
+                    className="btn-dark px-3 py-1.5 text-xs"
+                    onClick={() => approveSectionRequest(r)}
+                    disabled={busy}
+                  >
+                    <BadgeCheck className="h-3.5 w-3.5" /> Approve
+                  </button>
+                  <button
+                    className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                    onClick={() => rejectSectionRequest(r)}
+                    disabled={busy}
+                  >
+                    <XCircle className="h-3.5 w-3.5" /> Reject
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {/* Semester selector */}
       <div className="mb-4 flex items-center gap-3">

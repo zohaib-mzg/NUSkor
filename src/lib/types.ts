@@ -253,6 +253,21 @@ export interface JoinSectionResult {
   already_enrolled: boolean;
 }
 
+export interface SectionRequest {
+  id: string;
+  ta_id: string;
+  course_code: string;
+  semester: string;
+  year: number;
+  notes: string | null;
+  status: "pending" | "approved" | "rejected";
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  profiles?: { full_name?: string | null; email?: string } | null;
+}
+
 export interface LeaderboardEntry {
   registration_no: string | null;
   total: number;

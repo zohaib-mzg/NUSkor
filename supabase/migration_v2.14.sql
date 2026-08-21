@@ -107,6 +107,11 @@ begin
     raise exception 'Only admins can revoke TA role';
   end if;
 
+  -- Null out FK references
+  update enrollments set invited_by = null where invited_by = p_ta_id;
+  update student_invites set accepted_by = null where accepted_by = p_ta_id;
+
+  -- Clean up TA data
   delete from section_tas where ta_id = p_ta_id;
   delete from student_invites where created_by_ta = p_ta_id;
   delete from section_requests where ta_id = p_ta_id;
@@ -130,6 +135,11 @@ begin
     raise exception 'Not authenticated';
   end if;
 
+  -- Null out FK references that point to this profile
+  update enrollments set invited_by = null where invited_by = uid;
+  update student_invites set accepted_by = null where accepted_by = uid;
+
+  -- Delete dependent data
   delete from marks where student_id = uid;
   delete from enrollments where student_id = uid;
   delete from bookings where student_id = uid;
@@ -141,6 +151,7 @@ begin
   delete from section_requests where ta_id = uid;
   delete from ta_applications where user_id = uid;
 
+  -- Delete profile
   delete from profiles where id = uid;
 end;
 $$;

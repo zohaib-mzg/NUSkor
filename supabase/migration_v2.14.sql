@@ -1,5 +1,5 @@
 -- =========================================================
--- NUSkor — Migration v2.14
+-- NUSkor — Migration v2.14 (idempotent — safe to re-run)
 -- Section requests: TAs can request new sections.
 -- Profile deletion: users can delete their accounts.
 -- =========================================================
@@ -19,17 +19,27 @@ create table if not exists public.section_requests (
   created_at timestamptz not null default now()
 );
 
+-- Add course_name column if migrating from old version that used course_code
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_name = 'section_requests' and column_name = 'course_code')
+     and not exists (select 1 from information_schema.columns where table_name = 'section_requests' and column_name = 'course_name') then
+    alter table public.section_requests rename column course_code to course_name;
+  end if;
+exception when others then null;
+end $$;
+
 alter table public.section_requests enable row level security;
 
--- TA can read their own requests
+drop policy if exists "section_requests_select_own" on public.section_requests;
 create policy "section_requests_select_own" on public.section_requests
   for select using (auth.uid() = ta_id);
 
--- TA can insert their own requests
+drop policy if exists "section_requests_insert_own" on public.section_requests;
 create policy "section_requests_insert_own" on public.section_requests
   for insert with check (auth.uid() = ta_id);
 
--- Admin can do everything
+drop policy if exists "section_requests_admin_all" on public.section_requests;
 create policy "section_requests_admin_all" on public.section_requests
   for all using (
     exists (select 1 from profiles where id = auth.uid() and role = 'admin')
@@ -60,9 +70,6 @@ begin
 
   -- Delete profile
   delete from profiles where id = uid;
-
-  -- Note: auth user deletion requires service_role.
-  -- Profile deletion is sufficient for practical purposes.
 end;
 $$;
 

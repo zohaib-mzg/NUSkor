@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const ALLOWED_DOMAIN = "@lhr.nu.edu.pk";
-const PUBLIC_ROUTES = ["/", "/login", "/join", "/invite", "/access-denied", "/auth/callback", "/_next"];
+const ADMIN_EMAIL = "adminmzg@gmail.com";
+const PUBLIC_ROUTES = ["/", "/login", "/join", "/invite", "/access-denied", "/auth/callback", "/admin", "/admin/login", "/_next"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -47,7 +48,8 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Application-level domain enforcement (Google auth is NOT authorization).
-  if (!user.email?.toLowerCase().endsWith(ALLOWED_DOMAIN)) {
+  // Admin email is exempt from domain check.
+  if (user.email?.toLowerCase() !== ADMIN_EMAIL && !user.email?.toLowerCase().endsWith(ALLOWED_DOMAIN)) {
     await supabase.auth.signOut();
     const url = request.nextUrl.clone();
     url.pathname = "/access-denied";
@@ -57,7 +59,7 @@ export async function updateSession(request: NextRequest) {
   // Signed-in users get redirected away from the login screen.
   if (pathname === "/login") {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = user.email?.toLowerCase() === ADMIN_EMAIL ? "/admin" : "/dashboard";
     return NextResponse.redirect(url);
   }
 

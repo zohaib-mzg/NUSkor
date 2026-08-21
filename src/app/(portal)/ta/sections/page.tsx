@@ -50,7 +50,6 @@ export default function TaSectionsPage() {
         supabase
           .from("section_tas")
           .select("section_id, section:course_sections(*, course:courses(code, title))")
-          .eq("semester", semester)
           .eq("ta_id", user.id),
         supabase.from("section_tas").select("section_id, ta_id"),
         supabase.from("enrollments").select("section_id"),

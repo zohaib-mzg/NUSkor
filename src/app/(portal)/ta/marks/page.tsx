@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { notifyAll } from "@/lib/push";
 import type { Assessment, CourseSection, Student } from "@/lib/types";
 import { cleanName, one, parseCsv, regNoDisplay } from "@/lib/utils";
-import { useSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
 import SemesterSelector from "@/components/SemesterSelector";
 import PageHeader from "@/components/ui/PageHeader";
@@ -23,7 +22,6 @@ interface EnrolledStudent extends Student {
 
 export default function TaMarksPage() {
   const { success, error, info } = useToast();
-  const [semester] = useSemester();
   const [sections, setSections] = useState<CourseSection[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [sectionId, setSectionId] = useState("");

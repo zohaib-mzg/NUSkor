@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { notifyAll } from "@/lib/push";
 import type { Announcement, CourseSection } from "@/lib/types";
 import { formatDate, one } from "@/lib/utils";
-import { useSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
 import SemesterSelector from "@/components/SemesterSelector";
 import PageHeader from "@/components/ui/PageHeader";
@@ -19,7 +18,6 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 export default function TaAnnouncementsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
-  const [semester] = useSemester();
   const [items, setItems] = useState<Announcement[]>([]);
   const [sections, setSections] = useState<CourseSection[]>([]);
   const [modal, setModal] = useState<

@@ -18,7 +18,6 @@ import type {
   SlotWithBookings,
 } from "@/lib/types";
 import { cleanName, formatDate, one, regNoDisplay } from "@/lib/utils";
-import { useSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
 import SemesterSelector from "@/components/SemesterSelector";
 import PageHeader from "@/components/ui/PageHeader";
@@ -35,7 +34,6 @@ interface PeriodAdmin extends EvaluationPeriod {
 export default function TaEvaluationPeriodsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
-  const [semester] = useSemester();
   const [sections, setSections] = useState<CourseSection[]>([]);
   const [periods, setPeriods] = useState<PeriodAdmin[]>([]);
   const [modal, setModal] = useState(false);

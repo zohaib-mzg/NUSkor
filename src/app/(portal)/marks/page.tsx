@@ -239,6 +239,8 @@ export default function MarksPage() {
     return () => {
       cancelled = true;
     };
+    // myRegNo is set inside this same effect — adding it would cause infinite rerenders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const summary = useMemo(() => {

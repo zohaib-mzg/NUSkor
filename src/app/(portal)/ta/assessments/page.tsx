@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { notifyAll } from "@/lib/push";
 import type { Assessment, CourseSection } from "@/lib/types";
 import { one } from "@/lib/utils";
-import { useSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
 import SemesterSelector from "@/components/SemesterSelector";
 import PageHeader from "@/components/ui/PageHeader";
@@ -21,7 +20,6 @@ const TYPES = ["quiz", "assignment", "midterm", "project", "final", "other"] as 
 export default function TaAssessmentsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
-  const [semester] = useSemester();
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [sections, setSections] = useState<CourseSection[]>([]);
   const [sectionFilter, setSectionFilter] = useState("all");

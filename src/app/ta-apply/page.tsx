@@ -23,7 +23,7 @@ export default async function TaApplyPage() {
 
   const { data: app } = await supabase
     .from("ta_applications")
-    .select("id, status, requested_at, rejection_reason, course_code, semester, year, notes")
+    .select("id, status, requested_at, rejection_reason")
     .eq("user_id", user.id)
     .order("requested_at", { ascending: false })
     .limit(1)

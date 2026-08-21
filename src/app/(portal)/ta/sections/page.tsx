@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { BookOpen, Users, UserRound, Plus, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { CourseSection, SectionRequest } from "@/lib/types";
+import type { CourseSection } from "@/lib/types";
 import { one } from "@/lib/utils";
 import { useSemester, currentSemester } from "@/lib/semester";
 import SemesterSelector from "@/components/SemesterSelector";
@@ -25,19 +25,17 @@ export default function TaSectionsPage() {
   const [loading, setLoading] = useState(true);
   const [semester] = useSemester();
   const [sections, setSections] = useState<SectionSummary[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<SectionRequest[]>([]);
-  const [requestOpen, setRequestOpen] = useState(false);
-  const [requestBusy, setRequestBusy] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createBusy, setCreateBusy] = useState(false);
 
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentTerm = currentSemester().split(" ")[0];
-  const [reqCourseCode, setReqCourseCode] = useState("");
-  const [reqCourseName, setReqCourseName] = useState("");
-  const [reqSectionCode, setReqSectionCode] = useState("");
+  const [courseCode, setCourseCode] = useState("");
+  const [courseName, setCourseName] = useState("");
+  const [sectionCode, setSectionCode] = useState("");
   const [reqSemester, setReqSemester] = useState(currentTerm);
   const [reqYear, setReqYear] = useState(currentYear);
-  const [reqNotes, setReqNotes] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -48,7 +46,7 @@ export default function TaSectionsPage() {
       } = await supabase.auth.getUser();
       if (!user || cancelled) return;
 
-      const [stRes, taRes, enRes, reqRes] = await Promise.all([
+      const [stRes, taRes, enRes] = await Promise.all([
         supabase
           .from("section_tas")
           .select("section_id, section:course_sections(*, course:courses(code, title))")
@@ -56,12 +54,6 @@ export default function TaSectionsPage() {
           .eq("ta_id", user.id),
         supabase.from("section_tas").select("section_id, ta_id"),
         supabase.from("enrollments").select("section_id"),
-        supabase
-          .from("section_requests")
-          .select("*")
-          .eq("ta_id", user.id)
-          .eq("status", "pending")
-          .order("created_at", { ascending: false }),
       ]);
       if (cancelled) return;
 
@@ -93,7 +85,6 @@ export default function TaSectionsPage() {
           })
           .filter((s): s is SectionSummary => s !== null)
       );
-      setPendingRequests((reqRes.data ?? []) as SectionRequest[]);
       setLoading(false);
     }
     load().finally(() => !cancelled && setLoading(false));
@@ -102,36 +93,72 @@ export default function TaSectionsPage() {
     };
   }, [semester]);
 
-  async function submitRequest() {
-    if (!reqCourseCode.trim() || !reqCourseName.trim() || !reqSectionCode.trim()) return;
-    setRequestBusy(true);
+  async function createSection() {
+    if (!courseCode.trim() || !courseName.trim() || !sectionCode.trim()) return;
+    setCreateBusy(true);
     const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { error: err } = await supabase.from("section_requests").insert({
-      ta_id: user.id,
-      course_code: reqCourseCode.trim().toUpperCase(),
-      course_name: reqCourseName.trim(),
-      section_code: reqSectionCode.trim(),
-      semester: reqSemester,
-      year: reqYear,
-      notes: reqNotes.trim() || null,
-    });
-    setRequestBusy(false);
-    if (err) return error(err.message);
-    success("Request submitted. An admin will review it.");
-    setRequestOpen(false);
-    resetForm();
-  }
+    // 1. Find or create course
+    const code = courseCode.trim().toUpperCase();
+    let { data: course } = await supabase
+      .from("courses")
+      .select("id")
+      .eq("code", code)
+      .maybeSingle();
 
-  function resetForm() {
-    setReqCourseCode("");
-    setReqCourseName("");
-    setReqSectionCode("");
-    setReqNotes("");
+    if (!course) {
+      const { data: newCourse, error: cErr } = await supabase
+        .from("courses")
+        .insert({ code, title: courseName.trim(), created_by: user.id })
+        .select("id")
+        .single();
+      if (cErr) {
+        setCreateBusy(false);
+        return error(cErr.message);
+      }
+      course = newCourse;
+    }
+
+    // 2. Create section
+    const { data: section, error: sErr } = await supabase
+      .from("course_sections")
+      .insert({
+        course_id: course.id,
+        section_code: sectionCode.trim(),
+        semester: reqSemester,
+        academic_year: String(reqYear),
+        status: "active",
+        created_by: user.id,
+      })
+      .select("id")
+      .single();
+
+    if (sErr) {
+      setCreateBusy(false);
+      return error(sErr.message);
+    }
+
+    // 3. Assign self as TA
+    const { error: taErr } = await supabase.from("section_tas").insert({
+      ta_id: user.id,
+      section_id: section.id,
+      semester: reqSemester,
+    });
+
+    setCreateBusy(false);
+    if (taErr) return error(taErr.message);
+    success("Section created and assigned to you.");
+    setCreateOpen(false);
+    setCourseCode("");
+    setCourseName("");
+    setSectionCode("");
+    // Reload
+    setLoading(true);
+    window.location.reload();
   }
 
   if (loading) return <Spinner label="Loading your sections..." />;
@@ -140,55 +167,26 @@ export default function TaSectionsPage() {
     <div>
       <PageHeader
         title="My Sections"
-        subtitle="Sections assigned to you. Request new sections from the button below."
+        subtitle="Sections assigned to you. Create new sections from the button below."
         icon={BookOpen}
         actions={
           <>
             <SemesterSelector />
             <button
               className="btn-primary"
-              onClick={() => setRequestOpen(true)}
+              onClick={() => setCreateOpen(true)}
             >
-              <Plus className="h-4 w-4" /> Request Section
+              <Plus className="h-4 w-4" /> Create Section
             </button>
           </>
         }
       />
 
-      {pendingRequests.length > 0 && (
-        <div className="card mb-6 border-gold/30 bg-gold/5 p-4">
-          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-gold-deep">
-            Pending requests ({pendingRequests.length})
-          </p>
-          <ul className="space-y-1">
-            {pendingRequests.map((r) => (
-              <li
-                key={r.id}
-                className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs"
-              >
-                <Badge tone="gold">Pending</Badge>
-                <span className="font-semibold text-ink">
-                  {r.course_code} — {r.course_name}
-                </span>
-                <span className="text-ink/50">
-                  Section {r.section_code} · {r.semester} {r.year}
-                </span>
-                {r.notes && (
-                  <span className="truncate text-ink/40 italic">
-                    — {r.notes}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       {sections.length === 0 ? (
         <div className="card">
           <EmptyState
-            title="No sections assigned yet"
-            description="Click 'Request Section' to ask an admin to assign you to a course section."
+            title="No sections yet"
+            description="Click 'Create Section' to create a course and section, then assign yourself as TA."
           />
         </div>
       ) : (
@@ -224,14 +222,14 @@ export default function TaSectionsPage() {
       )}
 
       <Modal
-        open={requestOpen}
-        onClose={() => setRequestOpen(false)}
-        title="Request a new section"
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Create a new section"
       >
         <div className="space-y-4">
           <p className="text-sm text-ink/55">
-            Fill in the course and section details. On approval, the course and
-            section will be created and you will be assigned as TA.
+            Create a course (if new) and a section. You will be automatically
+            assigned as TA.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -240,8 +238,8 @@ export default function TaSectionsPage() {
                 className="input"
                 type="text"
                 placeholder="e.g. EE2003"
-                value={reqCourseCode}
-                onChange={(e) => setReqCourseCode(e.target.value)}
+                value={courseCode}
+                onChange={(e) => setCourseCode(e.target.value)}
                 required
               />
             </div>
@@ -251,8 +249,8 @@ export default function TaSectionsPage() {
                 className="input"
                 type="text"
                 placeholder="e.g. Digital Logic Design"
-                value={reqCourseName}
-                onChange={(e) => setReqCourseName(e.target.value)}
+                value={courseName}
+                onChange={(e) => setCourseName(e.target.value)}
                 required
               />
             </div>
@@ -263,8 +261,8 @@ export default function TaSectionsPage() {
               className="input"
               type="text"
               placeholder="e.g. A, B, CS-A"
-              value={reqSectionCode}
-              onChange={(e) => setReqSectionCode(e.target.value)}
+              value={sectionCode}
+              onChange={(e) => setSectionCode(e.target.value)}
               required
             />
           </div>
@@ -294,35 +292,24 @@ export default function TaSectionsPage() {
               </select>
             </div>
           </div>
-          <div>
-            <label className="label">
-              Notes <span className="text-ink/40">(optional)</span>
-            </label>
-            <textarea
-              className="input min-h-16"
-              value={reqNotes}
-              onChange={(e) => setReqNotes(e.target.value)}
-              placeholder="e.g. Also available for Section B. Available Mon/Wed."
-            />
-          </div>
           <div className="flex justify-end gap-3 pt-2">
             <button
               className="btn-outline"
-              onClick={() => setRequestOpen(false)}
+              onClick={() => setCreateOpen(false)}
             >
               Cancel
             </button>
             <button
               className="btn-primary"
-              onClick={submitRequest}
-              disabled={requestBusy || !reqCourseCode.trim() || !reqCourseName.trim() || !reqSectionCode.trim()}
+              onClick={createSection}
+              disabled={createBusy || !courseCode.trim() || !courseName.trim() || !sectionCode.trim()}
             >
-              {requestBusy ? (
+              {createBusy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Plus className="h-4 w-4" />
               )}
-              Submit request
+              Create section
             </button>
           </div>
         </div>

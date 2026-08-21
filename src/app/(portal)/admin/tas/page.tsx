@@ -7,10 +7,9 @@ import {
   XCircle,
   ShieldCheck,
   Trash2,
-  BookOpen,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Profile, SectionRequest } from "@/lib/types";
+import type { Profile, TaApplication } from "@/lib/types";
 import { cleanName } from "@/lib/utils";
 import { currentSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
@@ -25,8 +24,10 @@ export default function TaManagementPage() {
   const [loading, setLoading] = useState(true);
   const [semester] = useState(currentSemester());
   const [busy, setBusy] = useState(false);
-  const [sectionRequests, setSectionRequests] = useState<SectionRequest[]>([]);
+  const [applications, setApplications] = useState<TaApplication[]>([]);
   const [taList, setTaList] = useState<Profile[]>([]);
+  const [rejecting, setRejecting] = useState<TaApplication | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const [revokeTarget, setRevokeTarget] = useState<{
     taId: string;
     taName: string;
@@ -35,12 +36,11 @@ export default function TaManagementPage() {
   const load = useCallback(async () => {
     const supabase = createClient();
 
-    const [reqRes, profilesRes, tasRes] = await Promise.all([
+    const [appsRes, profilesRes, tasRes] = await Promise.all([
       supabase
-        .from("section_requests")
-        .select("*, profiles:ta_id(full_name, email)")
-        .eq("status", "pending")
-        .order("created_at", { ascending: false }),
+        .from("ta_applications")
+        .select("*")
+        .order("requested_at", { ascending: false }),
       supabase
         .from("profiles")
         .select("id, email, full_name, role, created_at")
@@ -52,12 +52,10 @@ export default function TaManagementPage() {
 
     setLoading(false);
 
-    // Section requests
-    if (!reqRes.error) {
-      setSectionRequests((reqRes.data ?? []) as unknown as SectionRequest[]);
-    }
+    if (!appsRes.error)
+      setApplications((appsRes.data ?? []) as TaApplication[]);
 
-    // Active TAs: profiles with role=ta OR who have section_tas rows
+    // Active TAs
     const taIds = new Set<string>();
     (profilesRes.data ?? []).forEach((p: Profile) => taIds.add(p.id));
     (tasRes.data ?? []).forEach((r: { ta_id: string }) => taIds.add(r.ta_id));
@@ -77,28 +75,49 @@ export default function TaManagementPage() {
     load();
   }, [load]);
 
-  async function approveSectionRequest(req: SectionRequest) {
+  async function approve(app: TaApplication) {
     setBusy(true);
     const supabase = createClient();
-    const { error: err } = await supabase.rpc("approve_section_request", {
-      p_request_id: req.id,
-    });
+    const now = new Date().toISOString();
+
+    const { error: appErr } = await supabase
+      .from("ta_applications")
+      .update({ status: "approved", reviewed_at: now, reviewed_by: (await supabase.auth.getUser()).data.user?.id })
+      .eq("id", app.id);
+    if (appErr) {
+      setBusy(false);
+      return error(appErr.message);
+    }
+
+    // Upgrade role to ta
+    await supabase
+      .from("profiles")
+      .update({ role: "ta" })
+      .eq("id", app.user_id);
+
+    success("TA approved.");
     setBusy(false);
-    if (err) return error(err.message);
-    success(`Approved: ${req.course_code} — ${req.course_name}, Section ${req.section_code}`);
     load();
   }
 
-  async function rejectSectionRequest(req: SectionRequest) {
+  async function reject(app: TaApplication) {
     setBusy(true);
     const supabase = createClient();
-    const { error: err } = await supabase
-      .from("section_requests")
-      .update({ status: "rejected", reviewed_at: new Date().toISOString() })
-      .eq("id", req.id);
+    const now = new Date().toISOString();
+
+    const { error: appErr } = await supabase
+      .from("ta_applications")
+      .update({
+        status: "rejected",
+        reviewed_at: now,
+        rejection_reason: rejectReason.trim() || null,
+      })
+      .eq("id", app.id);
     setBusy(false);
-    if (err) return error(err.message);
-    success("Request rejected.");
+    setRejecting(null);
+    setRejectReason("");
+    if (appErr) return error(appErr.message);
+    success("Application rejected.");
     load();
   }
 
@@ -118,65 +137,64 @@ export default function TaManagementPage() {
 
   if (loading) return <Spinner label="Loading TA management..." />;
 
+  const pending = applications.filter((a) => a.status === "pending");
+
   return (
     <div>
       <PageHeader
         title="TA Management"
-        subtitle={`Review section requests and manage TAs. · ${semester}`}
+        subtitle={`Approve TA access and manage active TAs. · ${semester}`}
         icon={Users}
       />
 
-      {/* Section requests */}
+      {/* Pending applications */}
       <section className="card mb-6 overflow-hidden">
         <div className="flex items-center justify-between border-b border-black/[0.06] bg-white px-5 py-4">
           <h2 className="flex items-center gap-2 font-bold text-ink">
-            <BookOpen className="h-4 w-4 text-gold-deep" />{" "}
-            Section requests
+            <ShieldCheck className="h-4 w-4 text-gold-deep" />{" "}
+            Pending applications
           </h2>
-          <Badge tone="gold">{sectionRequests.length} pending</Badge>
+          <Badge tone="gold">{pending.length} pending</Badge>
         </div>
-        {sectionRequests.length === 0 ? (
+        {pending.length === 0 ? (
           <div className="px-5 py-6">
             <EmptyState
-              title="No pending requests"
-              description="When a TA requests a new section, it appears here."
+              title="No pending applications"
+              description="When someone requests TA access, it appears here."
             />
           </div>
         ) : (
           <ul className="divide-y divide-black/[0.05]">
-            {sectionRequests.map((r) => {
-              const taProfile = r.profiles as { full_name?: string | null; email?: string } | null;
-              return (
-                <li
-                  key={r.id}
-                  className="flex flex-wrap items-center gap-3 bg-white px-5 py-4"
+            {pending.map((a) => (
+              <li
+                key={a.id}
+                className="flex flex-wrap items-center gap-3 bg-white px-5 py-4"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-bold text-gold-deep">
+                  {cleanName(a.full_name || a.email).charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-ink">
+                    {cleanName(a.full_name) || "Unnamed"}
+                  </p>
+                  <p className="text-xs text-ink/50">{a.email}</p>
+                </div>
+                <button
+                  className="btn-dark px-3 py-1.5 text-xs"
+                  onClick={() => approve(a)}
+                  disabled={busy}
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-ink">
-                      {cleanName(taProfile?.full_name) || taProfile?.email || "TA"}
-                    </p>
-                    <p className="text-xs text-ink/50">
-                      <span className="font-semibold text-ink">{r.course_code}</span> — {r.course_name}, Section {r.section_code} · {r.semester} {r.year}
-                      {r.notes && <span className="italic text-ink/40"> — {r.notes}</span>}
-                    </p>
-                  </div>
-                  <button
-                    className="btn-dark px-3 py-1.5 text-xs"
-                    onClick={() => approveSectionRequest(r)}
-                    disabled={busy}
-                  >
-                    <BadgeCheck className="h-3.5 w-3.5" /> Approve
-                  </button>
-                  <button
-                    className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
-                    onClick={() => rejectSectionRequest(r)}
-                    disabled={busy}
-                  >
-                    <XCircle className="h-3.5 w-3.5" /> Reject
-                  </button>
-                </li>
-              );
-            })}
+                  <BadgeCheck className="h-3.5 w-3.5" /> Approve
+                </button>
+                <button
+                  className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                  onClick={() => setRejecting(a)}
+                  disabled={busy}
+                >
+                  <XCircle className="h-3.5 w-3.5" /> Reject
+                </button>
+              </li>
+            ))}
           </ul>
         )}
       </section>
@@ -185,7 +203,7 @@ export default function TaManagementPage() {
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between border-b border-black/[0.06] bg-white px-5 py-4">
           <h2 className="flex items-center gap-2 font-bold text-ink">
-            <ShieldCheck className="h-4 w-4 text-gold-deep" />{" "}
+            <Users className="h-4 w-4 text-gold-deep" />{" "}
             Active TAs
           </h2>
           <Badge tone="neutral">{taList.length} TAs</Badge>
@@ -194,7 +212,7 @@ export default function TaManagementPage() {
           <div className="px-5 py-6">
             <EmptyState
               title="No TAs yet"
-              description="TAs appear here after their section requests are approved."
+              description="TAs appear here after their applications are approved."
             />
           </div>
         ) : (
@@ -226,6 +244,16 @@ export default function TaManagementPage() {
           </ul>
         )}
       </section>
+
+      {/* Reject modal */}
+      <ConfirmDialog
+        open={!!rejecting}
+        onClose={() => setRejecting(null)}
+        onConfirm={() => reject(rejecting!)}
+        title={`Reject ${cleanName(rejecting?.full_name) || rejecting?.email || ""}?`}
+        message={`Reject ${cleanName(rejecting?.full_name) || rejecting?.email || ""}? They will not receive TA access.${rejectReason ? ` Reason: ${rejectReason}` : ""}`}
+        confirmLabel="Reject"
+      />
 
       {/* Revoke confirm */}
       <ConfirmDialog

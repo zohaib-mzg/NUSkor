@@ -12,7 +12,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { cleanName } from "@/lib/utils";
 import { currentSemester } from "@/lib/semester";
-import type { SectionRequest } from "@/lib/types";
+import type { TaApplication } from "@/lib/types";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Spinner from "@/components/ui/Spinner";
@@ -22,7 +22,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [taCount, setTaCount] = useState(0);
   const [sectionCount, setSectionCount] = useState(0);
-  const [pendingReqs, setPendingReqs] = useState<SectionRequest[]>([]);
+  const [pendingApps, setPendingApps] = useState<TaApplication[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,7 +30,7 @@ export default function AdminDashboard() {
       const supabase = createClient();
       const sem = currentSemester();
 
-      const [tasRes, secRes, reqRes] = await Promise.all([
+      const [tasRes, secRes, appsRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("id", { count: "exact", head: true })
@@ -40,17 +40,17 @@ export default function AdminDashboard() {
           .select("id", { count: "exact", head: true })
           .eq("semester", sem),
         supabase
-          .from("section_requests")
-          .select("*, profiles:ta_id(full_name, email)")
+          .from("ta_applications")
+          .select("id, email, full_name, status, requested_at")
           .eq("status", "pending")
-          .order("created_at", { ascending: false })
+          .order("requested_at", { ascending: false })
           .limit(5),
       ]);
 
       if (cancelled) return;
       setTaCount(tasRes.count ?? 0);
       setSectionCount(secRes.count ?? 0);
-      setPendingReqs((reqRes.data ?? []) as unknown as SectionRequest[]);
+      setPendingApps((appsRes.data ?? []) as TaApplication[]);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -69,7 +69,7 @@ export default function AdminDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard icon={Users} label="Active TAs" value={taCount} accent="gold" />
         <StatCard icon={BookOpen} label="Sections (this semester)" value={sectionCount} />
-        <StatCard icon={Clock} label="Pending requests" value={pendingReqs.length} accent="gold" />
+        <StatCard icon={Clock} label="Pending applications" value={pendingApps.length} accent="gold" />
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
@@ -88,7 +88,7 @@ export default function AdminDashboard() {
                   TA Management
                 </p>
                 <p className="text-xs text-ink/50">
-                  Review section requests, manage TAs
+                  Approve applications, manage TAs
                 </p>
               </div>
             </Link>
@@ -112,35 +112,30 @@ export default function AdminDashboard() {
         </section>
 
         <section className="card p-6">
-          <h2 className="mb-4 font-bold text-ink">Pending section requests</h2>
-          {pendingReqs.length === 0 ? (
+          <h2 className="mb-4 font-bold text-ink">Pending applications</h2>
+          {pendingApps.length === 0 ? (
             <EmptyState
-              title="No pending requests"
-              description="When a TA requests a new section, it shows up here."
+              title="No pending applications"
+              description="When someone requests TA access, it shows up here."
             />
           ) : (
             <ul className="divide-y divide-black/[0.05]">
-              {pendingReqs.map((r) => {
-                const taProfile = r.profiles as { full_name?: string | null; email?: string } | null;
-                return (
-                  <li key={r.id} className="flex items-center gap-3 py-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-bold text-gold-deep">
-                      {cleanName(taProfile?.full_name || taProfile?.email || "?").charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-ink">
-                        {cleanName(taProfile?.full_name) || "Unnamed"}
-                      </p>
-                      <p className="truncate text-xs text-ink/50">
-                        {r.course_code} — {r.course_name}, Section {r.section_code} · {r.semester} {r.year}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
+              {pendingApps.map((a) => (
+                <li key={a.id} className="flex items-center gap-3 py-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-bold text-gold-deep">
+                    {cleanName(a.full_name || a.email).charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-ink">
+                      {cleanName(a.full_name) || "Unnamed"}
+                    </p>
+                    <p className="truncate text-xs text-ink/50">{a.email}</p>
+                  </div>
+                </li>
+              ))}
             </ul>
           )}
-          {pendingReqs.length > 0 && (
+          {pendingApps.length > 0 && (
             <Link
               href="/admin/tas"
               className="mt-3 block text-center text-xs font-semibold text-gold-deep hover:underline"

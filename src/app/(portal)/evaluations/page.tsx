@@ -100,28 +100,13 @@ export default function EvaluationsPage() {
   async function bookSlot(periodId: string, slotId: string) {
     setActing(slotId);
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { error: err } = await supabase.from("bookings").insert({
-      student_id: user.id,
-      evaluation_period_id: periodId,
-      slot_id: slotId,
-      status: "confirmed",
+    const { error: err } = await supabase.rpc("book_evaluation_slot", {
+      p_period_id: periodId,
+      p_slot_id: slotId,
     });
     setActing(null);
 
-    if (err) {
-      const msg = err.message.includes("full")
-        ? "That slot just filled up. Pick another one."
-        : err.message.includes("duplicate")
-          ? "You already have a booking for this evaluation period."
-          : "Could not book this slot. Please try again.";
-      error(msg);
-      return;
-    }
+    if (err) return error(err.message);
     success("Slot booked! See you at the evaluation.");
     await load();
   }
@@ -130,16 +115,12 @@ export default function EvaluationsPage() {
     if (!cancelTarget) return;
     setActing("cancel");
     const supabase = createClient();
-    const { error: err } = await supabase
-      .from("bookings")
-      .delete()
-      .eq("id", cancelTarget.id);
+    const { error: err } = await supabase.rpc("cancel_my_booking", {
+      p_booking_id: cancelTarget.id,
+    });
     setActing(null);
     setCancelTarget(null);
-    if (err) {
-      error("Could not cancel the booking. Try again.");
-      return;
-    }
+    if (err) return error(err.message);
     success("Booking cancelled. You can book a new slot.");
     await load();
   }
@@ -191,7 +172,7 @@ export default function EvaluationsPage() {
                 </div>
               </div>
 
-              {period.booking ? (
+              {period.booking && (
                 <div className="flex flex-wrap items-center justify-between gap-4 bg-green-50/70 px-5 py-5">
                   <div className="flex items-center gap-3">
                     <CheckCircle2 className="h-8 w-8 shrink-0 text-green-600" />
@@ -203,6 +184,9 @@ export default function EvaluationsPage() {
                           : "Booking confirmed"}
                         {" "}· {period.booking.status}
                       </p>
+                      <p className="text-xs text-ink/45">
+                        Want a different time? Pick any free slot below to switch instantly.
+                      </p>
                     </div>
                   </div>
                   <button
@@ -213,70 +197,85 @@ export default function EvaluationsPage() {
                     <XCircle className="h-4 w-4" /> Cancel booking
                   </button>
                 </div>
+              )}
+
+              {period.slots.length === 0 ? (
+                <div className="px-5 py-8">
+                  <EmptyState
+                    title="No slots published yet"
+                    description="The TA hasn't added time slots for this period. Check back soon."
+                  />
+                </div>
               ) : (
-                <>
-                  {period.slots.length === 0 ? (
-                    <div className="px-5 py-8">
-                      <EmptyState
-                        title="No slots published yet"
-                        description="The TA hasn't added time slots for this period. Check back soon."
-                      />
-                    </div>
-                  ) : (
-                    <div className="grid gap-3 px-5 py-5 sm:grid-cols-2 lg:grid-cols-3">
-                      {period.slots.map((slot) => {
-                        const full = slot.booked >= slot.capacity;
-                        const available = slot.is_open && !full;
-                        return (
-                          <div
-                            key={slot.slot_id}
-                            className={
-                              available
-                                ? "rounded-xl border border-black/[0.08] bg-white p-4 transition-all hover:border-gold hover:shadow-lift"
-                                : "rounded-xl border border-black/[0.05] bg-paper/80 p-4 opacity-70"
+                <div className="grid gap-3 px-5 py-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {period.slots.map((slot) => {
+                    const full = slot.booked >= slot.capacity;
+                    const mine = period.booking?.slot_id === slot.slot_id;
+                    const available = slot.is_open && !full && !mine;
+                    return (
+                      <div
+                        key={slot.slot_id}
+                        className={
+                          mine
+                            ? "rounded-xl border-2 border-green-500 bg-green-50/50 p-4"
+                            : available
+                              ? "rounded-xl border border-black/[0.08] bg-white p-4 transition-all hover:border-gold hover:shadow-lift"
+                              : "rounded-xl border border-black/[0.05] bg-paper/80 p-4 opacity-70"
+                        }
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center gap-1.5 font-bold text-ink">
+                            <Clock className="h-4 w-4 text-gold-deep" />
+                            {slot.start_time}–{slot.end_time}
+                          </span>
+                          <Badge
+                            tone={
+                              mine
+                                ? "green"
+                                : !slot.is_open
+                                  ? "red"
+                                  : full
+                                    ? "red"
+                                    : "neutral"
                             }
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="inline-flex items-center gap-1.5 font-bold text-ink">
-                                <Clock className="h-4 w-4 text-gold-deep" />
-                                {slot.start_time}–{slot.end_time}
-                              </span>
-                              <Badge
-                                tone={
-                                  !slot.is_open
-                                    ? "red"
-                                    : full
-                                      ? "red"
-                                      : "green"
-                                }
-                              >
-                                {!slot.is_open
-                                  ? "Closed"
-                                  : full
-                                    ? `Full (${slot.booked}/${slot.capacity})`
-                                    : `${slot.booked}/${slot.capacity} booked`}
-                              </Badge>
-                            </div>
-                            <p className="mt-2 text-sm text-ink/60">
-                              {formatDate(slot.slot_date)}
-                            </p>
-                            <button
-                              onClick={() => bookSlot(period.id, slot.slot_id)}
-                              disabled={!available || acting === slot.slot_id}
-                              className="btn-primary mt-3 w-full py-2 text-xs"
-                            >
-                              {acting === slot.slot_id
-                                ? "Booking..."
+                            {mine
+                              ? `Yours (${slot.booked}/${slot.capacity})`
+                              : !slot.is_open
+                                ? "Closed"
+                                : full
+                                  ? `Full (${slot.booked}/${slot.capacity})`
+                                  : `Free · ${slot.booked}/${slot.capacity}`}
+                          </Badge>
+                        </div>
+                        <p className="mt-2 text-sm text-ink/60">
+                          {formatDate(slot.slot_date)}
+                        </p>
+                        <button
+                          onClick={() => bookSlot(period.id, slot.slot_id)}
+                          disabled={!available || acting === slot.slot_id}
+                          className={
+                            mine
+                              ? "btn-outline mt-3 w-full py-2 text-xs"
+                              : "btn-primary mt-3 w-full py-2 text-xs"
+                          }
+                        >
+                          {acting === slot.slot_id
+                            ? "Booking..."
+                            : mine
+                              ? "Your slot"
+                              : !slot.is_open
+                                ? "Closed"
                                 : full
                                   ? "Slot full"
-                                  : "Book this slot"}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
+                                  : period.booking
+                                    ? "Switch to this slot"
+                                    : "Book this slot"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </section>
           ))}

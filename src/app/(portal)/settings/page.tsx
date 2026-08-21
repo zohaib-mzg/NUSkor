@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, BellOff, Smartphone, Send, Loader2, MonitorSmartphone } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { Bell, BellOff, Loader2 } from "lucide-react";
 import {
   deletePushSubscription,
   getNotificationSettings,
@@ -14,7 +13,7 @@ import {
   subscribeToPush,
 } from "@/lib/push";
 import type { NotificationSettings } from "@/lib/types";
-import { cn, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Spinner from "@/components/ui/Spinner";
@@ -84,15 +83,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function removeDevice(endpoint: string) {
-    const ok = await deletePushSubscription(endpoint);
-    if (!ok) return error("Could not remove this device.");
-    success("Device removed.");
-    const remaining = devices.filter((d) => d.endpoint !== endpoint);
-    setDevices(remaining);
-    if (remaining.length === 0) setEnabled(false);
-  }
-
   async function togglePref(key: "announcements" | "marks_released" | "evaluation_updates") {
     if (!prefs) return;
     const next = { ...prefs, [key]: !prefs[key] };
@@ -101,31 +91,6 @@ export default function SettingsPage() {
     if (!ok) {
       setPrefs(prefs);
       error("Could not save your preferences.");
-    }
-  }
-
-  async function sendTest() {
-    setBusy(true);
-    try {
-      const supabase = createClient();
-      const { data, error: err } = await supabase.functions.invoke("send-push-notification", {
-        body: { test: true },
-      });
-      if (err) {
-        let msg = err.message;
-        try {
-          const parsed = JSON.parse(msg) as { error?: string };
-          if (parsed.error) msg = parsed.error;
-        } catch {
-          // keep raw message
-        }
-        throw new Error(msg || "Function call failed");
-      }
-      success(`Test push sent. Delivered to ${(data as { sent?: number })?.sent ?? 0} device(s).`);
-    } catch (e) {
-      error(`Could not send the test push: ${e instanceof Error ? e.message : "unknown error"}`);
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -234,76 +199,6 @@ export default function SettingsPage() {
               </div>
             ))}
           </div>
-        </section>
-
-        {/* Devices */}
-        <section className="card p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold text-ink">Devices</h2>
-            <Smartphone className="h-4 w-4 text-ink/40" />
-          </div>
-          <p className="mt-1 text-sm text-ink/55">
-            Every browser where you enabled push appears here.
-          </p>
-          {devices.length === 0 ? (
-            <p className="mt-4 rounded-xl border border-dashed border-black/[0.12] p-4 text-center text-sm text-ink/45">
-              No devices registered yet. Enable browser notifications first.
-            </p>
-          ) : (
-            <ul className="mt-4 space-y-2">
-              {devices.map((d) => (
-                <li
-                  key={d.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-black/[0.07] bg-paper px-4 py-3"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <MonitorSmartphone className="h-4 w-4 shrink-0 text-ink/40" />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-ink">
-                        {d.endpoint.includes("fcm.googleapis.com")
-                          ? "Chrome / Edge (Android)"
-                          : d.endpoint.includes("web.push.apple.com")
-                            ? "Safari"
-                            : d.endpoint.includes("push.services.mozilla.com")
-                              ? "Firefox"
-                              : "Browser"}
-                      </p>
-                      <p className="text-[11px] text-ink/45">
-                        Registered {formatDate(d.created_at, true)}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => removeDevice(d.endpoint)}
-                    className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {/* Test */}
-        <section className="card p-6">
-          <h2 className="font-bold text-ink">Test notification</h2>
-          <p className="mt-1 text-sm text-ink/55">
-            Send a test push to this device to confirm everything works end to end.
-          </p>
-          <button
-            onClick={sendTest}
-            disabled={busy || !enabled}
-            className="btn-primary mt-4 w-full disabled:opacity-50"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Send test notification
-          </button>
-          {!enabled && (
-            <p className="mt-2 text-xs text-ink/45">
-              Enable browser notifications before testing.
-            </p>
-          )}
         </section>
       </div>
     </div>

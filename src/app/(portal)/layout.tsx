@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import PortalShell from "@/components/PortalShell";
 import { ToastProvider } from "@/components/ui/Toast";
+import { cleanName } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export default async function PortalLayout({
     <ToastProvider>
       <PortalShell
         email={profile.email}
-        displayName={profile.full_name ?? profile.email.split("@")[0]}
+        displayName={cleanName(profile.full_name) || profile.email.split("@")[0]}
         role={profile.role}
       >
         {children}

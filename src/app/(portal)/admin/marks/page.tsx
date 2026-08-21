@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Download, FileDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Assessment, CourseSection, Student } from "@/lib/types";
-import { one, parseCsv, regNoDisplay } from "@/lib/utils";
+import { cleanName, one, parseCsv, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -218,7 +218,7 @@ async function exportSelectedAssessments(selectedIds: string[]) {
           students: students.map((s) => ({
             id: s.id,
             registration_no: s.registration_no,
-            full_name: s.profiles?.full_name ?? "",
+            full_name: cleanName(s.profiles?.full_name) || "",
           })),
           marksByStudent,
         },
@@ -342,7 +342,7 @@ async function exportSelectedAssessments(selectedIds: string[]) {
                       <tr key={r.id} className="bg-white">
                         <td className="td">
                           <p className="font-semibold text-ink">
-                            {r.profiles?.full_name ?? "Unnamed"}
+                            {cleanName(r.profiles?.full_name) || "Unnamed"}
                           </p>
                           <p className="text-xs text-ink/50">{r.profiles?.email}</p>
                         </td>

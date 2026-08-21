@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Announcement } from "@/lib/types";
-import { formatDate, one } from "@/lib/utils";
+import { cleanName, formatDate, one } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
@@ -63,7 +63,7 @@ export default function AnnouncementsPage() {
                   <h2 className="font-bold text-ink">{a.title}</h2>
                   <p className="text-xs text-ink/50">
                     {formatDate(a.published_at ?? a.created_at, true)}
-                    {a.profiles?.full_name ? ` · by ${a.profiles.full_name}` : ""}
+                    {cleanName(a.profiles?.full_name) ? ` · by ${cleanName(a.profiles?.full_name)}` : ""}
                     {a.section_id &&
                       (() => {
                         const sec = one(a.section);

@@ -49,7 +49,35 @@ export function gradeFor(obtained: number, total: number): { grade: string; poin
 
 export function initialOf(name: string | null | undefined): string {
   if (!name) return "?";
-  return name.trim().charAt(0).toUpperCase();
+  return cleanName(name).trim().charAt(0).toUpperCase();
+}
+
+/**
+ * Strip university/program/batch/campus noise from student names.
+ * e.g. "Muhammad Ali Aamir BSDS 2024 FAST NU LHR" → "Muhammad Ali Aamir"
+ */
+const NOISE_TOKENS = new Set([
+  "FAST", "NU", "NUCES", "LUMS", "IBA", "NED", "COMSATS", "ITU",
+  "LHR", "ISB", "KHI", "FSD", "PWR", "ABD", "MULT", "SIAL",
+  "MAIN", "CITY", "TECH",
+]);
+const BS_PROGRAM = /^BS[A-Z]{2,4}$/;
+const YEAR = /^(19|20)\d{2}$/;
+
+export function cleanName(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return raw
+    .split(/\s+/)
+    .filter((t) => {
+      if (!t) return false;
+      const up = t.toUpperCase();
+      if (NOISE_TOKENS.has(up)) return false;
+      if (BS_PROGRAM.test(up)) return false;
+      if (YEAR.test(up)) return false;
+      return true;
+    })
+    .join(" ")
+    .trim();
 }
 
 export function one<T>(value: T | T[] | null | undefined): T | null {

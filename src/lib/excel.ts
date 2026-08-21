@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { cleanName } from "./utils";
 
 export interface ExcelStudent {
   id: string;
@@ -34,15 +35,6 @@ const HEADER_FONT: Partial<ExcelJS.Font> = {
   bold: true,
   color: { argb: "1A1A1A" },
 };
-const ASSESSMENT_FONT: Partial<ExcelJS.Font> = {
-  bold: true,
-  size: 11,
-  color: { argb: "1A1A1A" },
-};
-
-function sanitizeName(s: string) {
-  return s.replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "_");
-}
 
 function applyCellBorder(cell: ExcelJS.Cell) {
   cell.border = {
@@ -68,11 +60,10 @@ function download(workbook: ExcelJS.Workbook, filename: string) {
 }
 
 /**
- * New marks-sheet format:
+ * Marks-sheet format:
  *   Rows 1–2: empty
- *   Row 3:    assessment codes/names (above their columns)
- *   Row 4:    Sr. No. | Roll No | Name | Total Marks | [max marks per assessment] …
- *   Row 5+:   student data
+ *   Row 3:    Sr. No. | Roll No | Name | A01 (20) | Q01 (10) | …
+ *   Row 4+:   student data (only obtained marks)
  */
 export function exportMarksSheet(
   ctx: ExcelContext,
@@ -84,29 +75,16 @@ export function exportMarksSheet(
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Marks");
 
-  // ── Column layout ──
-  // A = Sr. No., B = Roll No, C = Name, D = Total Marks, E… = assessments
-  const TOTAL_COLS = 4 + assessments.length;
+  // Column layout: A = Sr. No., B = Roll No, C = Name, D… = assessments
+  const TOTAL_COLS = 3 + assessments.length;
 
-  // ── Row 1 & 2: empty (leave blank) ──
+  // ── Rows 1 & 2: empty ──
 
-  // ── Row 3: assessment names ──
+  // ── Row 3: header row ──
   const r3 = ws.getRow(3);
-  // cells A–D on row 3 stay empty
-  assessments.forEach((a, i) => {
-    const cell = r3.getCell(5 + i);
-    cell.value = a.title;
-    cell.font = ASSESSMENT_FONT;
-    cell.alignment = { horizontal: "center", vertical: "middle" };
-    applyCellBorder(cell);
-  });
-  r3.height = 22;
-
-  // ── Row 4: column headers + max marks ──
-  const r4 = ws.getRow(4);
-  const headers = ["Sr. No.", "Roll No", "Name", "Total Marks"];
+  const headers = ["Sr. No.", "Roll No", "Name"];
   headers.forEach((h, i) => {
-    const cell = r4.getCell(i + 1);
+    const cell = r3.getCell(i + 1);
     cell.value = h;
     cell.font = HEADER_FONT;
     cell.fill = HEADER_FILL;
@@ -114,34 +92,32 @@ export function exportMarksSheet(
     applyCellBorder(cell);
   });
 
-  // For each assessment column, show max marks
+  // Assessment columns: "A01 (20)" format
   assessments.forEach((a, i) => {
-    const cell = r4.getCell(5 + i);
-    cell.value = a.total_marks;
+    const cell = r3.getCell(4 + i);
+    cell.value = `${a.title} (${a.total_marks})`;
     cell.font = HEADER_FONT;
     cell.fill = HEADER_FILL;
-    cell.alignment = { horizontal: "center", vertical: "middle" };
-    cell.numFmt = "0.##";
+    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
     applyCellBorder(cell);
   });
-  r4.height = 20;
+  r3.height = 22;
 
   // ── Column widths ──
   const colWidths: number[] = [
     8,    // Sr. No.
     16,   // Roll No
     28,   // Name
-    12,   // Total Marks
     ...assessments.map(() => 12),
   ];
   ws.columns = colWidths.map((w) => ({ width: w }));
 
-  // ── Freeze: freeze rows 3–4 so headers stay visible when scrolling ──
-  ws.views = [{ state: "frozen", ySplit: 4 }];
+  // ── Freeze row 3 ──
+  ws.views = [{ state: "frozen", ySplit: 3 }];
 
-  // ── Student data (row 5+) ──
+  // ── Student data (row 4+) ──
   ctx.students.forEach((st, idx) => {
-    const rowNum = 5 + idx;
+    const rowNum = 4 + idx;
     const row = ws.getRow(rowNum);
 
     // Sr. No.
@@ -156,33 +132,17 @@ export function exportMarksSheet(
     c2.alignment = { horizontal: "center" };
     applyCellBorder(c2);
 
-    // Name
+    // Name (cleaned)
     const c3 = row.getCell(3);
-    c3.value = st.full_name ?? "";
+    c3.value = cleanName(st.full_name);
     c3.alignment = { horizontal: "left", vertical: "middle" };
     applyCellBorder(c3);
 
-    // Total Marks (sum of obtained across selected assessments)
+    // Per-assessment obtained marks only
     const studentMarks = ctx.marksByStudent.get(st.id) ?? new Map<string, number | null>();
-    let totalObtained = 0;
-    let hasAny = false;
-    assessments.forEach((a) => {
-      const val = studentMarks.get(a.id) ?? null;
-      if (val !== null) {
-        totalObtained += val;
-        hasAny = true;
-      }
-    });
-    const c4 = row.getCell(4);
-    c4.value = hasAny ? totalObtained : "";
-    c4.alignment = { horizontal: "center" };
-    c4.numFmt = "0.##";
-    applyCellBorder(c4);
-
-    // Per-assessment obtained marks
     assessments.forEach((a, i) => {
       const val = studentMarks.get(a.id) ?? null;
-      const cell = row.getCell(5 + i);
+      const cell = row.getCell(4 + i);
       cell.value = val;
       cell.alignment = { horizontal: "center" };
       cell.numFmt = "0.##";
@@ -190,21 +150,17 @@ export function exportMarksSheet(
     });
   });
 
-  // ── Auto-filter on row 4 ──
+  // ── Auto-filter on row 3 ──
   if (ctx.students.length > 0) {
     ws.autoFilter = {
-      from: { row: 4, column: 1 },
-      to: { row: 4, column: TOTAL_COLS },
+      from: { row: 3, column: 1 },
+      to: { row: 3, column: TOTAL_COLS },
     };
   }
 
   download(wb, filename);
 }
 
-/**
- * Single-assessment export (kept for backward compat / quick export).
- * Uses the same marks-sheet layout but with only one assessment column.
- */
 export function exportOneAssessment(
   ctx: ExcelContext,
   assessment: ExcelAssessment,
@@ -220,5 +176,3 @@ export function exportAllAssessments(
 ) {
   exportMarksSheet(ctx, assessments, filename);
 }
-
-export { sanitizeName, download };

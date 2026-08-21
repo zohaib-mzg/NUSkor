@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Profile, TaApplication, CourseSection } from "@/lib/types";
-import { courseSection, one } from "@/lib/utils";
+import { cleanName, courseSection, one } from "@/lib/utils";
 import { currentSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
@@ -160,7 +160,7 @@ export default function TaManagementPage() {
       }
     }
     setBusy(false);
-    success(`${app.full_name ?? app.email} is now a TA.`);
+    success(`${cleanName(app.full_name) || app.email} is now a TA.`);
     load();
   }
 
@@ -218,7 +218,7 @@ export default function TaManagementPage() {
     setBusy(false);
     if (err) return error(err.message);
     success(
-      `${(existing as Profile).full_name ?? email} is now a TA.`
+      `${cleanName((existing as Profile).full_name) || email} is now a TA.`
     );
     setAddOpen(false);
     setAddEmail("");
@@ -335,13 +335,13 @@ export default function TaManagementPage() {
                 className="flex flex-wrap items-center gap-3 bg-white px-5 py-4"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-bold text-gold-deep">
-                  {(a.full_name ?? a.email)
+                  {cleanName(a.full_name || a.email)
                     .charAt(0)
                     .toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-ink">
-                    {a.full_name ?? "Unnamed"}
+                    {cleanName(a.full_name) || "Unnamed"}
                   </p>
                   <p className="truncate text-xs text-ink/50">
                     {a.email} · requested{" "}
@@ -419,7 +419,7 @@ export default function TaManagementPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="font-semibold text-ink">
-                        {ta.profile.full_name ?? "Unnamed"}
+                        {cleanName(ta.profile.full_name) || "Unnamed"}
                       </p>
                       <p className="text-xs text-ink/50">
                         {ta.profile.email}
@@ -465,7 +465,7 @@ export default function TaManagementPage() {
                               setRemoveTarget({
                                 taId: ta.profile.id,
                                 taName:
-                                  ta.profile.full_name ??
+                                  cleanName(ta.profile.full_name) ||
                                   "TA",
                                 sectionLabel: `${a.courseCode} → ${a.sectionCode}`,
                                 assignmentId: a.id,
@@ -492,7 +492,7 @@ export default function TaManagementPage() {
           setAssignTarget(null);
           setAssignSectionId("");
         }}
-        title={`Assign section to ${assignTarget?.profile.full_name ?? "TA"}`}
+        title={`Assign section to ${cleanName(assignTarget?.profile.full_name) || "TA"}`}
       >
         <div className="space-y-4">
           <p className="text-sm text-ink/60">
@@ -595,7 +595,7 @@ export default function TaManagementPage() {
       <Modal
         open={!!rejecting}
         onClose={() => setRejecting(null)}
-        title={`Reject ${rejecting?.full_name ?? rejecting?.email ?? ""}?`}
+        title={`Reject ${cleanName(rejecting?.full_name) || rejecting?.email || ""}?`}
       >
         <div className="space-y-4">
           <div>

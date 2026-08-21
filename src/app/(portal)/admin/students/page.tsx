@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Users, Pencil, Search, BookOpen, Archive, ArchiveRestore } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Student, CourseSection } from "@/lib/types";
-import { cn, one, regNoDisplay } from "@/lib/utils";
+import { cleanName, cn, one, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -60,7 +60,7 @@ export default function StudentsPage() {
     if (statusFilter === "active" && archived) return false;
     if (statusFilter === "archived" && !archived) return false;
     return (
-      (s.profiles?.full_name ?? "").toLowerCase().includes(q) ||
+      cleanName(s.profiles?.full_name).toLowerCase().includes(q) ||
       (s.profiles?.email ?? "").toLowerCase().includes(q) ||
       (s.registration_no ?? "").toLowerCase().includes(q)
     );
@@ -81,7 +81,7 @@ export default function StudentsPage() {
       .eq("id", toArchive.id);
     if (err) return error(err.message);
     success(
-      `"${toArchive.profiles?.full_name ?? "Student"}" deactivated. Marks and history are preserved for auditing.`
+      `"${cleanName(toArchive.profiles?.full_name) || "Student"}" deactivated. Marks and history are preserved for auditing.`
     );
     setToArchive(null);
     load();
@@ -225,11 +225,11 @@ export default function StudentsPage() {
                       <td className="td">
                         <div className="flex items-center gap-3">
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-bold text-gold-deep">
-                            {(s.profiles?.full_name ?? s.profiles?.email ?? "?").charAt(0).toUpperCase()}
+                            {cleanName(s.profiles?.full_name || s.profiles?.email || "?").charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <p className="font-semibold text-ink">
-                              {s.profiles?.full_name ?? "Unnamed student"}
+                              {cleanName(s.profiles?.full_name) || "Unnamed student"}
                             </p>
                             <p className="text-xs text-ink/50">{s.profiles?.email}</p>
                           </div>
@@ -313,7 +313,7 @@ export default function StudentsPage() {
       <Modal
         open={!!editing}
         onClose={() => setEditing(null)}
-        title={`Edit · ${editing?.profiles?.full_name ?? "Student"}`}
+        title={`Edit · ${cleanName(editing?.profiles?.full_name) || "Student"}`}
       >
         {editing && (
           <form onSubmit={saveStudent} className="space-y-4">
@@ -365,7 +365,7 @@ export default function StudentsPage() {
       <Modal
         open={!!enrollStudent}
         onClose={() => setEnrollStudent(null)}
-        title={`Enroll · ${enrollStudent?.profiles?.full_name ?? "Student"}`}
+        title={`Enroll · ${cleanName(enrollStudent?.profiles?.full_name) || "Student"}`}
         wide
       >
         {enrollStudent && (
@@ -426,7 +426,7 @@ export default function StudentsPage() {
         onClose={() => setToArchive(null)}
         onConfirm={archiveStudent}
         title="Are you sure you want to delete this student?"
-        message={`"${toArchive?.profiles?.full_name ?? "This student"}" will be deactivated and removed from all active lists, TA views, bookings and exports. Their marks and academic history are preserved and can be restored by an admin at any time.`}
+        message={`"${cleanName(toArchive?.profiles?.full_name) || "This student"}" will be deactivated and removed from all active lists, TA views, bookings and exports. Their marks and academic history are preserved and can be restored by an admin at any time.`}
         confirmLabel="Deactivate student"
       />
     </div>

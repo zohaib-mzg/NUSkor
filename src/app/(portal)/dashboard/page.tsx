@@ -16,7 +16,7 @@ import type {
   Booking,
   EvaluationPeriod,
 } from "@/lib/types";
-import { cn, formatDate, one, percent } from "@/lib/utils";
+import { cn, cleanName, formatDate, one, percent } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
@@ -62,7 +62,7 @@ export default function StudentDashboard() {
       } = await supabase.auth.getUser();
       if (!user || cancelled) return;
 
-      setName(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "");
+      setName(cleanName(user.user_metadata?.full_name) || user.email?.split("@")[0] || "");
 
       const [annRes, enrollRes, perRes, markRes, bookingRes] =
         await Promise.all([

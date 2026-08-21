@@ -17,7 +17,7 @@ import type {
   EvaluationPeriod,
   SlotWithBookings,
 } from "@/lib/types";
-import { formatDate, one, regNoDisplay } from "@/lib/utils";
+import { cleanName, formatDate, one, regNoDisplay } from "@/lib/utils";
 import { useSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
 import SemesterSelector from "@/components/SemesterSelector";
@@ -731,7 +731,7 @@ const dates: string[] = [];
                       </td>
                       <td className="td">
                         <p className="font-semibold text-ink">
-                          {profile?.full_name ?? "Student"}
+                          {cleanName(profile?.full_name) || "Student"}
                         </p>
                         <p className="text-xs text-ink/50">{profile?.email}</p>
                       </td>

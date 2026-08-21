@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Announcement } from "@/lib/types";
-import { formatDate, one } from "@/lib/utils";
+import { cleanName, formatDate, one } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
@@ -139,13 +139,13 @@ export default function AdminDashboard() {
                 return (
                 <li key={b.id} className="flex flex-wrap items-center gap-3 py-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/15 text-xs font-bold text-gold-deep">
-                    {(profile?.full_name ?? profile?.email ?? "?")
+                    {cleanName(profile?.full_name || profile?.email || "?")
                       .charAt(0)
                       .toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-ink">
-                      {profile?.full_name ?? profile?.email ?? "Student"}
+                      {cleanName(profile?.full_name) || profile?.email || "Student"}
                     </p>
                     <p className="truncate text-xs text-ink/50">
                       {period?.title ?? "Evaluation"} ·{" "}

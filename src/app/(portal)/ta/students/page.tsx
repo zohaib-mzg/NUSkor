@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { CourseSection, Student, StudentInvite } from "@/lib/types";
-import { formatDate, one, regNoDisplay } from "@/lib/utils";
+import { cleanName, formatDate, one, regNoDisplay } from "@/lib/utils";
 import { useSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
 import SemesterSelector from "@/components/SemesterSelector";
@@ -202,7 +202,7 @@ async function copyLink(token: string) {
     const header = ["registration_no", "email", "full_name"];
     const lines = students.map((r) => {
       const st = studentOf(r);
-      return [regNoDisplay(st?.registration_no, st?.profiles?.email), st?.profiles?.email ?? "", (st?.profiles?.full_name ?? "").replace(/"/g, '""')]
+      return [regNoDisplay(st?.registration_no, st?.profiles?.email), st?.profiles?.email ?? "", cleanName(st?.profiles?.full_name).replace(/"/g, '""')]
         .map((v) => `"${v}"`)
         .join(",");
     });
@@ -312,7 +312,7 @@ async function copyLink(token: string) {
                             <tr key={row.id} className="bg-white">
                               <td className="td">
                                 <p className="font-semibold text-ink">
-                                  {st?.profiles?.full_name || "—"}
+                                  {cleanName(st?.profiles?.full_name) || "—"}
                                 </p>
                                 <p className="text-xs text-ink/50">{st?.profiles?.email}</p>
                               </td>
@@ -324,7 +324,7 @@ async function copyLink(token: string) {
                                 {row.invited_by ? (
                                   <>
                                     <p className="text-sm font-medium text-ink/80">
-                                      {row.profiles?.full_name || "—"}
+                                      {cleanName(row.profiles?.full_name) || "—"}
                                     </p>
                                     <p className="text-xs text-ink/45">{row.profiles?.email}</p>
                                   </>

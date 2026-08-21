@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Course, CourseSection, Profile } from "@/lib/types";
-import { one } from "@/lib/utils";
+import { cleanName, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -284,7 +284,7 @@ export default function CoursesPage() {
                               sectionTas.map((t) => (
                                 <span key={t.id} className="inline-flex items-center gap-1 rounded-full bg-ink px-2 py-0.5 text-[11px] font-medium text-white">
                                   <UserRound className="h-3 w-3 text-gold" />
-                                  {t.full_name ?? t.email}
+                                  {cleanName(t.full_name) || t.email}
                                   <button
                                     onClick={() => unassignTa(s.id, t.id)}
                                     className="text-white/50 hover:text-white"
@@ -462,7 +462,7 @@ export default function CoursesPage() {
               <option value="">Select a TA...</option>
               {tas.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.full_name ?? t.email} · {t.email}
+                   {cleanName(t.full_name) || t.email} · {t.email}
                 </option>
               ))}
             </select>

@@ -140,22 +140,10 @@ async function publishNotifications(id: string) {
 async function deleteItem() {
     if (!toDelete) return;
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const { error: err, count } = await supabase
-      .from("announcements")
-      .update(
-        {
-          deleted_at: new Date().toISOString(),
-          deleted_by: user?.id ?? null,
-        },
-        { count: "exact" }
-      )
-      .eq("id", toDelete.id);
+    const { error: err } = await supabase.rpc("soft_delete_announcement", {
+      p_announcement_id: toDelete.id,
+    });
     if (err) return error(err.message);
-    if ((count ?? 0) === 0)
-      return error("You do not have permission to delete this announcement.");
     success("Announcement deleted.");
     setToDelete(null);
     load();

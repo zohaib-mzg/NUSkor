@@ -6,32 +6,23 @@ import {
   Users,
   ShieldCheck,
   BarChart3,
-  ClipboardCheck,
+  BookOpen,
   Clock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cleanName } from "@/lib/utils";
 import { currentSemester } from "@/lib/semester";
+import type { SectionRequest } from "@/lib/types";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
 
-type PendingApp = {
-  id: string;
-  email: string;
-  full_name: string | null;
-  course_code: string | null;
-  semester: string | null;
-  year: number | null;
-  requested_at: string;
-};
-
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [taCount, setTaCount] = useState(0);
   const [sectionCount, setSectionCount] = useState(0);
-  const [pendingApps, setPendingApps] = useState<PendingApp[]>([]);
+  const [pendingReqs, setPendingReqs] = useState<SectionRequest[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +30,7 @@ export default function AdminDashboard() {
       const supabase = createClient();
       const sem = currentSemester();
 
-      const [tasRes, secRes, appsRes] = await Promise.all([
+      const [tasRes, secRes, reqRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("id", { count: "exact", head: true })
@@ -49,17 +40,17 @@ export default function AdminDashboard() {
           .select("id", { count: "exact", head: true })
           .eq("semester", sem),
         supabase
-          .from("ta_applications")
-          .select("id, email, full_name, course_code, semester, year, requested_at")
+          .from("section_requests")
+          .select("*, profiles:ta_id(full_name, email)")
           .eq("status", "pending")
-          .order("requested_at", { ascending: false })
+          .order("created_at", { ascending: false })
           .limit(5),
       ]);
 
       if (cancelled) return;
       setTaCount(tasRes.count ?? 0);
       setSectionCount(secRes.count ?? 0);
-      setPendingApps((appsRes.data ?? []) as PendingApp[]);
+      setPendingReqs((reqRes.data ?? []) as unknown as SectionRequest[]);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -77,12 +68,11 @@ export default function AdminDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard icon={Users} label="Active TAs" value={taCount} accent="gold" />
-        <StatCard icon={ClipboardCheck} label="Sections (this semester)" value={sectionCount} />
-        <StatCard icon={Clock} label="Pending applications" value={pendingApps.length} accent="gold" />
+        <StatCard icon={BookOpen} label="Sections (this semester)" value={sectionCount} />
+        <StatCard icon={Clock} label="Pending requests" value={pendingReqs.length} accent="gold" />
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        {/* Quick links */}
         <section className="card p-6">
           <h2 className="mb-4 font-bold text-ink">Quick actions</h2>
           <div className="space-y-3">
@@ -98,7 +88,7 @@ export default function AdminDashboard() {
                   TA Management
                 </p>
                 <p className="text-xs text-ink/50">
-                  Approve applications, assign sections, or assign yourself
+                  Review section requests, manage TAs
                 </p>
               </div>
             </Link>
@@ -121,35 +111,36 @@ export default function AdminDashboard() {
           </div>
         </section>
 
-        {/* Pending applications */}
         <section className="card p-6">
-          <h2 className="mb-4 font-bold text-ink">Pending applications</h2>
-          {pendingApps.length === 0 ? (
+          <h2 className="mb-4 font-bold text-ink">Pending section requests</h2>
+          {pendingReqs.length === 0 ? (
             <EmptyState
-              title="No pending applications"
-              description="When someone applies for TA access, their request shows up here."
+              title="No pending requests"
+              description="When a TA requests a new section, it shows up here."
             />
           ) : (
             <ul className="divide-y divide-black/[0.05]">
-              {pendingApps.map((a) => (
-                <li key={a.id} className="flex items-center gap-3 py-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-bold text-gold-deep">
-                    {cleanName(a.full_name || a.email).charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-ink">
-                      {cleanName(a.full_name) || "Unnamed"}
-                    </p>
-                    <p className="truncate text-xs text-ink/50">
-                      {a.course_code ? `${a.course_code} · ` : ""}
-                      {a.semester} {a.year} · {a.email}
-                    </p>
-                  </div>
-                </li>
-              ))}
+              {pendingReqs.map((r) => {
+                const taProfile = r.profiles as { full_name?: string | null; email?: string } | null;
+                return (
+                  <li key={r.id} className="flex items-center gap-3 py-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-bold text-gold-deep">
+                      {cleanName(taProfile?.full_name || taProfile?.email || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-ink">
+                        {cleanName(taProfile?.full_name) || "Unnamed"}
+                      </p>
+                      <p className="truncate text-xs text-ink/50">
+                        {r.course_code} — {r.course_name}, Section {r.section_code} · {r.semester} {r.year}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
-          {pendingApps.length > 0 && (
+          {pendingReqs.length > 0 && (
             <Link
               href="/admin/tas"
               className="mt-3 block text-center text-xs font-semibold text-gold-deep hover:underline"

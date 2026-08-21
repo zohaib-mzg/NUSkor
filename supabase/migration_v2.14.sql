@@ -74,7 +74,7 @@ create policy "section_requests_admin_all" on public.section_requests
   );
 
 -- ---------- 2. APPROVE SECTION REQUEST ----------
--- Creates course (if new), creates section, assigns TA — all in one SECURITY DEFINER call.
+-- Creates course (if new), creates section, assigns TA, upgrades role — all in one call.
 create or replace function public.approve_section_request(p_request_id uuid)
 returns void
 language plpgsql security definer
@@ -92,6 +92,9 @@ begin
   if not found then
     raise exception 'Request not found or already processed';
   end if;
+
+  -- Upgrade requester to TA role
+  update profiles set role = 'ta' where id = req.ta_id and role != 'ta';
 
   -- Find or create course
   select id into v_course_id from courses where code = upper(req.course_code);

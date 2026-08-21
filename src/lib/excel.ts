@@ -25,44 +25,32 @@ export interface ExcelContext {
   marksByStudent: Map<string, Map<string, number | null>>;
 }
 
-const HEADER_FILL = { type: "pattern", pattern: "solid", fgColor: { argb: "F5EFD9" } } as const;
-const HEADER_FONT = { bold: true, color: { argb: "1A1A1A" } } as const;
-const TITLE_FONT = { bold: true, size: 14, color: { argb: "1A1A1A" } } as const;
-
-function sheetHeader(ws: ExcelJS.Worksheet, headers: string[]) {
-  ws.addRow(headers);
-  ws.getRow(1).eachCell((cell) => {
-    cell.font = HEADER_FONT;
-    cell.fill = HEADER_FILL;
-    cell.alignment = { vertical: "middle" };
-    cell.border = {
-      bottom: { style: "medium", color: { argb: "B8860B" } },
-    };
-  });
-  ws.views = [{ state: "frozen", ySplit: 1 }];
-  ws.autoFilter = {
-    from: { row: 1, column: 1 },
-    to: { row: 1, column: headers.length },
-  };
-}
-
-function fitColumns(ws: ExcelJS.Worksheet, widths: number[]) {
-  ws.columns = widths.map((width) => ({ width }));
-}
-
-function percentCell(ws: ExcelJS.Worksheet, row: number, col: number, fraction: number | null) {
-  const cell = ws.getCell(row, col);
-  if (fraction === null) {
-    cell.value = "";
-  } else {
-    cell.value = fraction;
-    cell.numFmt = "0.00%";
-  }
-  return cell;
-}
+const HEADER_FILL: ExcelJS.Fill = {
+  type: "pattern",
+  pattern: "solid",
+  fgColor: { argb: "F5EFD9" },
+};
+const HEADER_FONT: Partial<ExcelJS.Font> = {
+  bold: true,
+  color: { argb: "1A1A1A" },
+};
+const ASSESSMENT_FONT: Partial<ExcelJS.Font> = {
+  bold: true,
+  size: 11,
+  color: { argb: "1A1A1A" },
+};
 
 function sanitizeName(s: string) {
   return s.replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "_");
+}
+
+function applyCellBorder(cell: ExcelJS.Cell) {
+  cell.border = {
+    top: { style: "thin", color: { argb: "D0D0D0" } },
+    bottom: { style: "thin", color: { argb: "D0D0D0" } },
+    left: { style: "thin", color: { argb: "D0D0D0" } },
+    right: { style: "thin", color: { argb: "D0D0D0" } },
+  };
 }
 
 function download(workbook: ExcelJS.Workbook, filename: string) {
@@ -79,73 +67,150 @@ function download(workbook: ExcelJS.Workbook, filename: string) {
   });
 }
 
-function addSummarySheet(
-  wb: ExcelJS.Workbook,
+/**
+ * New marks-sheet format:
+ *   Rows 1–2: empty
+ *   Row 3:    assessment codes/names (above their columns)
+ *   Row 4:    Sr. No. | Roll No | Name | Total Marks | [max marks per assessment] …
+ *   Row 5+:   student data
+ */
+export function exportMarksSheet(
   ctx: ExcelContext,
-  assessments: ExcelAssessment[]
+  assessments: ExcelAssessment[],
+  filename: string
 ) {
-  const ws = wb.addWorksheet("Summary");
-  ws.getCell("A1").value = "NUSkor - Section Marks Export";
-  ws.getCell("A1").font = TITLE_FONT;
-  ws.mergeCells("A1:B1");
-  ws.getCell("A3").value = "Course";
-  ws.getCell("A4").value = "Course Code";
-  ws.getCell("A5").value = "Section";
-  ws.getCell("A6").value = "Number of Students";
-  ws.getCell("A7").value = "Number of Assessments";
-  ws.getCell("A8").value = "Generated Date";
-  for (let r = 3; r <= 8; r++) ws.getCell(r, 1).font = { bold: true };
-  ws.getCell("B3").value = ctx.courseTitle;
-  ws.getCell("B4").value = ctx.courseCode;
-  ws.getCell("B5").value = ctx.sectionCode;
-  ws.getCell("B6").value = ctx.students.length;
-  ws.getCell("B7").value = assessments.length;
-  ws.getCell("B8").value = new Date();
-  ws.getCell("B8").numFmt = "yyyy-mm-dd hh:mm";
-  fitColumns(ws, [22, 60]);
+  if (assessments.length === 0) return;
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Marks");
+
+  // ── Column layout ──
+  // A = Sr. No., B = Roll No, C = Name, D = Total Marks, E… = assessments
+  const TOTAL_COLS = 4 + assessments.length;
+
+  // ── Row 1 & 2: empty (leave blank) ──
+
+  // ── Row 3: assessment names ──
+  const r3 = ws.getRow(3);
+  // cells A–D on row 3 stay empty
+  assessments.forEach((a, i) => {
+    const cell = r3.getCell(5 + i);
+    cell.value = a.title;
+    cell.font = ASSESSMENT_FONT;
+    cell.alignment = { horizontal: "center", vertical: "middle" };
+    applyCellBorder(cell);
+  });
+  r3.height = 22;
+
+  // ── Row 4: column headers + max marks ──
+  const r4 = ws.getRow(4);
+  const headers = ["Sr. No.", "Roll No", "Name", "Total Marks"];
+  headers.forEach((h, i) => {
+    const cell = r4.getCell(i + 1);
+    cell.value = h;
+    cell.font = HEADER_FONT;
+    cell.fill = HEADER_FILL;
+    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    applyCellBorder(cell);
+  });
+
+  // For each assessment column, show max marks
+  assessments.forEach((a, i) => {
+    const cell = r4.getCell(5 + i);
+    cell.value = a.total_marks;
+    cell.font = HEADER_FONT;
+    cell.fill = HEADER_FILL;
+    cell.alignment = { horizontal: "center", vertical: "middle" };
+    cell.numFmt = "0.##";
+    applyCellBorder(cell);
+  });
+  r4.height = 20;
+
+  // ── Column widths ──
+  const colWidths: number[] = [
+    8,    // Sr. No.
+    16,   // Roll No
+    28,   // Name
+    12,   // Total Marks
+    ...assessments.map(() => 12),
+  ];
+  ws.columns = colWidths.map((w) => ({ width: w }));
+
+  // ── Freeze: freeze rows 3–4 so headers stay visible when scrolling ──
+  ws.views = [{ state: "frozen", ySplit: 4 }];
+
+  // ── Student data (row 5+) ──
+  ctx.students.forEach((st, idx) => {
+    const rowNum = 5 + idx;
+    const row = ws.getRow(rowNum);
+
+    // Sr. No.
+    const c1 = row.getCell(1);
+    c1.value = idx + 1;
+    c1.alignment = { horizontal: "center" };
+    applyCellBorder(c1);
+
+    // Roll No
+    const c2 = row.getCell(2);
+    c2.value = st.registration_no ?? "";
+    c2.alignment = { horizontal: "center" };
+    applyCellBorder(c2);
+
+    // Name
+    const c3 = row.getCell(3);
+    c3.value = st.full_name ?? "";
+    c3.alignment = { horizontal: "left", vertical: "middle" };
+    applyCellBorder(c3);
+
+    // Total Marks (sum of obtained across selected assessments)
+    const studentMarks = ctx.marksByStudent.get(st.id) ?? new Map<string, number | null>();
+    let totalObtained = 0;
+    let hasAny = false;
+    assessments.forEach((a) => {
+      const val = studentMarks.get(a.id) ?? null;
+      if (val !== null) {
+        totalObtained += val;
+        hasAny = true;
+      }
+    });
+    const c4 = row.getCell(4);
+    c4.value = hasAny ? totalObtained : "";
+    c4.alignment = { horizontal: "center" };
+    c4.numFmt = "0.##";
+    applyCellBorder(c4);
+
+    // Per-assessment obtained marks
+    assessments.forEach((a, i) => {
+      const val = studentMarks.get(a.id) ?? null;
+      const cell = row.getCell(5 + i);
+      cell.value = val;
+      cell.alignment = { horizontal: "center" };
+      cell.numFmt = "0.##";
+      applyCellBorder(cell);
+    });
+  });
+
+  // ── Auto-filter on row 4 ──
+  if (ctx.students.length > 0) {
+    ws.autoFilter = {
+      from: { row: 4, column: 1 },
+      to: { row: 4, column: TOTAL_COLS },
+    };
+  }
+
+  download(wb, filename);
 }
 
+/**
+ * Single-assessment export (kept for backward compat / quick export).
+ * Uses the same marks-sheet layout but with only one assessment column.
+ */
 export function exportOneAssessment(
   ctx: ExcelContext,
   assessment: ExcelAssessment,
   filename: string
 ) {
-  const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet(sanitizeName(assessment.title).slice(0, 28) || "Assessment");
-
-  sheetHeader(ws, [
-    "Registration Number",
-    "Student Name",
-    "Assessment",
-    "Obtained Marks",
-    "Maximum Marks",
-    "Percentage",
-    "Weightage",
-    "Weighted Marks",
-  ]);
-  fitColumns(ws, [20, 26, 26, 14, 14, 14, 12, 15]);
-
-  ctx.students.forEach((st, i) => {
-    const row = i + 2;
-    const obtained = ctx.marksByStudent.get(st.id)?.get(assessment.id) ?? null;
-    const fraction = obtained === null ? null : obtained / assessment.total_marks;
-    const weighted = fraction === null ? null : fraction * assessment.weightage;
-    ws.getCell(row, 1).value = st.registration_no ?? "";
-    ws.getCell(row, 2).value = st.full_name ?? "";
-    ws.getCell(row, 3).value = assessment.title;
-    ws.getCell(row, 4).value = obtained;
-    ws.getCell(row, 5).value = assessment.total_marks;
-    percentCell(ws, row, 6, fraction);
-    ws.getCell(row, 7).value = assessment.weightage;
-    ws.getCell(row, 7).numFmt = "0.0";
-    const w = ws.getCell(row, 8);
-    if (weighted !== null) {
-      w.value = weighted;
-      w.numFmt = "0.00";
-    }
-  });
-
-  download(wb, filename);
+  exportMarksSheet(ctx, [assessment], filename);
 }
 
 export function exportAllAssessments(
@@ -153,80 +218,7 @@ export function exportAllAssessments(
   assessments: ExcelAssessment[],
   filename: string
 ) {
-  const wb = new ExcelJS.Workbook();
-  addSummarySheet(wb, ctx, assessments);
-
-  const chunks: ExcelAssessment[][] = [];
-  for (let i = 0; i < assessments.length; i += 6) {
-    chunks.push(assessments.slice(i, i + 6));
-  }
-  if (chunks.length === 0) chunks.push([]);
-
-  chunks.forEach((chunk, ci) => {
-    const ws = wb.addWorksheet(chunks.length === 1 ? "All Marks" : `All Marks ${ci + 1}`);
-    const headers = ["Registration Number", "Student Name"];
-    chunk.forEach((a) => {
-      headers.push(
-        a.title,
-        `${a.title} Total`,
-        `${a.title} %`,
-        `${a.title} Weight`,
-        `${a.title} Weighted`
-      );
-    });
-    sheetHeader(ws, headers);
-    fitColumns(ws, [
-      20,
-      26,
-      ...chunk.flatMap(() => [26, 14, 14, 12, 15]),
-    ]);
-
-    ctx.students.forEach((st, i) => {
-      const row = i + 2;
-      ws.getCell(row, 1).value = st.registration_no ?? "";
-      ws.getCell(row, 2).value = st.full_name ?? "";
-      const marks = ctx.marksByStudent.get(st.id) ?? new Map<string, number | null>();
-      chunk.forEach((a, ai) => {
-        const base = 3 + ai * 5;
-        const obtained = marks.get(a.id) ?? null;
-        const fraction = obtained === null ? null : obtained / a.total_marks;
-        const weighted = fraction === null ? null : fraction * a.weightage;
-        ws.getCell(row, base).value = obtained;
-        ws.getCell(row, base + 1).value = a.total_marks;
-        percentCell(ws, row, base + 2, fraction);
-        ws.getCell(row, base + 3).value = a.weightage;
-        ws.getCell(row, base + 3).numFmt = "0.0";
-        const w = ws.getCell(row, base + 4);
-        if (weighted !== null) {
-          w.value = weighted;
-          w.numFmt = "0.00";
-        }
-      });
-    });
-  });
-
-  const details = wb.addWorksheet("Assessment Details");
-  sheetHeader(details, [
-    "Assessment",
-    "Type",
-    "Maximum Marks",
-    "Weightage",
-    "Status",
-    "Release Date",
-  ]);
-  fitColumns(details, [30, 14, 14, 12, 12, 14]);
-  assessments.forEach((a, i) => {
-    const row = i + 2;
-    details.getCell(row, 1).value = a.title;
-    details.getCell(row, 2).value = a.type;
-    details.getCell(row, 3).value = a.total_marks;
-    details.getCell(row, 4).value = a.weightage;
-    details.getCell(row, 4).numFmt = "0.0";
-    details.getCell(row, 5).value = a.status;
-    details.getCell(row, 6).value = a.release_date ?? "";
-  });
-
-  download(wb, filename);
+  exportMarksSheet(ctx, assessments, filename);
 }
 
 export { sanitizeName, download };

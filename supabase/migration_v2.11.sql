@@ -33,9 +33,15 @@ where s.id = p.id and p.role <> 'student';
 create or replace function public.assert_student_account()
 returns trigger as $$
 declare
+  v_id uuid;
   v_role text;
 begin
-  select role into v_role from public.profiles where id = coalesce(new.id, new.student_id);
+  if tg_table_name = 'students' then
+    v_id := new.id;
+  else
+    v_id := new.student_id;
+  end if;
+  select role into v_role from public.profiles where id = v_id;
   if coalesce(v_role, '') <> 'student' then
     -- Silently skip (returning NULL cancels the row) so legacy
     -- auto-register flows can never create TA/admin student rows.

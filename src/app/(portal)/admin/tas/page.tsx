@@ -309,13 +309,9 @@ export default function TaManagementPage() {
     if (!revokeTarget) return;
     setBusy(true);
     const supabase = createClient();
-    // Remove all section assignments
-    await supabase.from("section_tas").delete().eq("ta_id", revokeTarget.taId);
-    // Downgrade role to student
-    const { error: err } = await supabase
-      .from("profiles")
-      .update({ role: "student" })
-      .eq("id", revokeTarget.taId);
+    const { error: err } = await supabase.rpc("revoke_ta", {
+      p_ta_id: revokeTarget.taId,
+    });
     setBusy(false);
     setRevokeTarget(null);
     if (err) return error(err.message);

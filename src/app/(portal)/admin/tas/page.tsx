@@ -14,7 +14,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { Profile, TaApplication, CourseSection } from "@/lib/types";
 import { cleanName, courseSection, one } from "@/lib/utils";
-import { currentSemester } from "@/lib/semester";
+import { currentSemester, semesterOptions } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -41,6 +41,7 @@ export default function TaManagementPage() {
   const [taList, setTaList] = useState<TaWithSections[]>([]);
   const [sections, setSections] = useState<CourseSection[]>([]);
   const [semester, setSemester] = useState(currentSemester());
+  const [histSems, setHistSems] = useState<string[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [addEmail, setAddEmail] = useState("");
   const [rejecting, setRejecting] = useState<TaApplication | null>(null);
@@ -58,7 +59,7 @@ export default function TaManagementPage() {
   const load = useCallback(async () => {
     const supabase = createClient();
 
-    const [appRes, profileRes, stRes, secRes] = await Promise.all([
+    const [appRes, profileRes, stRes, secRes, semRes] = await Promise.all([
       supabase
         .from("ta_applications")
         .select("*")
@@ -73,6 +74,9 @@ export default function TaManagementPage() {
         .from("course_sections")
         .select("id, section_code, course:courses(code), semester")
         .eq("status", "active"),
+      supabase
+        .from("section_tas")
+        .select("semester"),
     ]);
     setLoading(false);
 
@@ -123,6 +127,13 @@ export default function TaManagementPage() {
     });
 
     setTaList(taWithSections);
+
+    // Extract distinct semesters for dropdown
+    const sems = new Set<string>();
+    (semRes.data ?? []).forEach((r: { semester: string }) => {
+      if (r.semester) sems.add(r.semester);
+    });
+    setHistSems(Array.from(sems));
   }, []);
 
   useEffect(() => {
@@ -277,25 +288,7 @@ export default function TaManagementPage() {
 
   const pending = applications.filter((a) => a.status === "pending");
 
-  // Semester options (current + 1 forward + 1 back)
-  const semesterOptions = (() => {
-    const now = new Date();
-    const months = now.getMonth();
-    const year = now.getFullYear();
-    const terms: [string, number][] = [
-      ["Spring", 0],
-      ["Summer", 4],
-      ["Fall", 7],
-    ];
-    const current = terms.findIndex(
-      ([, m]) => months >= m && months < (terms[terms.indexOf(terms.find(([n]) => n === (months >= 7 || months <= 0 ? "Fall" : months <= 4 ? "Spring" : "Summer"))!)][1] ?? 12)
-    );
-    return [-1, 0, 1].map((offset) => {
-      const idx = ((current + offset) % 3 + 3) % 3;
-      const yr = year + (current + offset < 0 ? -1 : current + offset >= 3 ? 1 : 0);
-      return `${terms[idx][0]} ${yr}`;
-    });
-  })();
+  const options = semesterOptions(histSems);
 
   return (
     <div>
@@ -382,7 +375,7 @@ export default function TaManagementPage() {
           value={semester}
           onChange={(e) => setSemester(e.target.value)}
         >
-          {semesterOptions.map((s) => (
+          {options.map((s) => (
             <option key={s} value={s}>
               {s}
             </option>

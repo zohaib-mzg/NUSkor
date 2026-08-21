@@ -307,7 +307,7 @@ export default function TaManagementPage() {
       setBusy(false);
       return error(err.message);
     }
-    success(`Section request for ${req.course_code} approved. Assign the TA from the section list below.`);
+    success(`Section request for ${req.course_name} approved. Assign the TA from the section list below.`);
     setBusy(false);
     load();
   }
@@ -439,7 +439,7 @@ export default function TaManagementPage() {
                       {cleanName(taProfile?.full_name) || taProfile?.email || "TA"}
                     </p>
                     <p className="text-xs text-ink/50">
-                      Wants <span className="font-semibold text-ink">{r.course_code}</span> · {r.semester} {r.year}
+                      Wants <span className="font-semibold text-ink">{r.course_name}</span> · {r.semester} {r.year}
                       {r.notes && <span className="italic text-ink/40"> — {r.notes}</span>}
                     </p>
                   </div>

@@ -8,7 +8,7 @@
 create table if not exists public.section_requests (
   id uuid default gen_random_uuid() primary key,
   ta_id uuid not null references auth.users(id) on delete cascade,
-  course_code text not null,
+  course_name text not null,
   semester text not null,
   year integer not null,
   notes text,
@@ -51,21 +51,18 @@ begin
   delete from marks where student_id = uid;
   delete from enrollments where student_id = uid;
   delete from bookings where student_id = uid;
-  delete from notification_settings where user_id = uid;
+  delete from user_notification_settings where user_id = uid;
   delete from notifications where user_id = uid;
   delete from push_subscriptions where user_id = uid;
   delete from section_tas where ta_id = uid;
   delete from section_requests where ta_id = uid;
   delete from ta_applications where user_id = uid;
 
-  -- Delete profile (cascades to auth.users via FK if set up,
-  -- otherwise we just remove the profile row)
+  -- Delete profile
   delete from profiles where id = uid;
 
-  -- Delete the auth user
-  -- Note: This requires service_role key or a DB function with
-  -- sufficient privileges. If RLS blocks it, the profile deletion
-  -- is sufficient for practical purposes.
+  -- Note: auth user deletion requires service_role.
+  -- Profile deletion is sufficient for practical purposes.
 end;
 $$;
 

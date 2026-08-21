@@ -6,6 +6,9 @@ import { cleanName } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+const ADMIN_EMAIL =
+  (process.env.ADMIN_EMAIL ?? "").toLowerCase() || "l242530@lhr.nu.edu.pk";
+
 export default async function PortalLayout({
   children,
 }: {
@@ -26,8 +29,19 @@ export default async function PortalLayout({
 
   if (!profile) redirect("/login");
 
+  // Force admin role if email matches — belt-and-suspenders fix
+  // for when the callback didn't set it properly (e.g. prior TA role)
+  let role = profile.role as string;
+  const email = (profile.email ?? "").toLowerCase();
+  if (email === ADMIN_EMAIL && role !== "admin") {
+    role = "admin";
+    await supabase
+      .from("profiles")
+      .upsert({ id: user.id, role: "admin" }, { onConflict: "id" });
+  }
+
   // Students must have a student account (created via a TA invitation).
-  if (profile.role === "student") {
+  if (role === "student") {
     const { data: studentRow } = await supabase
       .from("students")
       .select("id")
@@ -38,7 +52,7 @@ export default async function PortalLayout({
 
   // Check if admin is also a TA (has section_tas assignments)
   let isAlsoTa = false;
-  if (profile.role === "admin") {
+  if (role === "admin") {
     const { data: taRow } = await supabase
       .from("section_tas")
       .select("id")
@@ -53,7 +67,7 @@ export default async function PortalLayout({
       <PortalShell
         email={profile.email}
         displayName={cleanName(profile.full_name) || profile.email.split("@")[0]}
-        role={profile.role}
+        role={role as "admin" | "ta" | "student"}
         isAlsoTa={isAlsoTa}
       >
         {children}

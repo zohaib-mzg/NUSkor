@@ -20,12 +20,18 @@ interface SectionSummary {
   studentCount: number;
 }
 
+interface CourseOption {
+  code: string;
+  title: string;
+}
+
 export default function TaSectionsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
   const [semester] = useSemester();
   const [sections, setSections] = useState<SectionSummary[]>([]);
   const [pendingRequests, setPendingRequests] = useState<SectionRequest[]>([]);
+  const [courses, setCourses] = useState<CourseOption[]>([]);
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestBusy, setRequestBusy] = useState(false);
 
@@ -46,7 +52,7 @@ export default function TaSectionsPage() {
       } = await supabase.auth.getUser();
       if (!user || cancelled) return;
 
-      const [stRes, taRes, enRes, reqRes] = await Promise.all([
+      const [stRes, taRes, enRes, reqRes, courseRes] = await Promise.all([
         supabase
           .from("section_tas")
           .select("section_id, section:course_sections(*, course:courses(code, title))")
@@ -60,6 +66,11 @@ export default function TaSectionsPage() {
           .eq("ta_id", user.id)
           .eq("status", "pending")
           .order("created_at", { ascending: false }),
+        supabase
+          .from("courses")
+          .select("code, title")
+          .eq("is_archived", false)
+          .order("code"),
       ]);
       if (cancelled) return;
 
@@ -92,6 +103,7 @@ export default function TaSectionsPage() {
           .filter((s): s is SectionSummary => s !== null)
       );
       setPendingRequests((reqRes.data ?? []) as SectionRequest[]);
+      setCourses((courseRes.data ?? []) as CourseOption[]);
       setLoading(false);
     }
     load().finally(() => !cancelled && setLoading(false));
@@ -111,7 +123,7 @@ export default function TaSectionsPage() {
 
     const { error: err } = await supabase.from("section_requests").insert({
       ta_id: user.id,
-      course_code: reqCourse.trim().toUpperCase(),
+      course_name: reqCourse.trim(),
       semester: reqSemester,
       year: reqYear,
       notes: reqNotes.trim() || null,
@@ -145,7 +157,6 @@ export default function TaSectionsPage() {
         }
       />
 
-      {/* Pending requests */}
       {pendingRequests.length > 0 && (
         <div className="card mb-6 border-gold/30 bg-gold/5 p-4">
           <p className="mb-2 text-xs font-bold uppercase tracking-widest text-gold-deep">
@@ -159,7 +170,7 @@ export default function TaSectionsPage() {
               >
                 <Badge tone="gold">Pending</Badge>
                 <span className="font-semibold text-ink">
-                  {r.course_code}
+                  {r.course_name}
                 </span>
                 <span className="text-ink/50">
                   {r.semester} {r.year}
@@ -214,7 +225,6 @@ export default function TaSectionsPage() {
         </div>
       )}
 
-      {/* Request section modal */}
       <Modal
         open={requestOpen}
         onClose={() => setRequestOpen(false)}
@@ -222,19 +232,24 @@ export default function TaSectionsPage() {
       >
         <div className="space-y-4">
           <p className="text-sm text-ink/55">
-            Tell us which course you want to be assigned to. An admin will review
+            Select the course you want to be assigned to. An admin will review
             your request and assign you to a section.
           </p>
           <div>
-            <label className="label">Course code</label>
-            <input
+            <label className="label">Course</label>
+            <select
               className="input"
-              type="text"
-              placeholder="e.g. EE2003, CS200"
               value={reqCourse}
               onChange={(e) => setReqCourse(e.target.value)}
               required
-            />
+            >
+              <option value="">Select a course…</option>
+              {courses.map((c) => (
+                <option key={c.code} value={`${c.code} — ${c.title}`}>
+                  {c.code} — {c.title}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

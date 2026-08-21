@@ -47,6 +47,7 @@ const taNav: NavItem[] = [
   { href: "/ta/marks", label: "Marks", icon: <Star className="h-[18px] w-[18px]" />, match: ["/ta/marks"] },
   { href: "/ta/evaluations", label: "Evaluation Periods", icon: <CalendarClock className="h-[18px] w-[18px]" />, match: ["/ta/evaluations"] },
   { href: "/ta/announcements", label: "Announcements", icon: <Megaphone className="h-[18px] w-[18px]" />, match: ["/ta/announcements"] },
+  { href: "/settings", label: "Settings", icon: <Settings className="h-[18px] w-[18px]" />, match: ["/settings"] },
 ];
 
 const adminNav: NavItem[] = [

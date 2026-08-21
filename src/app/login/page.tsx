@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Users, GraduationCap, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Users, GraduationCap, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -12,7 +12,7 @@ function LoginContent() {
   const [busy, setBusy] = useState(false);
   const params = useSearchParams();
   const error = params.get("error");
-  const flow = (params.get("flow") ?? "student") as "student" | "ta" | "admin";
+  const flow = (params.get("flow") ?? "student") as "student" | "ta";
 
   async function signInWithGoogle() {
     setBusy(true);
@@ -45,13 +45,6 @@ function LoginContent() {
       desc: "Manage sections, students, marks, and evaluations. Requires admin approval.",
       buttonLabel: "Continue with Google",
       buttonClass: "btn-primary",
-    },
-    admin: {
-      icon: <ShieldCheck className="h-6 w-6" />,
-      title: "Admin Login",
-      desc: "Manage TAs and view section analytics.",
-      buttonLabel: "Sign in as Admin",
-      buttonClass: "btn-dark",
     },
   }[flow];
 
@@ -96,9 +89,7 @@ function LoginContent() {
             disabled={busy}
             className={`${config.buttonClass} w-full gap-3 py-3`}
           >
-            {flow === "admin" ? (
-              <ShieldCheck className="h-4 w-4" />
-            ) : flow === "ta" ? (
+            {flow === "ta" ? (
               <Users className="h-4 w-4" />
             ) : (
               <GoogleIcon />
@@ -119,13 +110,6 @@ function LoginContent() {
             </p>
           )}
 
-          {flow === "admin" && (
-            <p className="mt-5 text-center text-xs leading-relaxed text-ink/45">
-              Admin accounts are pre-configured. Contact the developer if you
-              need access.
-            </p>
-          )}
-
           {/* Flow switcher */}
           <div className="mt-6 flex items-center justify-center gap-4 text-xs text-ink/40">
             {flow !== "student" && (
@@ -138,11 +122,9 @@ function LoginContent() {
                 Login as TA
               </Link>
             )}
-            {flow !== "admin" && (
-              <Link href="/login?flow=admin" className="hover:text-ink/70">
-                Admin
-              </Link>
-            )}
+            <Link href="/admin/login" className="hover:text-ink/70">
+              Admin
+            </Link>
           </div>
         </div>
       </main>

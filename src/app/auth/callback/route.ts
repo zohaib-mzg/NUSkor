@@ -2,9 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { type NextRequest } from "next/server";
 
-const ADMIN_EMAIL =
-  (process.env.ADMIN_EMAIL ?? "").toLowerCase() || "l242530@lhr.nu.edu.pk";
-
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
@@ -20,19 +17,6 @@ export async function GET(request: NextRequest) {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
-        const email = user.email?.toLowerCase() ?? "";
-
-        // ── Admin flow: only ADMIN_EMAIL gets admin role ──
-        if (flow === "admin") {
-          if (email === ADMIN_EMAIL) {
-            await supabase
-              .from("profiles")
-              .upsert({ id: user.id, email, role: "admin", full_name: user.user_metadata?.full_name ?? null }, { onConflict: "id" });
-            return NextResponse.redirect(forwardedRedirect(request, origin, "/admin", next));
-          }
-          // Not admin email — fall through to student redirect
-        }
-
         // ── TA flow: everyone goes through TA application ──
         if (flow === "ta") {
           const { data: profile } = await supabase
@@ -47,6 +31,7 @@ export async function GET(request: NextRequest) {
             // fall through to default redirect
           } else {
             // Record TA application
+            const email = user.email?.toLowerCase() ?? "";
             const { data: existing } = await supabase
               .from("ta_applications")
               .select("id, status")

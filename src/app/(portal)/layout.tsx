@@ -6,8 +6,7 @@ import { cleanName } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-const ADMIN_EMAIL =
-  (process.env.ADMIN_EMAIL ?? "").toLowerCase() || "l242530@lhr.nu.edu.pk";
+const ADMIN_EMAIL = "adminmzg@gmail.com";
 
 export default async function PortalLayout({
   children,

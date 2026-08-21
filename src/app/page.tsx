@@ -100,7 +100,7 @@ export default function LandingPage() {
               Login as TA
             </Link>
             <Link
-              href="/login?flow=admin"
+              href="/admin/login"
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-xs font-medium text-ink/35 transition-colors hover:border-gold/40 hover:text-ink/60"
             >
               <ShieldCheck className="h-3.5 w-3.5" />

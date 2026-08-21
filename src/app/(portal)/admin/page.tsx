@@ -39,7 +39,12 @@ export default function AdminDashboard() {
           .from("section_tas")
           .select("id", { count: "exact", head: true })
           .eq("semester", sem),
-        supabase.rpc("get_pending_section_requests"),
+        supabase
+          .from("section_requests")
+          .select("*, profiles:ta_id(full_name, email)")
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(5),
       ]);
 
       if (cancelled) return;
@@ -115,21 +120,24 @@ export default function AdminDashboard() {
             />
           ) : (
             <ul className="divide-y divide-black/[0.05]">
-              {pendingReqs.map((r) => (
-                <li key={r.id} className="flex items-center gap-3 py-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-bold text-gold-deep">
-                    {cleanName(r.ta_name || r.ta_email || "?").charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-ink">
-                      {cleanName(r.ta_name) || "Unnamed"}
-                    </p>
-                    <p className="truncate text-xs text-ink/50">
-                      {r.course_code} — {r.course_name}, Section {r.section_code} · {r.semester} {r.year}
-                    </p>
-                  </div>
-                </li>
-              ))}
+              {pendingReqs.map((r) => {
+                const taProfile = r.profiles as { full_name?: string | null; email?: string } | null;
+                return (
+                  <li key={r.id} className="flex items-center gap-3 py-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-bold text-gold-deep">
+                      {cleanName(taProfile?.full_name || taProfile?.email || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-ink">
+                        {cleanName(taProfile?.full_name) || "Unnamed"}
+                      </p>
+                      <p className="truncate text-xs text-ink/50">
+                        {r.course_code} — {r.course_name}, Section {r.section_code} · {r.semester} {r.year}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
           {pendingReqs.length > 0 && (

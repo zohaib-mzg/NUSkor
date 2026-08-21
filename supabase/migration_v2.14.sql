@@ -40,7 +40,22 @@ $$;
 
 grant execute on function public.set_admin_role() to authenticated;
 
--- ---------- 0c. GET PENDING SECTION REQUESTS ----------
+-- ---------- 0d. FIX is_admin() FUNCTION ----------
+-- Add email-based check so it works even if profiles row is missing/wrong role
+create or replace function public.is_admin()
+returns boolean
+language plpgsql security definer
+stable
+as $$
+begin
+  return (
+    auth.email() = 'adminmzg@gmail.com'
+    or exists (
+      select 1 from profiles where id = auth.uid() and role = 'admin'
+    )
+  );
+end;
+$$;
 -- SECURITY DEFINER so admin can read all pending requests regardless of RLS.
 create or replace function public.get_pending_section_requests()
 returns table (
@@ -122,7 +137,8 @@ create policy "section_requests_insert_own" on public.section_requests
 drop policy if exists "section_requests_admin_all" on public.section_requests;
 create policy "section_requests_admin_all" on public.section_requests
   for all using (
-    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+    auth.email() = 'adminmzg@gmail.com'
+    or exists (select 1 from profiles where id = auth.uid() and role = 'admin')
   );
 
 -- ---------- 2. APPROVE SECTION REQUEST ----------

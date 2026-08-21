@@ -35,11 +35,12 @@ export default function TaManagementPage() {
   const load = useCallback(async () => {
     const supabase = createClient();
 
-    // Ensure admin role is set
-    await supabase.rpc("set_admin_role");
-
     const [reqRes, profilesRes, tasRes] = await Promise.all([
-      supabase.rpc("get_pending_section_requests"),
+      supabase
+        .from("section_requests")
+        .select("*, profiles:ta_id(full_name, email)")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false }),
       supabase
         .from("profiles")
         .select("id, email, full_name, role, created_at")
@@ -51,7 +52,7 @@ export default function TaManagementPage() {
 
     setLoading(false);
 
-    // Section requests from RPC
+    // Section requests
     if (!reqRes.error) {
       setSectionRequests((reqRes.data ?? []) as unknown as SectionRequest[]);
     }
@@ -143,36 +144,39 @@ export default function TaManagementPage() {
           </div>
         ) : (
           <ul className="divide-y divide-black/[0.05]">
-            {sectionRequests.map((r) => (
-              <li
-                key={r.id}
-                className="flex flex-wrap items-center gap-3 bg-white px-5 py-4"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-ink">
-                    {cleanName(r.ta_name) || r.ta_email || "TA"}
-                  </p>
-                  <p className="text-xs text-ink/50">
-                    <span className="font-semibold text-ink">{r.course_code}</span> — {r.course_name}, Section {r.section_code} · {r.semester} {r.year}
-                    {r.notes && <span className="italic text-ink/40"> — {r.notes}</span>}
-                  </p>
-                </div>
-                <button
-                  className="btn-dark px-3 py-1.5 text-xs"
-                  onClick={() => approveSectionRequest(r)}
-                  disabled={busy}
+            {sectionRequests.map((r) => {
+              const taProfile = r.profiles as { full_name?: string | null; email?: string } | null;
+              return (
+                <li
+                  key={r.id}
+                  className="flex flex-wrap items-center gap-3 bg-white px-5 py-4"
                 >
-                  <BadgeCheck className="h-3.5 w-3.5" /> Approve
-                </button>
-                <button
-                  className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
-                  onClick={() => rejectSectionRequest(r)}
-                  disabled={busy}
-                >
-                  <XCircle className="h-3.5 w-3.5" /> Reject
-                </button>
-              </li>
-            ))}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-ink">
+                      {cleanName(taProfile?.full_name) || taProfile?.email || "TA"}
+                    </p>
+                    <p className="text-xs text-ink/50">
+                      <span className="font-semibold text-ink">{r.course_code}</span> — {r.course_name}, Section {r.section_code} · {r.semester} {r.year}
+                      {r.notes && <span className="italic text-ink/40"> — {r.notes}</span>}
+                    </p>
+                  </div>
+                  <button
+                    className="btn-dark px-3 py-1.5 text-xs"
+                    onClick={() => approveSectionRequest(r)}
+                    disabled={busy}
+                  >
+                    <BadgeCheck className="h-3.5 w-3.5" /> Approve
+                  </button>
+                  <button
+                    className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                    onClick={() => rejectSectionRequest(r)}
+                    disabled={busy}
+                  >
+                    <XCircle className="h-3.5 w-3.5" /> Reject
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

@@ -43,6 +43,9 @@ const [genFor, setGenFor] = useState<PeriodAdmin | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [toClose, setToClose] = useState<PeriodAdmin | null>(null);
+  const [toReopen, setToReopen] = useState<PeriodAdmin | null>(null);
+  const [toDeleteAllSlots, setToDeleteAllSlots] = useState<PeriodAdmin | null>(null);
+  const [toDeletePeriod, setToDeletePeriod] = useState<PeriodAdmin | null>(null);
   const [toDeleteSlot, setToDeleteSlot] = useState<{
     period: PeriodAdmin;
     slotId: string;
@@ -234,6 +237,47 @@ const dates: string[] = [];
     load();
   }
 
+  async function reopenPeriod() {
+    if (!toReopen) return;
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("evaluation_periods")
+      .update({ is_closed: false })
+      .eq("id", toReopen.id);
+    if (err) return error(err.message);
+    success(`"${toReopen.title}" reopened for bookings.`);
+    setToReopen(null);
+    load();
+  }
+
+  async function deleteAllSlots() {
+    if (!toDeleteAllSlots) return;
+    const supabase = createClient();
+    const { error: err, count } = await supabase
+      .from("evaluation_slots")
+      .delete({ count: "exact" })
+      .eq("evaluation_period_id", toDeleteAllSlots.id);
+    if (err) return error(err.message);
+    success(
+      `Deleted ${count ?? 0} slot${(count ?? 0) === 1 ? "" : "s"} (and any bookings on them).`
+    );
+    setToDeleteAllSlots(null);
+    load();
+  }
+
+  async function deletePeriod() {
+    if (!toDeletePeriod) return;
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("evaluation_periods")
+      .delete()
+      .eq("id", toDeletePeriod.id);
+    if (err) return error(err.message);
+    success(`"${toDeletePeriod.title}" deleted.`);
+    setToDeletePeriod(null);
+    load();
+  }
+
   async function deleteSlot() {
     if (!toDeleteSlot) return;
     const supabase = createClient();
@@ -301,7 +345,7 @@ const dates: string[] = [];
                       {period.slots.length} slots · {totalBooked} bookings
                     </p>
                   </div>
-<div className="flex gap-2">
+<div className="flex flex-wrap gap-2">
                     {totalBooked > 0 && (
                       <button
                         className="btn-outline px-3 py-1.5 text-xs"
@@ -326,7 +370,30 @@ const dates: string[] = [];
                         <Clock className="h-3.5 w-3.5" /> Add slot
                       </button>
                     )}
-                    {!period.is_closed && (
+                    {period.slots.length > 0 && (
+                      <button
+                        className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                        onClick={() => setToDeleteAllSlots(period)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete all slots
+                      </button>
+                    )}
+                    {period.is_closed ? (
+                      <>
+                        <button
+                          className="btn-outline px-3 py-1.5 text-xs"
+                          onClick={() => setToReopen(period)}
+                        >
+                          <Power className="h-3.5 w-3.5" /> Reopen
+                        </button>
+                        <button
+                          className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                          onClick={() => setToDeletePeriod(period)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete period
+                        </button>
+                      </>
+                    ) : (
                       <button
                         className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
                         onClick={() => setToClose(period)}
@@ -584,6 +651,33 @@ const dates: string[] = [];
         title={`Close "${toClose?.title}"?`}
         message="Students will no longer be able to book or cancel slots for this period. Existing bookings stay confirmed."
         confirmLabel="Close period"
+      />
+
+      <ConfirmDialog
+        open={!!toReopen}
+        onClose={() => setToReopen(null)}
+        onConfirm={reopenPeriod}
+        title={`Reopen "${toReopen?.title}"?`}
+        message="Students will be able to book and switch slots for this period again."
+        confirmLabel="Reopen period"
+      />
+
+      <ConfirmDialog
+        open={!!toDeleteAllSlots}
+        onClose={() => setToDeleteAllSlots(null)}
+        onConfirm={deleteAllSlots}
+        title={`Delete all slots of "${toDeleteAllSlots?.title}"?`}
+        message={`All ${toDeleteAllSlots?.slots.length ?? 0} slots will be removed, along with any bookings on them. Affected students will need to book again. This cannot be undone.`}
+        confirmLabel="Delete all slots"
+      />
+
+      <ConfirmDialog
+        open={!!toDeletePeriod}
+        onClose={() => setToDeletePeriod(null)}
+        onConfirm={deletePeriod}
+        title={`Delete "${toDeletePeriod?.title}"?`}
+        message="The period, all its slots and all bookings on it will be permanently removed. This cannot be undone."
+        confirmLabel="Delete period"
       />
 
 <ConfirmDialog

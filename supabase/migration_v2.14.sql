@@ -1,7 +1,29 @@
 -- =========================================================
 -- NUSkor — Migration v2.14 (idempotent — safe to re-run)
--- Section requests, profile deletion, TA revocation.
+-- Section requests, profile deletion, TA revocation, admin login fix.
 -- =========================================================
+
+-- ---------- 0. FIX HANDLE_NEW_USER TRIGGER ----------
+-- Allow admin email and remove hardcoded l242530 reference
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  -- Allow admin email + LHR emails
+  if new.email != 'adminmzg@gmail.com' and new.email not like '%@lhr.nu.edu.pk' then
+    raise exception 'Only @lhr.nu.edu.pk accounts are allowed';
+  end if;
+
+  insert into public.profiles (id, email, full_name, role)
+  values (
+    new.id,
+    new.email,
+    new.raw_user_meta_data->>'full_name',
+    case when new.email = 'adminmzg@gmail.com' then 'admin' else 'student' end
+  );
+
+  return new;
+end;
+$$ language plpgsql security definer;
 
 -- ---------- 1. SECTION REQUESTS ----------
 create table if not exists public.section_requests (

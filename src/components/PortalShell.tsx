@@ -52,13 +52,6 @@ const taNav: NavItem[] = [
 const adminNav: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: <LayoutDashboard className="h-[18px] w-[18px]" />, match: ["/admin"] },
   { href: "/admin/tas", label: "TA Management", icon: <ShieldCheck className="h-[18px] w-[18px]" />, match: ["/admin/tas"] },
-  { href: "/admin/students", label: "Students", icon: <Users className="h-[18px] w-[18px]" />, match: ["/admin/students"] },
-  { href: "/admin/courses", label: "Courses", icon: <BookOpen className="h-[18px] w-[18px]" />, match: ["/admin/courses"] },
-  { href: "/admin/assessments", label: "Assessments", icon: <FolderKanban className="h-[18px] w-[18px]" />, match: ["/admin/assessments"] },
-  { href: "/admin/marks", label: "Marks", icon: <Star className="h-[18px] w-[18px]" />, match: ["/admin/marks"] },
-  { href: "/admin/evaluations", label: "Evaluation Periods", icon: <CalendarClock className="h-[18px] w-[18px]" />, match: ["/admin/evaluations"] },
-  { href: "/admin/bookings", label: "Bookings", icon: <CalendarDays className="h-[18px] w-[18px]" />, match: ["/admin/bookings"] },
-  { href: "/admin/announcements", label: "Announcements", icon: <Megaphone className="h-[18px] w-[18px]" />, match: ["/admin/announcements"] },
   { href: "/admin/analytics", label: "Analytics", icon: <BarChart3 className="h-[18px] w-[18px]" />, match: ["/admin/analytics"] },
 ];
 
@@ -66,11 +59,13 @@ export default function PortalShell({
   email,
   displayName,
   role,
+  isAlsoTa,
   children,
 }: {
   email: string;
   displayName: string;
   role: "admin" | "ta" | "student";
+  isAlsoTa?: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -176,6 +171,18 @@ export default function PortalShell({
           isAdmin ? "border-white/10" : "border-black/[0.07]"
         )}
       >
+        {isAdmin && isAlsoTa && (
+          <Link
+            href="/ta/sections"
+            className={cn(
+              "mb-3 flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+              "border-gold/40 text-gold hover:bg-gold/10"
+            )}
+          >
+            <BookOpen className="h-4 w-4" />
+            Switch to TA Portal
+          </Link>
+        )}
         <div
           className={cn(
             "flex items-center gap-3 rounded-xl p-2.5",

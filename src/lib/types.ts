@@ -218,6 +218,10 @@ export interface TaApplication {
   reviewed_by: string | null;
   reviewed_at: string | null;
   rejection_reason: string | null;
+  course_code: string | null;
+  semester: string | null;
+  year: number | null;
+  notes: string | null;
 }
 
 export interface StudentInvite {

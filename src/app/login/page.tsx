@@ -2,23 +2,22 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Users } from "lucide-react";
+import Link from "next/link";
+import { Users, GraduationCap, ShieldCheck, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 function LoginContent() {
-  const [busy, setBusy] = useState<"student" | "ta" | null>(null);
+  const [busy, setBusy] = useState(false);
   const params = useSearchParams();
   const error = params.get("error");
-  const next = params.get("next") ?? "";
+  const flow = (params.get("flow") ?? "student") as "student" | "ta" | "admin";
 
-  async function signInWithGoogle(flow: "student" | "ta") {
-    setBusy(flow);
+  async function signInWithGoogle() {
+    setBusy(true);
     const supabase = createClient();
-    const redirectTo = `${window.location.origin}/auth/callback?flow=${flow}${
-      next ? `&next=${encodeURIComponent(next)}` : ""
-    }`;
+    const redirectTo = `${window.location.origin}/auth/callback?flow=${flow}`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -29,8 +28,32 @@ function LoginContent() {
         },
       },
     });
-    if (error) setBusy(null);
+    if (error) setBusy(false);
   }
+
+  const config = {
+    student: {
+      icon: <GraduationCap className="h-6 w-6" />,
+      title: "Sign in as Student",
+      desc: "Access your marks, evaluation slots, and announcements.",
+      buttonLabel: "Sign in as Student",
+      buttonClass: "btn-dark",
+    },
+    ta: {
+      icon: <Users className="h-6 w-6" />,
+      title: "Apply as TA",
+      desc: "Manage sections, students, marks, and evaluations. Requires admin approval.",
+      buttonLabel: "Continue with Google",
+      buttonClass: "btn-primary",
+    },
+    admin: {
+      icon: <ShieldCheck className="h-6 w-6" />,
+      title: "Admin Login",
+      desc: "Manage TAs and view section analytics.",
+      buttonLabel: "Sign in as Admin",
+      buttonClass: "btn-dark",
+    },
+  }[flow];
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
@@ -45,16 +68,21 @@ function LoginContent() {
 
       <main className="flex flex-1 items-center justify-center px-4 pb-16">
         <div className="card w-full max-w-md p-8">
+          <Link
+            href="/"
+            className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-ink/40 hover:text-ink/70"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to home
+          </Link>
+
           <div className="mb-6 text-center">
-            <div className="relative mx-auto mb-4 h-16 w-16 overflow-hidden rounded-full ring-4 ring-gold/30">
-              <Image src="/logo.png" alt="NUSkor logo" fill sizes="64px" className="object-cover" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gold/15 text-gold-deep">
+              {config.icon}
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight text-ink">
-              Welcome to NUSkor
+              {config.title}
             </h1>
-            <p className="mt-1 text-sm text-ink/55">
-              Marks, evaluations &amp; bookings, all in one place.
-            </p>
+            <p className="mt-1 text-sm text-ink/55">{config.desc}</p>
           </div>
 
           {error && (
@@ -64,36 +92,58 @@ function LoginContent() {
           )}
 
           <button
-            onClick={() => signInWithGoogle("student")}
-            disabled={busy !== null}
-            className="btn-dark w-full gap-3 py-3"
+            onClick={signInWithGoogle}
+            disabled={busy}
+            className={`${config.buttonClass} w-full gap-3 py-3`}
           >
-            <GoogleIcon />
-            {busy === "student" ? "Redirecting to Google..." : "Sign in as Student"}
+            {flow === "admin" ? (
+              <ShieldCheck className="h-4 w-4" />
+            ) : flow === "ta" ? (
+              <Users className="h-4 w-4" />
+            ) : (
+              <GoogleIcon />
+            )}
+            {busy ? "Redirecting to Google..." : config.buttonLabel}
           </button>
 
-          <div className="my-4 flex items-center gap-3">
-            <span className="h-px flex-1 bg-black/[0.08]" />
-            <span className="text-xs font-semibold uppercase tracking-wide text-ink/35">
-              Want TA access?
-            </span>
-            <span className="h-px flex-1 bg-black/[0.08]" />
+          {flow === "student" && (
+            <p className="mt-5 text-center text-xs leading-relaxed text-ink/45">
+              New students must first open the invitation link sent by their TA.
+            </p>
+          )}
+
+          {flow === "ta" && (
+            <p className="mt-5 text-center text-xs leading-relaxed text-ink/45">
+              After signing in, you&apos;ll be asked to specify which course and
+              section you teach. An admin will review your application.
+            </p>
+          )}
+
+          {flow === "admin" && (
+            <p className="mt-5 text-center text-xs leading-relaxed text-ink/45">
+              Admin accounts are pre-configured. Contact the developer if you
+              need access.
+            </p>
+          )}
+
+          {/* Flow switcher */}
+          <div className="mt-6 flex items-center justify-center gap-4 text-xs text-ink/40">
+            {flow !== "student" && (
+              <Link href="/login?flow=student" className="hover:text-ink/70">
+                Student sign in
+              </Link>
+            )}
+            {flow !== "ta" && (
+              <Link href="/login?flow=ta" className="hover:text-ink/70">
+                Apply as TA
+              </Link>
+            )}
+            {flow !== "admin" && (
+              <Link href="/login?flow=admin" className="hover:text-ink/70">
+                Admin
+              </Link>
+            )}
           </div>
-
-          <button
-            onClick={() => signInWithGoogle("ta")}
-            disabled={busy !== null}
-            className="btn-primary w-full gap-3 py-3"
-          >
-            <Users className="h-4 w-4" />
-            {busy === "ta" ? "Redirecting to Google..." : "Apply as TA"}
-          </button>
-
-          <p className="mt-5 text-center text-xs leading-relaxed text-ink/45">
-            Students get marks, evaluations and announcements. New students must
-            first open the invitation link sent by their TA. TA access is granted
-            by an admin after review.
-          </p>
         </div>
       </main>
 

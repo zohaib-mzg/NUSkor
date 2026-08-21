@@ -337,11 +337,18 @@ export default function TaManagementPage() {
                     {cleanName(a.full_name) || "Unnamed"}
                   </p>
                   <p className="truncate text-xs text-ink/50">
-                    {a.email} · requested{" "}
-                    {new Date(
-                      a.requested_at
-                    ).toLocaleDateString()}
+                    {a.email}
+                    {a.course_code ? ` · ${a.course_code}` : ""}
+                    {a.semester ? ` · ${a.semester}` : ""}
+                    {a.year ? ` ${a.year}` : ""}
+                    {" · "}
+                    {new Date(a.requested_at).toLocaleDateString()}
                   </p>
+                  {a.notes && (
+                    <p className="mt-0.5 truncate text-xs text-ink/40 italic">
+                      {a.notes}
+                    </p>
+                  )}
                 </div>
                 <button
                   className="btn-dark px-3 py-1.5 text-xs"

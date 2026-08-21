@@ -27,7 +27,6 @@ export default async function PortalLayout({
   if (!profile) redirect("/login");
 
   // Students must have a student account (created via a TA invitation).
-  // Without one, they are sent to the invitation flow.
   if (profile.role === "student") {
     const { data: studentRow } = await supabase
       .from("students")
@@ -37,12 +36,25 @@ export default async function PortalLayout({
     if (!studentRow) redirect("/join?missing=1");
   }
 
+  // Check if admin is also a TA (has section_tas assignments)
+  let isAlsoTa = false;
+  if (profile.role === "admin") {
+    const { data: taRow } = await supabase
+      .from("section_tas")
+      .select("id")
+      .eq("ta_id", user.id)
+      .limit(1)
+      .maybeSingle();
+    isAlsoTa = !!taRow;
+  }
+
   return (
     <ToastProvider>
       <PortalShell
         email={profile.email}
         displayName={cleanName(profile.full_name) || profile.email.split("@")[0]}
         role={profile.role}
+        isAlsoTa={isAlsoTa}
       >
         {children}
       </PortalShell>

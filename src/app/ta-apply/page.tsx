@@ -18,11 +18,12 @@ export default async function TaApplyPage() {
     .maybeSingle();
 
   if (!profile) redirect("/login");
-  if (profile.role === "admin" || profile.role === "ta") redirect("/dashboard");
+  if (profile.role === "admin") redirect("/admin");
+  if (profile.role === "ta") redirect("/dashboard");
 
   const { data: app } = await supabase
     .from("ta_applications")
-    .select("id, status, requested_at, rejection_reason")
+    .select("id, status, requested_at, rejection_reason, course_code, semester, year, notes")
     .eq("user_id", user.id)
     .order("requested_at", { ascending: false })
     .limit(1)

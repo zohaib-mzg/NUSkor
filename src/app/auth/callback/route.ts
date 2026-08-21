@@ -9,7 +9,6 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const rawNext = searchParams.get("next") ?? "/dashboard";
-  // Only allow internal paths (no open redirects).
   const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/dashboard";
   const flow = searchParams.get("flow");
 
@@ -23,7 +22,8 @@ export async function GET(request: NextRequest) {
       if (user) {
         const email = user.email?.toLowerCase() ?? "";
 
-        if (flow === "ta") {
+        // ── Admin flow ──
+        if (flow === "admin") {
           const isDesignatedAdmin = email === ADMIN_EMAIL;
           const { data: profile } = await supabase
             .from("profiles")
@@ -33,15 +33,29 @@ export async function GET(request: NextRequest) {
           const currentRole = (profile as { role?: string } | null)?.role;
 
           if (isDesignatedAdmin || currentRole === "admin") {
-            // First admin (or already admin): ensure the admin role and
-            // route to the admin panel.
             await supabase
               .from("profiles")
               .update({ role: "admin" })
               .eq("id", user.id);
+            return NextResponse.redirect(forwardedRedirect(request, origin, "/admin", next));
+          }
+          // Not an admin — fall through to student redirect below
+        }
+
+        // ── TA flow ──
+        if (flow === "ta") {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("id, role")
+            .eq("id", user.id)
+            .maybeSingle();
+          const currentRole = (profile as { role?: string } | null)?.role;
+
+          // If already TA or admin, go to dashboard
+          if (currentRole === "ta" || currentRole === "admin") {
+            // fall through to default redirect
           } else {
-            // Everyone else: record a TA application. No TA permissions
-            // are granted until an admin approves it.
+            // Record TA application
             const { data: existing } = await supabase
               .from("ta_applications")
               .select("id, status")
@@ -59,22 +73,21 @@ export async function GET(request: NextRequest) {
                 { onConflict: "user_id" }
               );
             }
-            return NextResponse.redirect(
-              forwardedRedirect(request, origin, "/ta-apply", next)
-            );
+            return NextResponse.redirect(forwardedRedirect(request, origin, "/ta-apply", next));
           }
         }
-      }
 
-      const forwardedHost = request.headers.get("x-forwarded-host");
-      const isLocalEnv = process.env.NODE_ENV === "development";
-      const redirectTo =
-        forwardedHost && !isLocalEnv
-          ? `https://${forwardedHost}${next}`
-          : `${origin}${next}`;
-      return NextResponse.redirect(redirectTo);
+        // ── Default: student or already-roles ──
+        const forwardedHost = request.headers.get("x-forwarded-host");
+        const isLocalEnv = process.env.NODE_ENV === "development";
+        const redirectTo =
+          forwardedHost && !isLocalEnv
+            ? `https://${forwardedHost}${next}`
+            : `${origin}${next}`;
+        return NextResponse.redirect(redirectTo);
+      }
     }
-    if (error.message.toLowerCase().includes("email")) {
+    if (error?.message.toLowerCase().includes("email")) {
       return NextResponse.redirect(`${origin}/access-denied`);
     }
   }

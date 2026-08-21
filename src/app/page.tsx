@@ -7,14 +7,14 @@ import {
   ShieldCheck,
   Star,
   TrendingUp,
-  ArrowRight,
+  Users,
 } from "lucide-react";
 
 const features = [
   {
     icon: <ClipboardList className="h-5 w-5" />,
     title: "Your marksheet, the moment it's published",
-    desc: "Detailed marks per assessment with grades, class averages, min/max, your rank and a privacy-conscious leaderboard.",
+    desc: "Detailed marks per assessment with class averages, min/max, your rank and a privacy-conscious leaderboard.",
   },
   {
     icon: <CalendarDays className="h-5 w-5" />,
@@ -47,9 +47,11 @@ export default function LandingPage() {
               NUS<span className="text-gold-deep">kor</span>
             </span>
           </div>
-          <Link href="/login" className="btn-outline hidden sm:inline-flex">
-            Student / Admin Login
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/login?flow=student" className="btn-outline hidden sm:inline-flex text-sm">
+              Sign in
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -80,9 +82,29 @@ export default function LandingPage() {
           <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-ink/40">
             Empowering Students. Elevating Futures.
           </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/login" className="btn-primary px-6 py-3 text-base">
-              Student / TA Sign in <ArrowRight className="h-4 w-4" />
+
+          {/* Three entry points */}
+          <div className="mx-auto mt-10 max-w-lg space-y-3">
+            <Link
+              href="/login?flow=student"
+              className="btn-dark flex w-full items-center justify-center gap-3 py-3.5 text-base"
+            >
+              <GraduationCap className="h-5 w-5" />
+              Sign in as Student
+            </Link>
+            <Link
+              href="/login?flow=ta"
+              className="btn-primary flex w-full items-center justify-center gap-3 py-3.5 text-base"
+            >
+              <Users className="h-5 w-5" />
+              Apply as TA
+            </Link>
+            <Link
+              href="/login?flow=admin"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-xs font-medium text-ink/35 transition-colors hover:border-gold/40 hover:text-ink/60"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Admin
             </Link>
           </div>
         </div>
@@ -117,13 +139,13 @@ export default function LandingPage() {
               icon: <GraduationCap className="h-5 w-5" />,
               step: "01",
               title: "Sign in with your FAST email",
-              desc: "Choose your side: sign in as a student or as the TA. Your role decides which portal you land in.",
+              desc: "Choose your side: sign in as a student or apply as a TA. Your role decides which portal you land in.",
             },
             {
               icon: <TrendingUp className="h-5 w-5" />,
               step: "02",
               title: "Track marks & rankings",
-              desc: "Full marksheet with grades, class stats, your rank and a leaderboard.",
+              desc: "Full marksheet with class stats, your rank and a leaderboard.",
             },
             {
               icon: <CalendarDays className="h-5 w-5" />,
@@ -154,7 +176,7 @@ export default function LandingPage() {
           <p className="text-xs text-ink/45">
             Empowering Students. Elevating Futures. · FAST-NUCES Lahore
           </p>
-          <Link href="/login" className="mt-2 text-sm font-semibold text-gold-deep hover:underline">
+          <Link href="/login?flow=student" className="mt-2 text-sm font-semibold text-gold-deep hover:underline">
             Sign in to your portal →
           </Link>
         </div>

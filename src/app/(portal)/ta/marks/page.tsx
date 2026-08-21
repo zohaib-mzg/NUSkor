@@ -5,7 +5,9 @@ import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Downloa
 import { notifyAll } from "@/lib/push";
 import type { Assessment, CourseSection, Student } from "@/lib/types";
 import { one, parseCsv, regNoDisplay } from "@/lib/utils";
+import { useSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
+import SemesterSelector from "@/components/SemesterSelector";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
@@ -19,6 +21,7 @@ interface EnrolledStudent extends Student {
 
 export default function TaMarksPage() {
   const { success, error, info } = useToast();
+  const [semester] = useSemester();
   const [sections, setSections] = useState<CourseSection[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [sectionId, setSectionId] = useState("");
@@ -34,7 +37,8 @@ const load = useCallback(async () => {
     const supabase = createClient();
     const { data: stRes } = await supabase
       .from("section_tas")
-      .select("section_id, section:course_sections(*, course:courses(code, title))");
+      .select("section_id, section:course_sections(*, course:courses(code, title))")
+      .eq("semester", semester);
     const rows = (stRes ?? []) as {
       section_id: string;
       section: (CourseSection & { course?: { code: string; title: string }[] | null })[];
@@ -306,9 +310,12 @@ async function exportOneAssessment() {
         subtitle="Enter marks per assessment, or bulk-import from a CSV file."
         icon={Star}
         actions={
-          <button className="btn-primary" onClick={() => setCsvOpen(true)} disabled={!assessmentId}>
-            <Upload className="h-4 w-4" /> CSV import
-          </button>
+          <>
+            <SemesterSelector />
+            <button className="btn-primary" onClick={() => setCsvOpen(true)} disabled={!assessmentId}>
+              <Upload className="h-4 w-4" /> CSV import
+            </button>
+          </>
         }
       />
 

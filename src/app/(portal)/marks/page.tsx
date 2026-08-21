@@ -7,6 +7,8 @@ import {
   Users,
   Target,
   TrendingUp,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type {
@@ -22,26 +24,32 @@ import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
 
+interface AssessmentRow {
+  id: string;
+  title: string;
+  type: string;
+  total: number;
+  weightage: number;
+  obtained: number | null;
+  stats: AssessmentStats | null;
+  myPercent: number;
+  leaderboard: LeaderboardEntry[];
+}
+
 interface SectionMarks {
   sectionId: string;
   code: string;
   title: string;
   sectionCode: string;
-  assessments: {
-    id: string;
-    title: string;
-    type: string;
-    total: number;
-    weightage: number;
-    obtained: number | null;
-    stats: AssessmentStats | null;
-    myPercent: number;
-  }[];
+  assessments: AssessmentRow[];
   totalObtained: number;
   totalPossible: number;
   weightedPct: number | null;
-  leaderboard: LeaderboardEntry[];
-  myRank: LeaderboardEntry | null;
+  myRank: { rank: number; registration_no: string } | null;
+}
+
+function truncate2(value: number): string {
+  return (Math.floor(value * 100) / 100).toFixed(2);
 }
 
 export default function MarksPage() {
@@ -59,29 +67,48 @@ export default function MarksPage() {
       } = await supabase.auth.getUser();
       if (!user || cancelled) return;
 
-      const [studentRes, enrollRes, markRes, assRes] =
-        await Promise.all([
-          supabase
-            .from("students")
-            .select("registration_no")
-            .eq("id", user.id)
-            .maybeSingle(),
-          supabase
-            .from("enrollments")
-            .select("section_id, section:course_sections(id, section_code, course:courses(code, title, id))"),
-          supabase.from("marks").select("obtained, assessment_id").eq("student_id", user.id),
-          supabase.from("assessments").select("id, section_id, title, type, total_marks, weightage"),
-        ]);
+      const [studentRes, enrollRes, markRes, assRes] = await Promise.all([
+        supabase
+          .from("students")
+          .select("registration_no")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("enrollments")
+          .select(
+            "section_id, section:course_sections(id, section_code, course:courses(code, title, id))"
+          ),
+        supabase
+          .from("marks")
+          .select("obtained, assessment_id")
+          .eq("student_id", user.id),
+        supabase
+          .from("assessments")
+          .select(
+            "id, section_id, title, type, total_marks, weightage"
+          ),
+      ]);
 
       if (cancelled) return;
 
       const enrollments = (enrollRes.data ?? []) as {
         section_id: string;
-        section: { id: string; section_code: string; course: { code: string; title: string; id: string }[] }[];
+        section: {
+          id: string;
+          section_code: string;
+          course: {
+            code: string;
+            title: string;
+            id: string;
+          }[];
+        }[];
       }[];
       const marks = (markRes.data ?? []) as Mark[];
       const assessments = (assRes.data ?? []) as Assessment[];
-      setMyRegNo((studentRes.data as { registration_no: string | null } | null)?.registration_no ?? null);
+      setMyRegNo(
+        (studentRes.data as { registration_no: string | null } | null)
+          ?.registration_no ?? null
+      );
 
       const myMarksByAssessment = new Map(
         marks.map((m) => [m.assessment_id, Number(m.obtained)])
@@ -95,7 +122,46 @@ export default function MarksPage() {
           const courseAssessments = assessments.filter(
             (a) => a.section_id === sec.id
           );
-          const rows = courseAssessments.map((a) => {
+
+          // Fetch stats and leaderboard for ALL assessments at once
+          const [statsRes] = await Promise.all([
+            supabase.rpc("get_assessment_stats_many", {
+              p_assessment_ids: courseAssessments.map((a) => a.id),
+            }),
+          ]);
+
+          if (cancelled) return;
+
+          const statsById = new Map(
+            (
+              (statsRes.data ?? []) as (AssessmentStats & {
+                assessment_id: string;
+              })[]
+            ).map((s) => [s.assessment_id, s])
+          );
+
+          // Fetch per-assessment leaderboards
+          const leaderboardResults = await Promise.all(
+            courseAssessments.map(async (a) => {
+              const { data } = await supabase.rpc(
+                "get_assessment_leaderboard",
+                {
+                  p_assessment_id: a.id,
+                  p_section_id: sec.id,
+                }
+              );
+              return {
+                assessmentId: a.id,
+                leaderboard: (data ?? []) as LeaderboardEntry[],
+              };
+            })
+          );
+
+          const lbByAssessment = new Map(
+            leaderboardResults.map((r) => [r.assessmentId, r.leaderboard])
+          );
+
+          const rows: AssessmentRow[] = courseAssessments.map((a) => {
             const obtained = myMarksByAssessment.get(a.id) ?? null;
             return {
               id: a.id,
@@ -104,32 +170,27 @@ export default function MarksPage() {
               total: Number(a.total_marks),
               weightage: Number(a.weightage ?? 0),
               obtained,
-              stats: null as AssessmentStats | null,
-              myPercent: obtained === null ? 0 : percent(obtained, Number(a.total_marks)),
+              stats: statsById.get(a.id) ?? null,
+              myPercent:
+                obtained === null
+                  ? 0
+                  : percent(obtained, Number(a.total_marks)),
+              leaderboard: lbByAssessment.get(a.id) ?? [],
             };
           });
 
-          const [statsRes, leaderboardRes] = await Promise.all([
-            supabase.rpc("get_assessment_stats_many", {
-              p_assessment_ids: courseAssessments.map((a) => a.id),
-            }),
-            supabase.rpc("get_leaderboard", { p_section_id: sec.id }),
-          ]);
-
-          if (cancelled) return;
-
-          const statsById = new Map(
-            ((statsRes.data ?? []) as (AssessmentStats & { assessment_id: string })[]).map(
-              (s) => [s.assessment_id, s]
-            )
-          );
-          rows.forEach((r) => (r.stats = statsById.get(r.id) ?? null));
-
-          const leaderboard = (leaderboardRes.data ?? []) as LeaderboardEntry[];
-          const myRank =
-            leaderboard.find(
-              (e) => e.registration_no === (studentRes.data as { registration_no: string | null } | null)?.registration_no
-            ) ?? null;
+          const myRankEntry = rows
+            .flatMap((r) => r.leaderboard)
+            .find(
+              (e) =>
+                myRegNo &&
+                e.registration_no ===
+                  (
+                    studentRes.data as {
+                      registration_no: string | null;
+                    } | null
+                  )?.registration_no
+            );
 
           return {
             sectionId: sec.id,
@@ -137,28 +198,41 @@ export default function MarksPage() {
             title: course?.title ?? "",
             sectionCode: sec.section_code,
             assessments: rows,
-            totalObtained: rows.reduce((s, r) => s + (r.obtained ?? 0), 0),
+            totalObtained: rows.reduce(
+              (s, r) => s + (r.obtained ?? 0),
+              0
+            ),
             totalPossible: rows.reduce((s, r) => s + r.total, 0),
             weightedPct: (() => {
-              const scored = rows.filter((r) => r.obtained !== null && r.weightage > 0);
+              const scored = rows.filter(
+                (r) => r.obtained !== null && r.weightage > 0
+              );
               const w = scored.reduce((s, r) => s + r.weightage, 0);
               if (w === 0) return null;
               return (
-                scored.reduce(
-                  (s, r) => s + (r.obtained! / r.total) * r.weightage,
+                (scored.reduce(
+                  (s, r) =>
+                    s + (r.obtained! / r.total) * r.weightage,
                   0
                 ) /
-                w *
+                  w) *
                 100
               );
             })(),
-            leaderboard,
-            myRank,
+            myRank: myRankEntry
+              ? {
+                  rank: myRankEntry.rank,
+                  registration_no: myRankEntry.registration_no,
+                }
+              : null,
           };
         })
       );
 
-      if (!cancelled) setSections(perSection.filter(Boolean) as SectionMarks[]);
+      if (!cancelled)
+        setSections(
+          perSection.filter(Boolean) as SectionMarks[]
+        );
     }
 
     load().finally(() => !cancelled && setLoading(false));
@@ -168,21 +242,32 @@ export default function MarksPage() {
   }, []);
 
   const summary = useMemo(() => {
-    const total = sections.reduce((s, c) => s + c.totalObtained, 0);
-    const possible = sections.reduce((s, c) => s + c.totalPossible, 0);
+    const total = sections.reduce(
+      (s, c) => s + c.totalObtained,
+      0
+    );
+    const possible = sections.reduce(
+      (s, c) => s + c.totalPossible,
+      0
+    );
     return {
       total,
       possible,
       pct: possible ? percent(total, possible) : 0,
-      assessments: sections.reduce((s, c) => s + c.assessments.length, 0),
+      assessments: sections.reduce(
+        (s, c) => s + c.assessments.length,
+        0
+      ),
       topRank: sections.reduce(
-        (best, c) => (c.myRank ? Math.min(best, c.myRank.rank) : best),
+        (best, c) =>
+          c.myRank ? Math.min(best, c.myRank.rank) : best,
         Infinity
       ),
     };
   }, [sections]);
 
-  if (loading) return <Spinner label="Loading your marks..." />;
+  if (loading)
+    return <Spinner label="Loading your marks..." />;
 
   return (
     <div>
@@ -196,7 +281,11 @@ export default function MarksPage() {
         <StatCard
           icon={TrendingUp}
           label="Overall"
-          value={summary.possible ? `${summary.pct.toFixed(1)}%` : "N/A"}
+          value={
+            summary.possible
+              ? `${summary.pct.toFixed(1)}%`
+              : "N/A"
+          }
           hint={
             summary.possible
               ? `${summary.total} / ${summary.possible}`
@@ -213,7 +302,11 @@ export default function MarksPage() {
         <StatCard
           icon={Trophy}
           label="Best rank"
-          value={summary.topRank === Infinity ? "N/A" : `#${summary.topRank}`}
+          value={
+            summary.topRank === Infinity
+              ? "N/A"
+              : `#${summary.topRank}`
+          }
           hint="Within a course leaderboard"
           accent="gold"
         />
@@ -235,7 +328,11 @@ export default function MarksPage() {
       ) : (
         <div className="mt-6 space-y-8">
           {sections.map((sec) => (
-            <SectionBlock key={sec.sectionId} section={sec} myRegNo={myRegNo} />
+            <SectionBlock
+              key={sec.sectionId}
+              section={sec}
+              myRegNo={myRegNo}
+            />
           ))}
         </div>
       )}
@@ -243,31 +340,212 @@ export default function MarksPage() {
   );
 }
 
-// Truncate (never round) to 2 decimal places: 1.999 -> "1.99"
-function truncate2(value: number): string {
-  return (Math.floor(value * 100) / 100).toFixed(2);
+function AssessmentCard({
+  a,
+  myRegNo,
+}: {
+  a: AssessmentRow;
+  myRegNo: string | null;
+}) {
+  const [showLb, setShowLb] = useState(false);
+  const absolute =
+    a.obtained !== null && a.weightage > 0
+      ? (a.obtained / a.total) * a.weightage
+      : null;
+  const isMe = (entry: LeaderboardEntry) =>
+    myRegNo && entry.registration_no === myRegNo;
+
+  return (
+    <div className="rounded-xl border border-black/[0.08] bg-white p-5">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-ink">{a.title}</h3>
+            <Badge tone="neutral">{a.type}</Badge>
+          </div>
+          <p className="mt-1 text-xs text-ink/50">
+            Weight: {a.weightage > 0 ? `${a.weightage}%` : "—"}
+          </p>
+        </div>
+        <div className="text-right">
+          {a.obtained !== null ? (
+            <>
+              <p className="text-lg font-bold text-ink">
+                {a.obtained}{" "}
+                <span className="text-sm font-normal text-ink/40">
+                  / {a.total}
+                </span>
+              </p>
+              <p className="text-xs text-ink/50">
+                {a.myPercent.toFixed(1)}%
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-ink/35">
+              Not published
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-ink/60">
+        {/* Absolute */}
+        {absolute !== null && (
+          <span>
+            Absolute:{" "}
+            <span className="font-semibold text-ink">
+              {truncate2(absolute)}
+            </span>
+          </span>
+        )}
+
+        {/* Class Average */}
+        {a.stats?.avg_marks != null && (
+          <span>
+            Class Avg:{" "}
+            <span className="font-semibold text-ink">
+              {a.stats.avg_marks} / {a.total}
+            </span>
+          </span>
+        )}
+
+        {/* Min / Max */}
+        {a.stats?.min_marks != null && (
+          <span>
+            Min / Max:{" "}
+            <span className="font-semibold text-ink">
+              {a.stats.min_marks} / {a.stats.max_marks}
+            </span>
+          </span>
+        )}
+
+        {a.obtained === null && (
+          <span className="text-ink/35">
+            Awaiting marks
+          </span>
+        )}
+      </div>
+
+      {/* Per-assessment leaderboard */}
+      {a.leaderboard.length > 0 && (
+        <div className="mt-3 border-t border-black/[0.06] pt-3">
+          <button
+            onClick={() => setShowLb((v) => !v)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-gold-deep hover:underline"
+          >
+            <Trophy className="h-3 w-3" />
+            {showLb
+              ? "Hide leaderboard"
+              : "View leaderboard"}
+            {showLb ? (
+              <ChevronUp className="h-3 w-3" />
+            ) : (
+              <ChevronDown className="h-3 w-3" />
+            )}
+          </button>
+          {showLb && (
+            <div className="mt-2 overflow-x-auto rounded-lg bg-paper/50">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-black/[0.06]">
+                    <th className="px-3 py-2 text-left font-semibold text-ink/50">
+                      Rank
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-ink/50">
+                      Student
+                    </th>
+                    <th className="px-3 py-2 text-right font-semibold text-ink/50">
+                      Marks
+                    </th>
+                    <th className="px-3 py-2 text-right font-semibold text-ink/50">
+                      %
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {a.leaderboard.map((e, i) => (
+                    <tr
+                      key={e.registration_no ?? i}
+                      className={`border-b border-black/[0.03] ${
+                        isMe(e) ? "bg-gold/15" : ""
+                      }`}
+                    >
+                      <td className="px-3 py-1.5 font-semibold text-ink/60">
+                        {e.rank <= 3 ? (
+                          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-bold text-ink">
+                            #{e.rank}
+                          </span>
+                        ) : (
+                          `#${e.rank}`
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5 font-semibold text-ink">
+                        {formatRegNo(e.registration_no) ??
+                          "N/A"}
+                        {isMe(e) && (
+                          <Badge
+                            tone="dark"
+                            className="ml-1.5"
+                          >
+                            You
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-medium text-ink/70">
+                        {e.total ?? "N/A"}
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-medium text-ink/70">
+                        {e.percent}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
-function SectionBlock({ section, myRegNo }: { section: SectionMarks; myRegNo: string | null }) {
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
+function SectionBlock({
+  section,
+  myRegNo,
+}: {
+  section: SectionMarks;
+  myRegNo: string | null;
+}) {
   return (
     <section className="card overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] bg-white px-5 py-4">
         <div>
           <h2 className="font-bold text-ink">
-            {section.code} <span className="font-medium text-ink/45">→</span>{" "}
-            <span className="font-medium text-ink/70">{section.title}</span>
+            {section.code}{" "}
+            <span className="font-medium text-ink/45">
+              →
+            </span>{" "}
+            <span className="font-medium text-ink/70">
+              {section.title}
+            </span>
           </h2>
           <p className="mt-0.5 text-xs text-ink/50">
-            {section.sectionCode} · {section.assessments.length} assessments ·{" "}
+            {section.sectionCode} ·{" "}
+            {section.assessments.length} assessments ·{" "}
             {section.totalPossible > 0
-              ? `${percent(section.totalObtained, section.totalPossible).toFixed(1)}% overall`
+              ? `${percent(
+                  section.totalObtained,
+                  section.totalPossible
+                ).toFixed(1)}% overall`
               : "No marks published yet"}
             {section.weightedPct !== null && (
               <>
                 {" "}·{" "}
                 <span className="font-semibold text-gold-deep">
-                  Weighted: {section.weightedPct.toFixed(1)}%
+                  Weighted:{" "}
+                  {section.weightedPct.toFixed(1)}%
                 </span>
               </>
             )}
@@ -276,143 +554,22 @@ function SectionBlock({ section, myRegNo }: { section: SectionMarks; myRegNo: st
         <div className="flex items-center gap-2">
           {section.myRank && (
             <Badge tone="gold">
-              <Trophy className="h-3 w-3" /> Rank #{section.myRank.rank}
+              <Trophy className="h-3 w-3" /> Rank #
+              {section.myRank.rank}
             </Badge>
           )}
-          <button
-            onClick={() => setShowLeaderboard((v) => !v)}
-            className="btn-outline px-3 py-1.5 text-xs"
-          >
-            {showLeaderboard ? "Hide leaderboard" : "Leaderboard"}
-          </button>
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px]">
-          <thead className="bg-paper">
-            <tr>
-              <th className="th">Assessment</th>
-              <th className="th">Type</th>
-              <th className="th text-right">Weight</th>
-              <th className="th text-right">Marks</th>
-              <th className="th text-right">%</th>
-              <th className="th text-right">Absolutes</th>
-              <th className="th text-right">Class avg</th>
-              <th className="th text-right">Min / Max</th>
-            </tr>
-          </thead>
-          <tbody>
-            {section.assessments.map((a) => (
-              <tr key={a.id} className="bg-white">
-                <td className="td font-semibold text-ink">{a.title}</td>
-                <td className="td">
-                  <Badge tone="neutral">{a.type}</Badge>
-                </td>
-                <td className="td text-right text-ink/70">
-                  {a.weightage > 0 ? `${a.weightage}%` : "—"}
-                </td>
-                <td className="td text-right font-medium">
-                  {a.obtained === null ? (
-                    <span className="text-ink/35">Not published</span>
-                  ) : (
-                    <>
-                      <span className="font-bold text-ink">{a.obtained}</span>
-                      <span className="text-ink/40"> / {a.total}</span>
-                    </>
-                  )}
-                </td>
-                <td className="td text-right">
-                  {a.obtained === null ? (
-                    <span className="text-ink/35">N/A</span>
-                  ) : (
-                    <span className="font-semibold">{a.myPercent.toFixed(1)}%</span>
-                  )}
-                </td>
-                <td className="td text-right">
-                  {a.obtained === null ? (
-                    <span className="text-ink/35">N/A</span>
-                  ) : a.weightage > 0 ? (
-                    <span className="font-semibold">
-                      {truncate2((a.obtained / a.total) * a.weightage)}
-                    </span>
-                  ) : (
-                    <span className="text-ink/35">—</span>
-                  )}
-                </td>
-                <td className="td text-right text-ink/70">
-                  {a.stats?.avg_marks != null
-                    ? `${a.stats.avg_marks} / ${a.total}`
-                    : "N/A"}
-                </td>
-                <td className="td text-right text-ink/70">
-                  {a.stats?.min_marks != null
-                    ? `${a.stats.min_marks} / ${a.stats.max_marks}`
-                    : "N/A"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="space-y-4 p-5">
+        {section.assessments.map((a) => (
+          <AssessmentCard
+            key={a.id}
+            a={a}
+            myRegNo={myRegNo}
+          />
+        ))}
       </div>
-
-      {showLeaderboard && (
-        <div className="border-t border-black/[0.06] bg-paper px-5 py-5">
-          <h3 className="mb-3 flex items-center gap-2 font-bold text-ink">
-            <Trophy className="h-4 w-4 text-gold-deep" /> Leaderboard
-          </h3>
-          {section.leaderboard.length === 0 ? (
-            <EmptyState title="No marks on the board yet" />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px]">
-                <thead>
-                  <tr>
-                    <th className="th">Rank</th>
-                    <th className="th">Student ID</th>
-                    <th className="th text-right">Total</th>
-                    <th className="th text-right">%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {section.leaderboard.map((e) => {
-                    const isMe =
-                      myRegNo && e.registration_no === myRegNo;
-                    return (
-                      <tr
-                        key={e.registration_no ?? e.rank}
-                        className={
-                          isMe
-                            ? "bg-gold/15"
-                            : e.rank <= 3
-                              ? "bg-white"
-                              : "bg-white/60"
-                        }
-                      >
-                        <td className="td">
-                          {e.rank <= 3 ? (
-                            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-gold px-1.5 text-xs font-bold text-ink">
-                              #{e.rank}
-                            </span>
-                          ) : (
-                            <span className="font-semibold text-ink/60">#{e.rank}</span>
-                          )}
-                        </td>
-                        <td className="td font-semibold text-ink">
-                          {formatRegNo(e.registration_no) ?? "N/A"}
-                          {isMe && <Badge tone="dark" className="ml-2">You</Badge>}
-                        </td>
-                        <td className="td text-right font-medium">{e.total}</td>
-                        <td className="td text-right font-medium">{e.percent}%</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
     </section>
   );
 }

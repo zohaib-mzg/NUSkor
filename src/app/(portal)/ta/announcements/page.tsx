@@ -6,7 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 import { notifyAll } from "@/lib/push";
 import type { Announcement, CourseSection } from "@/lib/types";
 import { formatDate, one } from "@/lib/utils";
+import { useSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
+import SemesterSelector from "@/components/SemesterSelector";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
@@ -17,6 +19,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 export default function TaAnnouncementsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
+  const [semester] = useSemester();
   const [items, setItems] = useState<Announcement[]>([]);
   const [sections, setSections] = useState<CourseSection[]>([]);
   const [modal, setModal] = useState<
@@ -28,7 +31,8 @@ const load = useCallback(async () => {
     const supabase = createClient();
     const { data: stRes } = await supabase
       .from("section_tas")
-      .select("section_id, section:course_sections(*, course:courses(code))");
+      .select("section_id, section:course_sections(*, course:courses(code))")
+      .eq("semester", semester);
     const rows = (stRes ?? []) as {
       section_id: string;
       section: (CourseSection & { course?: { code: string }[] | null })[];
@@ -169,9 +173,12 @@ async function deleteItem() {
         subtitle="Target a section or the whole portal. Publishing notifies every recipient."
         icon={Megaphone}
         actions={
-          <button className="btn-primary" onClick={() => setModal({ mode: "create" })}>
-            <Plus className="h-4 w-4" /> New announcement
-          </button>
+          <>
+            <SemesterSelector />
+            <button className="btn-primary" onClick={() => setModal({ mode: "create" })}>
+              <Plus className="h-4 w-4" /> New announcement
+            </button>
+          </>
         }
       />
 

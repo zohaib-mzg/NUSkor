@@ -6,7 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 import { notifyAll } from "@/lib/push";
 import type { Assessment, CourseSection } from "@/lib/types";
 import { one } from "@/lib/utils";
+import { useSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
+import SemesterSelector from "@/components/SemesterSelector";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
@@ -19,6 +21,7 @@ const TYPES = ["quiz", "assignment", "midterm", "project", "final", "other"] as 
 export default function TaAssessmentsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
+  const [semester] = useSemester();
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [sections, setSections] = useState<CourseSection[]>([]);
   const [sectionFilter, setSectionFilter] = useState("all");
@@ -31,7 +34,8 @@ export default function TaAssessmentsPage() {
     const supabase = createClient();
     const { data: stRes } = await supabase
       .from("section_tas")
-      .select("section_id, section:course_sections(*, course:courses(code, title))");
+      .select("section_id, section:course_sections(*, course:courses(code, title))")
+      .eq("semester", semester);
     const rows = (stRes ?? []) as {
       section_id: string;
       section: (CourseSection & { course?: { code: string; title: string }[] | null })[];
@@ -158,9 +162,12 @@ const supabase = createClient();
         subtitle="Assessments for your sections. Set marks, weightage and release status."
         icon={FolderKanban}
         actions={
-          <button className="btn-primary" onClick={() => setModal({ mode: "create" })}>
-            <Plus className="h-4 w-4" /> New assessment
-          </button>
+          <>
+            <SemesterSelector />
+            <button className="btn-primary" onClick={() => setModal({ mode: "create" })}>
+              <Plus className="h-4 w-4" /> New assessment
+            </button>
+          </>
         }
       />
 

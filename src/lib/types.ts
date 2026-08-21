@@ -252,6 +252,8 @@ export interface JoinSectionResult {
 export interface LeaderboardEntry {
   registration_no: string | null;
   total: number;
+  obtained?: number;
+  total_marks?: number;
   percent: number;
   rank: number;
 }

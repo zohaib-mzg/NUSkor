@@ -8,57 +8,121 @@ import {
   UserPlus,
   ShieldCheck,
   Layers,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Profile, TaApplication } from "@/lib/types";
+import type { Profile, TaApplication, CourseSection } from "@/lib/types";
+import { courseSection, one } from "@/lib/utils";
+import { currentSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
 import Modal from "@/components/ui/Modal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+
+interface TaWithSections {
+  profile: Profile;
+  assignments: {
+    id: string;
+    sectionId: string;
+    sectionCode: string;
+    courseCode: string;
+    semester: string;
+  }[];
+}
 
 export default function TaManagementPage() {
   const { success, error, info } = useToast();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState<TaApplication[]>([]);
-  const [tas, setTas] = useState<Profile[]>([]);
-  const [taSections, setTaSections] = useState<Record<string, number>>({});
+  const [taList, setTaList] = useState<TaWithSections[]>([]);
+  const [sections, setSections] = useState<CourseSection[]>([]);
+  const [semester, setSemester] = useState(currentSemester());
   const [addOpen, setAddOpen] = useState(false);
   const [addEmail, setAddEmail] = useState("");
   const [rejecting, setRejecting] = useState<TaApplication | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<TaWithSections | null>(null);
+  const [assignSectionId, setAssignSectionId] = useState("");
+  const [removeTarget, setRemoveTarget] = useState<{
+    taId: string;
+    taName: string;
+    sectionLabel: string;
+    assignmentId: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
 
-    const [appRes, taRes, stRes] = await Promise.all([
+    const [appRes, profileRes, stRes, secRes] = await Promise.all([
       supabase
         .from("ta_applications")
         .select("*")
         .order("requested_at", { ascending: false }),
       supabase
         .from("profiles")
-        .select("id, email, full_name, role, created_at")
-        .eq("role", "ta"),
-      supabase.from("section_tas").select("ta_id"),
+        .select("id, email, full_name, role, created_at"),
+      supabase
+        .from("section_tas")
+        .select("id, ta_id, section_id, semester"),
+      supabase
+        .from("course_sections")
+        .select("id, section_code, course:courses(code), semester")
+        .eq("status", "active"),
     ]);
     setLoading(false);
 
-    if (!appRes.error) setApplications((appRes.data ?? []) as TaApplication[]);
-    if (!taRes.error) setTas((taRes.data ?? []) as Profile[]);
-    if (!stRes.error) {
-      const counts: Record<string, number> = {};
-      (stRes.data ?? []).forEach((r: { ta_id: string }) => {
-        counts[r.ta_id] = (counts[r.ta_id] ?? 0) + 1;
-      });
-      setTaSections(counts);
-    }
+    if (!appRes.error)
+      setApplications((appRes.data ?? []) as TaApplication[]);
+
+    const allProfiles = (profileRes.data ?? []) as Profile[];
+    const allSt = (stRes.data ?? []) as {
+      id: string;
+      ta_id: string;
+      section_id: string;
+      semester: string;
+    }[];
+    const allSec = (secRes.data ?? []) as (CourseSection & {
+      course?: { code: string }[] | null;
+      semester: string | null;
+    })[];
+    setSections(
+      allSec.map((s) => ({
+        ...s,
+        course: one(s.course) ? [one(s.course)!] : null,
+      })) as CourseSection[]
+    );
+
+    // Build TA list: all profiles that are TAs or have section_tas rows
+    const taProfileIds = new Set(
+      allProfiles.filter((p) => p.role === "ta").map((p) => p.id)
+    );
+    allSt.forEach((st) => taProfileIds.add(st.ta_id));
+
+    const tas = allProfiles.filter((p) => taProfileIds.has(p.id));
+
+    const taWithSections: TaWithSections[] = tas.map((t) => {
+      const assignments = allSt
+        .filter((st) => st.ta_id === t.id)
+        .map((st) => {
+          const sec = allSec.find((s) => s.id === st.section_id);
+          const course = sec ? one(sec.course) : null;
+          return {
+            id: st.id,
+            sectionId: st.section_id,
+            sectionCode: sec?.section_code ?? "?",
+            courseCode: course?.code ?? "?",
+            semester: st.semester,
+          };
+        });
+      return { profile: t, assignments };
+    });
+
+    setTaList(taWithSections);
   }, []);
 
   useEffect(() => {
@@ -75,7 +139,11 @@ export default function TaManagementPage() {
 
     const { error: appErr } = await supabase
       .from("ta_applications")
-      .update({ status: "approved", reviewed_by: user?.id ?? null, reviewed_at: now })
+      .update({
+        status: "approved",
+        reviewed_by: user?.id ?? null,
+        reviewed_at: now,
+      })
       .eq("id", app.id);
     if (appErr) {
       setBusy(false);
@@ -149,9 +217,59 @@ export default function TaManagementPage() {
       .eq("id", existing.id);
     setBusy(false);
     if (err) return error(err.message);
-    success(`${(existing as Profile).full_name ?? email} is now a TA.`);
+    success(
+      `${(existing as Profile).full_name ?? email} is now a TA.`
+    );
     setAddOpen(false);
     setAddEmail("");
+    load();
+  }
+
+  async function assignSection() {
+    if (!assignTarget || !assignSectionId) return;
+    setBusy(true);
+    const supabase = createClient();
+
+    const { error: err } = await supabase
+      .from("section_tas")
+      .insert({
+        ta_id: assignTarget.profile.id,
+        section_id: assignSectionId,
+        semester,
+      });
+
+    setBusy(false);
+    if (err) {
+      if (err.message.includes("3 sections")) {
+        return error(
+          `Maximum of 3 sections per semester reached for this TA.`
+        );
+      }
+      if (err.message.includes("unique")) {
+        return error(
+          `This section is already assigned to a TA for ${semester}.`
+        );
+      }
+      return error(err.message);
+    }
+    success("Section assigned.");
+    setAssignTarget(null);
+    setAssignSectionId("");
+    load();
+  }
+
+  async function confirmRemove() {
+    if (!removeTarget) return;
+    setBusy(true);
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("section_tas")
+      .delete()
+      .eq("id", removeTarget.assignmentId);
+    setBusy(false);
+    setRemoveTarget(null);
+    if (err) return error(err.message);
+    success("TA removed from section.");
     load();
   }
 
@@ -159,14 +277,37 @@ export default function TaManagementPage() {
 
   const pending = applications.filter((a) => a.status === "pending");
 
+  // Semester options (current + 1 forward + 1 back)
+  const semesterOptions = (() => {
+    const now = new Date();
+    const months = now.getMonth();
+    const year = now.getFullYear();
+    const terms: [string, number][] = [
+      ["Spring", 0],
+      ["Summer", 4],
+      ["Fall", 7],
+    ];
+    const current = terms.findIndex(
+      ([, m]) => months >= m && months < (terms[terms.indexOf(terms.find(([n]) => n === (months >= 7 || months <= 0 ? "Fall" : months <= 4 ? "Spring" : "Summer"))!)][1] ?? 12)
+    );
+    return [-1, 0, 1].map((offset) => {
+      const idx = ((current + offset) % 3 + 3) % 3;
+      const yr = year + (current + offset < 0 ? -1 : current + offset >= 3 ? 1 : 0);
+      return `${terms[idx][0]} ${yr}`;
+    });
+  })();
+
   return (
     <div>
       <PageHeader
         title="TA Management"
-        subtitle="Approve applications, manage active TAs, and assign them to sections."
+        subtitle="Approve applications, assign sections per semester, and manage active TAs."
         icon={Users}
         actions={
-          <button className="btn-primary" onClick={() => setAddOpen(true)}>
+          <button
+            className="btn-primary"
+            onClick={() => setAddOpen(true)}
+          >
             <UserPlus className="h-4 w-4" /> Add TA
           </button>
         }
@@ -176,7 +317,8 @@ export default function TaManagementPage() {
       <section className="card mb-6 overflow-hidden">
         <div className="flex items-center justify-between border-b border-black/[0.06] bg-white px-5 py-4">
           <h2 className="flex items-center gap-2 font-bold text-ink">
-            <ShieldCheck className="h-4 w-4 text-gold-deep" /> Pending applications
+            <ShieldCheck className="h-4 w-4 text-gold-deep" />{" "}
+            Pending applications
           </h2>
           <Badge tone="gold">{pending.length} pending</Badge>
         </div>
@@ -188,25 +330,41 @@ export default function TaManagementPage() {
         ) : (
           <ul className="divide-y divide-black/[0.05]">
             {pending.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center gap-3 bg-white px-5 py-4">
+              <li
+                key={a.id}
+                className="flex flex-wrap items-center gap-3 bg-white px-5 py-4"
+              >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-bold text-gold-deep">
-                  {(a.full_name ?? a.email).charAt(0).toUpperCase()}
+                  {(a.full_name ?? a.email)
+                    .charAt(0)
+                    .toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-ink">{a.full_name ?? "Unnamed"}</p>
+                  <p className="font-semibold text-ink">
+                    {a.full_name ?? "Unnamed"}
+                  </p>
                   <p className="truncate text-xs text-ink/50">
-                    {a.email} · requested {new Date(a.requested_at).toLocaleDateString()}
+                    {a.email} · requested{" "}
+                    {new Date(
+                      a.requested_at
+                    ).toLocaleDateString()}
                   </p>
                 </div>
-                <button className="btn-dark px-3 py-1.5 text-xs" onClick={() => approve(a)} disabled={busy}>
-                  <BadgeCheck className="h-3.5 w-3.5" /> Approve
+                <button
+                  className="btn-dark px-3 py-1.5 text-xs"
+                  onClick={() => approve(a)}
+                  disabled={busy}
+                >
+                  <BadgeCheck className="h-3.5 w-3.5" />{" "}
+                  Approve
                 </button>
                 <button
                   className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
                   onClick={() => setRejecting(a)}
                   disabled={busy}
                 >
-                  <XCircle className="h-3.5 w-3.5" /> Reject
+                  <XCircle className="h-3.5 w-3.5" />{" "}
+                  Reject
                 </button>
               </li>
             ))}
@@ -214,49 +372,193 @@ export default function TaManagementPage() {
         )}
       </section>
 
+      {/* Semester selector */}
+      <div className="mb-4 flex items-center gap-3">
+        <label className="text-sm font-semibold text-ink">
+          Semester:
+        </label>
+        <select
+          className="input w-auto"
+          value={semester}
+          onChange={(e) => setSemester(e.target.value)}
+        >
+          {semesterOptions.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Active TAs */}
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between border-b border-black/[0.06] bg-white px-5 py-4">
           <h2 className="flex items-center gap-2 font-bold text-ink">
-            <Layers className="h-4 w-4 text-gold-deep" /> Active TAs
+            <Layers className="h-4 w-4 text-gold-deep" />{" "}
+            Active TAs — {semester}
           </h2>
-          <Badge tone="neutral">{tas.length} TAs</Badge>
+          <Badge tone="neutral">{taList.length} TAs</Badge>
         </div>
-        {tas.length === 0 ? (
+        {taList.length === 0 ? (
           <EmptyState
             title="No TAs yet"
             description="Approve applications above or add a TA directly."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px]">
-              <thead className="bg-paper">
-                <tr>
-                  <th className="th">TA</th>
-                  <th className="th">Email</th>
-                  <th className="th text-right">Assigned sections</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tas.map((t) => (
-                  <tr key={t.id} className="bg-white">
-                    <td className="td">
-                      <p className="font-semibold text-ink">{t.full_name ?? "Unnamed"}</p>
-                    </td>
-                    <td className="td text-xs text-ink/55">{t.email}</td>
-                    <td className="td text-right">
-                      <Badge tone="gold">{taSections[t.id] ?? 0}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="divide-y divide-black/[0.05]">
+            {taList.map((ta) => {
+              const semAssignments = ta.assignments.filter(
+                (a) => a.semester === semester
+              );
+              const isFull = semAssignments.length >= 3;
+              return (
+                <div
+                  key={ta.profile.id}
+                  className="bg-white px-5 py-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-ink">
+                        {ta.profile.full_name ?? "Unnamed"}
+                      </p>
+                      <p className="text-xs text-ink/50">
+                        {ta.profile.email}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        tone={isFull ? "red" : "gold"}
+                      >
+                        {semAssignments.length}/3 sections
+                      </Badge>
+                      <button
+                        className="btn-outline px-3 py-1.5 text-xs"
+                        onClick={() =>
+                          setAssignTarget(ta)
+                        }
+                        disabled={isFull}
+                      >
+                        <Plus className="h-3.5 w-3.5" />{" "}
+                        Assign Section
+                      </button>
+                    </div>
+                  </div>
+                  {semAssignments.length === 0 ? (
+                    <p className="mt-2 text-xs text-ink/40">
+                      No sections assigned for{" "}
+                      {semester}.
+                    </p>
+                  ) : (
+                    <ul className="mt-2 space-y-1">
+                      {semAssignments.map((a) => (
+                        <li
+                          key={a.id}
+                          className="flex items-center justify-between gap-2 rounded-lg bg-paper/60 px-3 py-1.5 text-xs"
+                        >
+                          <span className="font-medium text-ink/70">
+                            {a.courseCode} →{" "}
+                            {a.sectionCode}
+                          </span>
+                          <button
+                            className="text-red-500 hover:text-red-700"
+                            onClick={() =>
+                              setRemoveTarget({
+                                taId: ta.profile.id,
+                                taName:
+                                  ta.profile.full_name ??
+                                  "TA",
+                                sectionLabel: `${a.courseCode} → ${a.sectionCode}`,
+                                assignmentId: a.id,
+                              })
+                            }
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
 
+      {/* Assign section modal */}
+      <Modal
+        open={!!assignTarget}
+        onClose={() => {
+          setAssignTarget(null);
+          setAssignSectionId("");
+        }}
+        title={`Assign section to ${assignTarget?.profile.full_name ?? "TA"}`}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-ink/60">
+            Semester: <span className="font-semibold">{semester}</span> ·{" "}
+            Current:{" "}
+            <span className="font-semibold">
+              {assignTarget?.assignments.filter((a) => a.semester === semester).length ?? 0}/3
+            </span>{" "}
+            sections
+          </p>
+          <div>
+            <label className="label">Section</label>
+            <select
+              className="input"
+              value={assignSectionId}
+              onChange={(e) =>
+                setAssignSectionId(e.target.value)
+              }
+            >
+              <option value="">Select a section</option>
+              {sections
+                .filter(
+                  (s) =>
+                    !assignTarget?.assignments.some(
+                      (a) =>
+                        a.sectionId === s.id &&
+                        a.semester === semester
+                    )
+                )
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {courseSection(
+                      one(s.course)?.code,
+                      s.section_code
+                    )}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              className="btn-outline"
+              onClick={() => {
+                setAssignTarget(null);
+                setAssignSectionId("");
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn-primary"
+              onClick={assignSection}
+              disabled={busy || !assignSectionId}
+            >
+              {busy ? "Assigning..." : "Assign"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Add TA modal */}
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add a TA">
+      <Modal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Add a TA"
+      >
         <form onSubmit={addTa} className="space-y-4">
           <div>
             <label className="label">NU email</label>
@@ -269,12 +571,17 @@ export default function TaManagementPage() {
               required
             />
             <p className="mt-2 text-xs text-ink/45">
-              The person must have signed in at least once so an account exists.
-              If they were a student, their role is upgraded to TA.
+              The person must have signed in at least once
+              so an account exists. If they were a student,
+              their role is upgraded to TA.
             </p>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" className="btn-outline" onClick={() => setAddOpen(false)}>
+            <button
+              type="button"
+              className="btn-outline"
+              onClick={() => setAddOpen(false)}
+            >
               Cancel
             </button>
             <button className="btn-primary" disabled={busy}>
@@ -292,7 +599,9 @@ export default function TaManagementPage() {
       >
         <div className="space-y-4">
           <div>
-            <label className="label">Reason (optional, shown to applicant)</label>
+            <label className="label">
+              Reason (optional, shown to applicant)
+            </label>
             <textarea
               className="input min-h-24"
               value={rejectReason}
@@ -301,15 +610,34 @@ export default function TaManagementPage() {
             />
           </div>
           <div className="flex justify-end gap-3">
-            <button className="btn-outline" onClick={() => setRejecting(null)}>
+            <button
+              className="btn-outline"
+              onClick={() => setRejecting(null)}
+            >
               Cancel
             </button>
-            <button className="btn-primary bg-red-600 hover:bg-red-700" onClick={reject} disabled={busy}>
-              {busy ? "Rejecting..." : "Reject application"}
+            <button
+              className="btn-primary bg-red-600 hover:bg-red-700"
+              onClick={reject}
+              disabled={busy}
+            >
+              {busy
+                ? "Rejecting..."
+                : "Reject application"}
             </button>
           </div>
         </div>
       </Modal>
+
+      {/* Remove TA from section confirm */}
+      <ConfirmDialog
+        open={!!removeTarget}
+        onClose={() => setRemoveTarget(null)}
+        onConfirm={confirmRemove}
+        title={`Remove ${removeTarget?.taName}?`}
+        message={`Remove ${removeTarget?.taName} from ${removeTarget?.sectionLabel}? They will lose access to that section's students, marks, and evaluations.`}
+        confirmLabel="Remove"
+      />
     </div>
   );
 }

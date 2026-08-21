@@ -16,7 +16,9 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { CourseSection, Student, StudentInvite } from "@/lib/types";
 import { formatDate, one, regNoDisplay } from "@/lib/utils";
+import { useSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
+import SemesterSelector from "@/components/SemesterSelector";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
@@ -46,6 +48,7 @@ function makeToken() {
 export default function TaStudentsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
+  const [semester] = useSemester();
   const [sections, setSections] = useState<SectionWithCourse[]>([]);
   const [sectionId, setSectionId] = useState("");
   const [students, setStudents] = useState<EnrollmentRow[]>([]);
@@ -59,7 +62,8 @@ export default function TaStudentsPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("section_tas")
-      .select("section_id, section:course_sections(*, course:courses(code, title))");
+      .select("section_id, section:course_sections(*, course:courses(code, title))")
+      .eq("semester", semester);
     const rows = (data ?? []) as {
       section_id: string;
       section: (SectionWithCourse & { course?: { code: string; title: string }[] | null })[];
@@ -226,6 +230,7 @@ async function copyLink(token: string) {
         title="Students & Invitations"
         subtitle="Manage who is in your sections and invite students to join."
         icon={Users}
+        actions={<SemesterSelector />}
       />
 
       {sections.length === 0 ? (

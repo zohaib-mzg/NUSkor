@@ -18,7 +18,9 @@ import type {
   SlotWithBookings,
 } from "@/lib/types";
 import { formatDate, one, regNoDisplay } from "@/lib/utils";
+import { useSemester } from "@/lib/semester";
 import { useToast } from "@/components/ui/Toast";
+import SemesterSelector from "@/components/SemesterSelector";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
@@ -33,6 +35,7 @@ interface PeriodAdmin extends EvaluationPeriod {
 export default function TaEvaluationPeriodsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
+  const [semester] = useSemester();
   const [sections, setSections] = useState<CourseSection[]>([]);
   const [periods, setPeriods] = useState<PeriodAdmin[]>([]);
   const [modal, setModal] = useState(false);
@@ -55,7 +58,8 @@ const load = useCallback(async () => {
     const supabase = createClient();
     const { data: stRes } = await supabase
       .from("section_tas")
-      .select("section_id, section:course_sections(*, course:courses(code, title))");
+      .select("section_id, section:course_sections(*, course:courses(code, title))")
+      .eq("semester", semester);
     const rows = (stRes ?? []) as {
       section_id: string;
       section: (CourseSection & { course?: { code: string; title: string }[] | null })[];
@@ -300,9 +304,12 @@ const dates: string[] = [];
         subtitle="Create periods, add time slots, and let students book."
         icon={CalendarClock}
         actions={
-          <button className="btn-primary" onClick={() => setModal(true)}>
-            <Plus className="h-4 w-4" /> New period
-          </button>
+          <>
+            <SemesterSelector />
+            <button className="btn-primary" onClick={() => setModal(true)}>
+              <Plus className="h-4 w-4" /> New period
+            </button>
+          </>
         }
       />
 

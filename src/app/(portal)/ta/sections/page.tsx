@@ -158,7 +158,7 @@ export default function TaSectionsPage() {
                 <span className="font-medium text-ink/45"> · {section.course?.title ?? ""}</span>
               </h3>
               <p className="mt-1 text-xs text-ink/50">
-                {section.semester ?? "No semester"} {section.academic_year ?? ""}
+                {section.semester ?? "No semester"}
               </p>
               <div className="mt-4 flex items-center gap-4 border-t border-black/[0.05] pt-4 text-xs text-ink/55">
                 <span className="flex items-center gap-1.5">

@@ -31,8 +31,7 @@ const load = useCallback(async () => {
     const supabase = createClient();
     const { data: stRes } = await supabase
       .from("section_tas")
-      .select("section_id, section:course_sections(*, course:courses(code))")
-      .eq("semester", semester);
+      .select("section_id, section:course_sections(*, course:courses(code))");
     const rows = (stRes ?? []) as {
       section_id: string;
       section: (CourseSection & { course?: { code: string }[] | null })[];

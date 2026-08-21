@@ -62,8 +62,7 @@ export default function TaStudentsPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("section_tas")
-      .select("section_id, section:course_sections(*, course:courses(code, title))")
-      .eq("semester", semester);
+      .select("section_id, section:course_sections(*, course:courses(code, title))");
     const rows = (data ?? []) as {
       section_id: string;
       section: (SectionWithCourse & { course?: { code: string; title: string }[] | null })[];

@@ -34,8 +34,7 @@ export default function TaAssessmentsPage() {
     const supabase = createClient();
     const { data: stRes } = await supabase
       .from("section_tas")
-      .select("section_id, section:course_sections(*, course:courses(code, title))")
-      .eq("semester", semester);
+      .select("section_id, section:course_sections(*, course:courses(code, title))");
     const rows = (stRes ?? []) as {
       section_id: string;
       section: (CourseSection & { course?: { code: string; title: string }[] | null })[];

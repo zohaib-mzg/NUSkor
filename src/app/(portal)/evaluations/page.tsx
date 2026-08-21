@@ -164,7 +164,7 @@ export default function EvaluationsPage() {
                       {(() => {
                         const sec = one(period.section);
                         return sec
-                          ? `${sec.course?.code ?? "Course"} · Section ${sec.section_code}`
+                          ? `${sec.course?.code ?? "Course"} → ${sec.section_code}`
                           : "Course";
                       })()}
                     </span>

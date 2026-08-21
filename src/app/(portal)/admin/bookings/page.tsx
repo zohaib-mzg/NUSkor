@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, Search, CheckCircle2, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Booking } from "@/lib/types";
-import { formatDate, one } from "@/lib/utils";
+import { formatDate, one, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -103,7 +103,7 @@ export default function BookingsPage() {
                 <tr>
                   <th className="th">Reg. No.</th>
                   <th className="th">Student</th>
-                  <th className="th">Course · Section</th>
+                  <th className="th">Course → Section</th>
                   <th className="th">Evaluation</th>
                   <th className="th">Slot</th>
                   <th className="th">Status</th>
@@ -117,7 +117,7 @@ export default function BookingsPage() {
                   return (
                   <tr key={b.id} className="bg-white">
                     <td className="td font-mono text-xs text-ink/70">
-                      {student?.registration_no ?? "N/A"}
+                      {regNoDisplay(student?.registration_no, student?.profiles?.email)}
                     </td>
                     <td className="td">
                       <p className="font-semibold text-ink">

@@ -68,7 +68,7 @@ export default function AnnouncementsPage() {
                       (() => {
                         const sec = one(a.section);
                         return sec
-                          ? ` · ${sec.course?.code ?? "Course"} Sec ${sec.section_code}`
+                          ? ` ${String.fromCharCode(0x2192)} ${sec.course?.code ?? "Course"} ${sec.section_code}`
                           : "";
                       })()}
                   </p>

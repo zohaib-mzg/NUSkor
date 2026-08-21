@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { CourseSection, Student, StudentInvite } from "@/lib/types";
-import { formatDate, one } from "@/lib/utils";
+import { formatDate, one, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -198,7 +198,7 @@ async function copyLink(token: string) {
     const header = ["registration_no", "email", "full_name"];
     const lines = students.map((r) => {
       const st = studentOf(r);
-      return [st?.registration_no ?? "", st?.profiles?.email ?? "", (st?.profiles?.full_name ?? "").replace(/"/g, '""')]
+      return [regNoDisplay(st?.registration_no, st?.profiles?.email), st?.profiles?.email ?? "", (st?.profiles?.full_name ?? "").replace(/"/g, '""')]
         .map((v) => `"${v}"`)
         .join(",");
     });
@@ -248,7 +248,7 @@ async function copyLink(token: string) {
                     : "btn-outline px-3 py-1.5 text-xs"
                 }
               >
-                {s.course?.code ?? "Course"} · Section {s.section_code}
+                {s.course?.code ?? "Course"} → {s.section_code}
               </button>
             ))}
           </div>
@@ -262,7 +262,7 @@ async function copyLink(token: string) {
                     <h2 className="font-bold text-ink">
                       Enrolled students
                       <span className="ml-2 text-sm font-medium text-ink/45">
-                        {activeSection?.course?.code ?? "Course"} ·{" "}
+                        {activeSection?.course?.code ?? "Course"} →{" "}
                         {activeSection?.section_code ?? ""}
                       </span>
                     </h2>
@@ -311,7 +311,7 @@ async function copyLink(token: string) {
                                 </p>
                                 <p className="text-xs text-ink/50">{st?.profiles?.email}</p>
                               </td>
-                              <td className="td text-ink/70">{st?.registration_no ?? "—"}</td>
+                              <td className="td text-ink/70">{regNoDisplay(st?.registration_no, st?.profiles?.email)}</td>
                               <td className="td text-ink/70">
                                 {formatDate(row.created_at)}
                               </td>
@@ -514,7 +514,7 @@ async function copyLink(token: string) {
             <p className="font-semibold text-gold-deep">How it works</p>
             A unique link is created. Any student who opens it and signs in with
             their university Google account is enrolled in{" "}
-            {activeSection?.course?.code ?? "the section"} · Section{" "}
+            {activeSection?.course?.code ?? "the section"} →{" "}
             {activeSection?.section_code ?? ""} automatically — new students are
             registered on first use.
           </div>

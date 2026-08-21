@@ -15,7 +15,7 @@ import type {
   AssessmentStats,
   LeaderboardEntry,
 } from "@/lib/types";
-import { gradeFor, one, percent } from "@/lib/utils";
+import { formatRegNo, gradeFor, one, percent } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
@@ -251,11 +251,11 @@ function SectionBlock({ section, myRegNo }: { section: SectionMarks; myRegNo: st
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] bg-white px-5 py-4">
         <div>
           <h2 className="font-bold text-ink">
-            {section.code} <span className="font-medium text-ink/45">·</span>{" "}
+            {section.code} <span className="font-medium text-ink/45">→</span>{" "}
             <span className="font-medium text-ink/70">{section.title}</span>
           </h2>
           <p className="mt-0.5 text-xs text-ink/50">
-            Section {section.sectionCode} · {section.assessments.length} assessments ·{" "}
+            {section.sectionCode} · {section.assessments.length} assessments ·{" "}
             {section.totalPossible > 0
               ? `${percent(section.totalObtained, section.totalPossible).toFixed(1)}% overall · Grade ${gradeFor(section.totalObtained, section.totalPossible).grade}`
               : "No marks published yet"}
@@ -396,7 +396,7 @@ function SectionBlock({ section, myRegNo }: { section: SectionMarks; myRegNo: st
                           )}
                         </td>
                         <td className="td font-semibold text-ink">
-                          {e.registration_no ?? "N/A"}
+                          {formatRegNo(e.registration_no) ?? "N/A"}
                           {isMe && <Badge tone="dark" className="ml-2">You</Badge>}
                         </td>
                         <td className="td text-right font-medium">{e.total}</td>

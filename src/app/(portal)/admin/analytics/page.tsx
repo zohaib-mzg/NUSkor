@@ -206,7 +206,7 @@ export default function AnalyticsPage() {
             const course = one(s.course);
             return (
               <option key={s.id} value={s.id}>
-                {course?.code ?? "Course"} · Section {s.section_code}
+                {course?.code ?? "Course"} → {s.section_code}
               </option>
             );
           })}

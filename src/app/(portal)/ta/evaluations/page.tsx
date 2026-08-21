@@ -17,7 +17,7 @@ import type {
   EvaluationPeriod,
   SlotWithBookings,
 } from "@/lib/types";
-import { formatDate, one } from "@/lib/utils";
+import { formatDate, one, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -291,7 +291,7 @@ const dates: string[] = [];
                         const sec = one(period.section);
                         return sec ? (
                           <>
-                            {sec.course?.code} · Section {sec.section_code}
+                            {sec.course?.code} → {sec.section_code}
                           </>
                         ) : (
                           "Unknown section"
@@ -425,7 +425,7 @@ const dates: string[] = [];
                 const course = one(s.course);
                 return (
                   <option key={s.id} value={s.id}>
-                    {course?.code ?? "Course"} · Section {s.section_code}
+                    {course?.code ?? "Course"} → {s.section_code}
                   </option>
                 );
               })}
@@ -626,7 +626,7 @@ const dates: string[] = [];
                   return (
                     <tr key={b.id} className="bg-white">
                       <td className="td font-mono text-xs text-ink/70">
-                        {student?.registration_no ?? "N/A"}
+                        {regNoDisplay(student?.registration_no, student?.profiles?.email)}
                       </td>
                       <td className="td">
                         <p className="font-semibold text-ink">
@@ -636,7 +636,7 @@ const dates: string[] = [];
                       </td>
                       <td className="td">
                         {sec
-                          ? `${sec.course?.code ?? "Course"} · Section ${sec.section_code}`
+                          ? `${sec.course?.code ?? "Course"} → ${sec.section_code}`
                           : "—"}
                       </td>
                       <td className="td text-ink/70">

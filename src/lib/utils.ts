@@ -62,6 +62,37 @@ export function many<T>(value: T | T[] | null | undefined): T[] {
   return Array.isArray(value) ? value : [value];
 }
 
+// "l242610", "L242610", "24L2610", "24L-2610" -> "24L-2610"
+export function formatRegNo(value?: string | null): string | null {
+  const s = (value ?? "").replace(/[^0-9a-zA-Z]/g, "").toUpperCase();
+  if (!s) return null;
+  const m = s.match(/^L(\d{2})(\d{3,})$/) ?? s.match(/^(\d{2})L(\d{3,})$/);
+  return m ? `${m[1]}L-${m[2]}` : null;
+}
+
+// Best-effort registration number for display: DB value first,
+// then derived from the university email local part.
+export function regNoDisplay(
+  reg?: string | null,
+  email?: string | null
+): string {
+  return (
+    formatRegNo(reg) ??
+    (email ? formatRegNo(email.split("@")[0]) : null) ??
+    "N/A"
+  );
+}
+
+// "EE2003" + "BCS-3H" -> "EE2003 → BCS-3H"
+export function courseSection(
+  code?: string | null,
+  sectionCode?: string | null
+): string {
+  const c = code?.trim() || "Course";
+  const s = sectionCode?.trim();
+  return s ? `${c} ${String.fromCharCode(0x2192)} ${s}` : c;
+}
+
 export function parseCsv(text: string): { email: string; score: number }[] {
   const rows: { email: string; score: number }[] = [];
   const lines = text

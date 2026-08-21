@@ -86,7 +86,7 @@ function JoinInner({
       setResult({
         ok: true,
         section: s
-          ? `${s.code ?? "Course"} · Section ${secRow?.section_code ?? ""}`
+          ? `${s.code ?? "Course"} → ${secRow?.section_code ?? ""}`
           : "your section",
       });
     },

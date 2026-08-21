@@ -158,7 +158,7 @@ async function deleteItem() {
     if (!a.section_id) return "All sections";
     const sec = one(a.section);
     return sec
-      ? `${sec.course?.code ?? "Course"} · Section ${sec.section_code}`
+      ? `${sec.course?.code ?? "Course"} → ${sec.section_code}`
       : "A section";
   };
 
@@ -277,7 +277,7 @@ async function deleteItem() {
                 const course = one(s.course);
                 return (
                   <option key={s.id} value={s.id}>
-                    {course?.code ?? "Course"} · Section {s.section_code}
+                    {course?.code ?? "Course"} → {s.section_code}
                   </option>
                 );
               })}

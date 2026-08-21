@@ -192,7 +192,7 @@ const supabase = createClient();
                       : "btn-outline px-3 py-1.5 text-xs"
                   }
                 >
-                  {course?.code ?? ""} · {s.section_code}
+                  {course?.code ?? ""} → {s.section_code}
                 </button>
               );
             })}
@@ -219,7 +219,7 @@ const supabase = createClient();
                     </div>
                     <h3 className="mt-3 font-bold text-ink">{a.title}</h3>
                     <p className="text-xs font-semibold text-gold-deep">
-                      {course?.code ?? ""} · Section {a.section?.section_code ?? ""}
+                      {course?.code ?? ""} → {a.section?.section_code ?? ""}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-ink/55">
                       <span>Marks: <span className="font-bold text-ink">{a.total_marks}</span></span>
@@ -264,7 +264,7 @@ const supabase = createClient();
                 const course = one(s.course);
                 return (
                   <option key={s.id} value={s.id}>
-                    {course?.code ?? "Course"} · Section {s.section_code}
+                    {course?.code ?? "Course"} → {s.section_code}
                   </option>
                 );
               })}

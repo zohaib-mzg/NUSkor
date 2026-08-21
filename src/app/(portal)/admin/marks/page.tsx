@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Download, FileDown, Loader2 } from "lucide-react";import { createClient } from "@/lib/supabase/client";
 import type { Assessment, CourseSection, Student } from "@/lib/types";
-import { one, parseCsv } from "@/lib/utils";
+import { one, parseCsv, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -178,7 +178,7 @@ async function exportOneAssessment() {
           sectionCode: section?.section_code ?? "",
           students: rows.map((r) => ({
             id: r.id,
-            registration_no: r.registration_no,
+            registration_no: regNoDisplay(r.registration_no, r.profiles?.email),
             full_name: r.profiles?.full_name ?? "",
           })),
           marksByStudent: new Map(
@@ -258,7 +258,7 @@ async function exportOneAssessment() {
           sectionCode: section?.section_code ?? "",
           students: students.map((s) => ({
             id: s.id,
-            registration_no: s.registration_no,
+            registration_no: regNoDisplay(s.registration_no, s.profiles?.email),
             full_name: s.profiles?.full_name ?? "",
           })),
           marksByStudent,
@@ -298,7 +298,7 @@ async function exportOneAssessment() {
               const course = one(s.course);
               return (
                 <option key={s.id} value={s.id}>
-                  {course?.code ?? "Course"} · Section {s.section_code}
+                  {course?.code ?? "Course"} → {s.section_code}
                 </option>
               );
             })}
@@ -429,7 +429,7 @@ async function exportOneAssessment() {
                           <p className="text-xs text-ink/50">{r.profiles?.email}</p>
                         </td>
                         <td className="td font-mono text-xs text-ink/60">
-                          {r.registration_no ?? "N/A"}
+                          {regNoDisplay(r.registration_no, r.profiles?.email)}
                         </td>
                         <td className="td">
                           <input

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Users, Pencil, Search, BookOpen, Archive, ArchiveRestore } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Student, CourseSection } from "@/lib/types";
-import { cn, one } from "@/lib/utils";
+import { cn, one, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -236,7 +236,7 @@ export default function StudentsPage() {
                         </div>
                       </td>
                       <td className="td font-mono text-xs text-ink/70">
-                        {s.registration_no ?? "N/A"}
+                        {regNoDisplay(s.registration_no, s.profiles?.email)}
                       </td>
                       <td className="td">{s.program ?? "N/A"}</td>
                       <td className="td">{s.semester ?? "N/A"}</td>
@@ -247,7 +247,7 @@ export default function StudentsPage() {
                           ) : (
                             enrolled.map((sec) => (
                               <Badge key={sec.id} tone="neutral">
-                                {one(sec.course)?.code} · {sec.section_code}
+                                {one(sec.course)?.code} → {sec.section_code}
                               </Badge>
                             ))
                           )}
@@ -398,7 +398,7 @@ export default function StudentsPage() {
                     >
                       <span>
                         <span className="block text-sm font-bold text-ink">
-                          {course?.code ?? "Course"} · Section {sec.section_code}
+                          {course?.code ?? "Course"} → {sec.section_code}
                         </span>
                         <span className="block text-xs text-ink/50">
                           {course?.title ?? ""} {sec.semester ?? ""} {sec.academic_year ?? ""}

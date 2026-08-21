@@ -142,14 +142,14 @@ function InviteInner({
               <div className="text-center">
                 <CheckCircle2 className="mx-auto h-10 w-10 text-green-600" />
                 <h2 className="mt-3 font-bold text-ink">
-                  {result.already ? "Already enrolled!" : "You&apos;re in!"}
+                  {result.already ? "Already enrolled!" : "You're in!"}
                 </h2>
                 <p className="mt-1 text-sm text-ink/55">
                   {result.already ? (
                     <>
                       You are already enrolled in{" "}
                       <span className="font-semibold text-ink">
-                        {details.course_code} · Section {details.section_code}
+                        {details.course_code} → {details.section_code}
                       </span>
                       .
                     </>
@@ -157,7 +157,7 @@ function InviteInner({
                     <>
                       You&apos;ve joined{" "}
                       <span className="font-semibold text-ink">
-                        {details.course_code} · Section {details.section_code}
+                        {details.course_code} → {details.section_code}
                       </span>
                       . Your student account has been created.
                     </>
@@ -184,7 +184,7 @@ function InviteInner({
                   You&apos;ve been invited to join
                 </p>
                 <h2 className="mt-1 text-lg font-bold text-ink">
-                  {details.course_code} · Section {details.section_code}
+                  {details.course_code} → {details.section_code}
                 </h2>
                 <p className="text-sm text-ink/60">{details.course_title}</p>
                 <div className="mt-3 space-y-1.5 text-xs text-ink/55">

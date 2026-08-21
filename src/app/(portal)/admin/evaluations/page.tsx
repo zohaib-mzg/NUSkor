@@ -259,7 +259,7 @@ export default function EvaluationPeriodsPage() {
                         const sec = one(period.section);
                         return sec ? (
                           <>
-                            {sec.course?.code} · Section {sec.section_code}
+                            {sec.course?.code} → {sec.section_code}
                           </>
                         ) : (
                           "Unknown section"
@@ -385,7 +385,7 @@ export default function EvaluationPeriodsPage() {
                 const course = one(s.course);
                 return (
                   <option key={s.id} value={s.id}>
-                    {course?.code ?? "Course"} · Section {s.section_code}
+                    {course?.code ?? "Course"} → {s.section_code}
                   </option>
                 );
               })}

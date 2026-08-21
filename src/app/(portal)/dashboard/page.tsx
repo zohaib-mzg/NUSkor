@@ -350,7 +350,7 @@ export default function StudentDashboard() {
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/45">
                           {sec
-                            ? `${sec.course?.code ?? "Course"} · Sec ${sec.section_code}`
+                            ? `${sec.course?.code ?? "Course"} → ${sec.section_code}`
                             : "Course"}
                         </p>
                         <h3 className="font-semibold text-ink">{p.title}</h3>

@@ -29,9 +29,15 @@ alter table public.section_tas
 
 -- New: one TA per section per semester.
 -- (Different TAs can manage the same section in different semesters.)
-alter table public.section_tas
-  add constraint section_tas_section_semester_key
-  unique (section_id, semester);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'section_tas_section_semester_key'
+  ) THEN
+    ALTER TABLE public.section_tas
+      ADD CONSTRAINT section_tas_section_semester_key
+      UNIQUE (section_id, semester);
+  END IF;
+END $$;
 
 -- ---------- 3. MAX 3 SECTIONS PER TA PER SEMESTER (TRIGGER) ----------
 create or replace function public.check_ta_max_sections()
@@ -51,7 +57,7 @@ begin
 end;
 $$ language plpgsql security definer;
 
-drop trigger if exists trg_ta_max_sections on public.section_tas;
+DROP TRIGGER IF EXISTS trg_ta_max_sections ON public.section_tas;
 create trigger trg_ta_max_sections
   before insert on public.section_tas
   for each row execute procedure public.check_ta_max_sections();
@@ -134,7 +140,7 @@ begin
 end;
 $$ language plpgsql security definer;
 
-drop trigger if exists trg_ta_max_sections_update on public.section_tas;
+DROP TRIGGER IF EXISTS trg_ta_max_sections_update ON public.section_tas;
 create trigger trg_ta_max_sections_update
   before update on public.section_tas
   for each row execute procedure public.check_ta_max_sections_update();

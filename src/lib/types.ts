@@ -256,7 +256,9 @@ export interface JoinSectionResult {
 export interface SectionRequest {
   id: string;
   ta_id: string;
+  course_code: string;
   course_name: string;
+  section_code: string;
   semester: string;
   year: number;
   notes: string | null;

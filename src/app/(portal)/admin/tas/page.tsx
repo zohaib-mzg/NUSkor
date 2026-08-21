@@ -322,16 +322,12 @@ export default function TaManagementPage() {
   async function approveSectionRequest(req: SectionRequest) {
     setBusy(true);
     const supabase = createClient();
-    const { error: err } = await supabase
-      .from("section_requests")
-      .update({ status: "approved", reviewed_at: new Date().toISOString() })
-      .eq("id", req.id);
-    if (err) {
-      setBusy(false);
-      return error(err.message);
-    }
-    success(`Section request for ${req.course_name} approved. Assign the TA from the section list below.`);
+    const { error: err } = await supabase.rpc("approve_section_request", {
+      p_request_id: req.id,
+    });
     setBusy(false);
+    if (err) return error(err.message);
+    success(`Approved: ${req.course_code} — ${req.course_name}, Section ${req.section_code}. Course, section, and TA assignment created.`);
     load();
   }
 
@@ -462,7 +458,7 @@ export default function TaManagementPage() {
                       {cleanName(taProfile?.full_name) || taProfile?.email || "TA"}
                     </p>
                     <p className="text-xs text-ink/50">
-                      Wants <span className="font-semibold text-ink">{r.course_name}</span> · {r.semester} {r.year}
+                      Wants <span className="font-semibold text-ink">{r.course_code} — {r.course_name}</span>, Section {r.section_code} · {r.semester} {r.year}
                       {r.notes && <span className="italic text-ink/40"> — {r.notes}</span>}
                     </p>
                   </div>

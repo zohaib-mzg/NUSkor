@@ -1,15 +1,15 @@
 -- =========================================================
 -- NUSkor — Migration v2.14 (idempotent — safe to re-run)
--- Section requests: TAs can request new sections.
--- Profile deletion: users can delete their accounts.
--- TA revocation: admin can revoke TA role.
+-- Section requests, profile deletion, TA revocation.
 -- =========================================================
 
 -- ---------- 1. SECTION REQUESTS ----------
 create table if not exists public.section_requests (
   id uuid default gen_random_uuid() primary key,
   ta_id uuid not null references auth.users(id) on delete cascade,
+  course_code text not null,
   course_name text not null,
+  section_code text not null,
   semester text not null,
   year integer not null,
   notes text,
@@ -20,11 +20,17 @@ create table if not exists public.section_requests (
   created_at timestamptz not null default now()
 );
 
+-- Migration safety: add columns if missing from earlier runs
 do $$
 begin
-  if exists (select 1 from information_schema.columns where table_name = 'section_requests' and column_name = 'course_code')
-     and not exists (select 1 from information_schema.columns where table_name = 'section_requests' and column_name = 'course_name') then
-    alter table public.section_requests rename column course_code to course_name;
+  if not exists (select 1 from information_schema.columns where table_name = 'section_requests' and column_name = 'course_name') then
+    alter table public.section_requests add column course_name text not null default '';
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'section_requests' and column_name = 'section_code') then
+    alter table public.section_requests add column section_code text not null default '';
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'section_requests' and column_name = 'course_code') then
+    alter table public.section_requests add column course_code text not null default '';
   end if;
 exception when others then null;
 end $$;
@@ -45,9 +51,53 @@ create policy "section_requests_admin_all" on public.section_requests
     exists (select 1 from profiles where id = auth.uid() and role = 'admin')
   );
 
--- ---------- 2. REVOKE TA FUNCTION ----------
--- Admin revokes a TA: removes all section assignments, invites, and downgrades role.
--- SECURITY DEFINER bypasses RLS so the admin can update another user's profile.
+-- ---------- 2. APPROVE SECTION REQUEST ----------
+-- Creates course (if new), creates section, assigns TA — all in one SECURITY DEFINER call.
+create or replace function public.approve_section_request(p_request_id uuid)
+returns void
+language plpgsql security definer
+as $$
+declare
+  req record;
+  v_course_id uuid;
+  v_section_id uuid;
+begin
+  if not exists (select 1 from profiles where id = auth.uid() and role = 'admin') then
+    raise exception 'Only admins can approve section requests';
+  end if;
+
+  select * into req from section_requests where id = p_request_id and status = 'pending';
+  if not found then
+    raise exception 'Request not found or already processed';
+  end if;
+
+  -- Find or create course
+  select id into v_course_id from courses where code = upper(req.course_code);
+  if not found then
+    insert into courses (code, title, created_by)
+      values (upper(req.course_code), req.course_name, auth.uid())
+      returning id into v_course_id;
+  end if;
+
+  -- Create section
+  insert into course_sections (course_id, section_code, semester, academic_year, status, created_by)
+    values (v_course_id, req.section_code, req.semester, req.year::text, 'active', auth.uid())
+    returning id into v_section_id;
+
+  -- Assign TA
+  insert into section_tas (ta_id, section_id, semester)
+    values (req.ta_id, v_section_id, req.semester);
+
+  -- Mark request approved
+  update section_requests
+    set status = 'approved', reviewed_by = auth.uid(), reviewed_at = now()
+    where id = p_request_id;
+end;
+$$;
+
+grant execute on function public.approve_section_request(uuid) to authenticated;
+
+-- ---------- 3. REVOKE TA FUNCTION ----------
 create or replace function public.revoke_ta(p_ta_id uuid)
 returns void
 language plpgsql security definer
@@ -57,20 +107,18 @@ begin
     raise exception 'Only admins can revoke TA role';
   end if;
 
-  -- Clean up TA's data
   delete from section_tas where ta_id = p_ta_id;
   delete from student_invites where created_by_ta = p_ta_id;
   delete from section_requests where ta_id = p_ta_id;
   delete from ta_applications where user_id = p_ta_id;
 
-  -- Downgrade role
   update profiles set role = 'student' where id = p_ta_id;
 end;
 $$;
 
 grant execute on function public.revoke_ta(uuid) to authenticated;
 
--- ---------- 3. DELETE ACCOUNT FUNCTION ----------
+-- ---------- 4. DELETE ACCOUNT FUNCTION ----------
 create or replace function public.delete_account()
 returns void
 language plpgsql security definer
@@ -82,7 +130,6 @@ begin
     raise exception 'Not authenticated';
   end if;
 
-  -- Delete dependent data
   delete from marks where student_id = uid;
   delete from enrollments where student_id = uid;
   delete from bookings where student_id = uid;
@@ -94,7 +141,6 @@ begin
   delete from section_requests where ta_id = uid;
   delete from ta_applications where user_id = uid;
 
-  -- Delete profile
   delete from profiles where id = uid;
 end;
 $$;

@@ -20,25 +20,21 @@ interface SectionSummary {
   studentCount: number;
 }
 
-interface CourseOption {
-  code: string;
-  title: string;
-}
-
 export default function TaSectionsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
   const [semester] = useSemester();
   const [sections, setSections] = useState<SectionSummary[]>([]);
   const [pendingRequests, setPendingRequests] = useState<SectionRequest[]>([]);
-  const [courses, setCourses] = useState<CourseOption[]>([]);
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestBusy, setRequestBusy] = useState(false);
 
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentTerm = currentSemester().split(" ")[0];
-  const [reqCourse, setReqCourse] = useState("");
+  const [reqCourseCode, setReqCourseCode] = useState("");
+  const [reqCourseName, setReqCourseName] = useState("");
+  const [reqSectionCode, setReqSectionCode] = useState("");
   const [reqSemester, setReqSemester] = useState(currentTerm);
   const [reqYear, setReqYear] = useState(currentYear);
   const [reqNotes, setReqNotes] = useState("");
@@ -52,7 +48,7 @@ export default function TaSectionsPage() {
       } = await supabase.auth.getUser();
       if (!user || cancelled) return;
 
-      const [stRes, taRes, enRes, reqRes, courseRes] = await Promise.all([
+      const [stRes, taRes, enRes, reqRes] = await Promise.all([
         supabase
           .from("section_tas")
           .select("section_id, section:course_sections(*, course:courses(code, title))")
@@ -66,11 +62,6 @@ export default function TaSectionsPage() {
           .eq("ta_id", user.id)
           .eq("status", "pending")
           .order("created_at", { ascending: false }),
-        supabase
-          .from("courses")
-          .select("code, title")
-          .eq("is_archived", false)
-          .order("code"),
       ]);
       if (cancelled) return;
 
@@ -103,7 +94,6 @@ export default function TaSectionsPage() {
           .filter((s): s is SectionSummary => s !== null)
       );
       setPendingRequests((reqRes.data ?? []) as SectionRequest[]);
-      setCourses((courseRes.data ?? []) as CourseOption[]);
       setLoading(false);
     }
     load().finally(() => !cancelled && setLoading(false));
@@ -113,7 +103,7 @@ export default function TaSectionsPage() {
   }, [semester]);
 
   async function submitRequest() {
-    if (!reqCourse.trim()) return;
+    if (!reqCourseCode.trim() || !reqCourseName.trim() || !reqSectionCode.trim()) return;
     setRequestBusy(true);
     const supabase = createClient();
     const {
@@ -123,7 +113,9 @@ export default function TaSectionsPage() {
 
     const { error: err } = await supabase.from("section_requests").insert({
       ta_id: user.id,
-      course_name: reqCourse.trim(),
+      course_code: reqCourseCode.trim().toUpperCase(),
+      course_name: reqCourseName.trim(),
+      section_code: reqSectionCode.trim(),
       semester: reqSemester,
       year: reqYear,
       notes: reqNotes.trim() || null,
@@ -132,7 +124,13 @@ export default function TaSectionsPage() {
     if (err) return error(err.message);
     success("Request submitted. An admin will review it.");
     setRequestOpen(false);
-    setReqCourse("");
+    resetForm();
+  }
+
+  function resetForm() {
+    setReqCourseCode("");
+    setReqCourseName("");
+    setReqSectionCode("");
     setReqNotes("");
   }
 
@@ -170,10 +168,10 @@ export default function TaSectionsPage() {
               >
                 <Badge tone="gold">Pending</Badge>
                 <span className="font-semibold text-ink">
-                  {r.course_name}
+                  {r.course_code} — {r.course_name}
                 </span>
                 <span className="text-ink/50">
-                  {r.semester} {r.year}
+                  Section {r.section_code} · {r.semester} {r.year}
                 </span>
                 {r.notes && (
                   <span className="truncate text-ink/40 italic">
@@ -232,24 +230,43 @@ export default function TaSectionsPage() {
       >
         <div className="space-y-4">
           <p className="text-sm text-ink/55">
-            Select the course you want to be assigned to. An admin will review
-            your request and assign you to a section.
+            Fill in the course and section details. On approval, the course and
+            section will be created and you will be assigned as TA.
           </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Course code</label>
+              <input
+                className="input"
+                type="text"
+                placeholder="e.g. EE2003"
+                value={reqCourseCode}
+                onChange={(e) => setReqCourseCode(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="label">Course name</label>
+              <input
+                className="input"
+                type="text"
+                placeholder="e.g. Digital Logic Design"
+                value={reqCourseName}
+                onChange={(e) => setReqCourseName(e.target.value)}
+                required
+              />
+            </div>
+          </div>
           <div>
-            <label className="label">Course</label>
-            <select
+            <label className="label">Section name</label>
+            <input
               className="input"
-              value={reqCourse}
-              onChange={(e) => setReqCourse(e.target.value)}
+              type="text"
+              placeholder="e.g. A, B, CS-A"
+              value={reqSectionCode}
+              onChange={(e) => setReqSectionCode(e.target.value)}
               required
-            >
-              <option value="">Select a course…</option>
-              {courses.map((c) => (
-                <option key={c.code} value={`${c.code} — ${c.title}`}>
-                  {c.code} — {c.title}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -298,7 +315,7 @@ export default function TaSectionsPage() {
             <button
               className="btn-primary"
               onClick={submitRequest}
-              disabled={requestBusy || !reqCourse.trim()}
+              disabled={requestBusy || !reqCourseCode.trim() || !reqCourseName.trim() || !reqSectionCode.trim()}
             >
               {requestBusy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

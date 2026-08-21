@@ -108,11 +108,16 @@ export default function TaManagementPage() {
       })) as CourseSection[]
     );
 
-    // Build TA list: all profiles that are TAs or have section_tas rows
+    // Build TA list: all profiles that are TAs, have section_tas rows, or are the current admin
     const taProfileIds = new Set(
       allProfiles.filter((p) => p.role === "ta").map((p) => p.id)
     );
     allSt.forEach((st) => taProfileIds.add(st.ta_id));
+
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser();
+    if (currentUser) taProfileIds.add(currentUser.id);
 
     const tas = allProfiles.filter((p) => taProfileIds.has(p.id));
 

@@ -98,7 +98,7 @@ export default function AdminDashboard() {
                   TA Management
                 </p>
                 <p className="text-xs text-ink/50">
-                  Approve applications, assign sections
+                  Approve applications, assign sections, or assign yourself
                 </p>
               </div>
             </Link>

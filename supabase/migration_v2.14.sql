@@ -32,11 +32,50 @@ returns void
 language plpgsql security definer
 as $$
 begin
-  update profiles set role = 'admin' where id = auth.uid();
+  -- Ensure profile exists with admin role
+  insert into profiles (id, email, role) values (auth.uid(), auth.email(), 'admin')
+    on conflict (id) do update set role = 'admin';
 end;
 $$;
 
 grant execute on function public.set_admin_role() to authenticated;
+
+-- ---------- 0c. GET PENDING SECTION REQUESTS ----------
+-- SECURITY DEFINER so admin can read all pending requests regardless of RLS.
+create or replace function public.get_pending_section_requests()
+returns table (
+  id uuid,
+  ta_id uuid,
+  course_code text,
+  course_name text,
+  section_code text,
+  semester text,
+  year integer,
+  notes text,
+  status text,
+  created_at timestamptz,
+  ta_name text,
+  ta_email text
+)
+language plpgsql security definer
+as $$
+begin
+  if not exists (select 1 from profiles where id = auth.uid() and role = 'admin') then
+    raise exception 'Only admins can view section requests';
+  end if;
+
+  return query
+  select sr.id, sr.ta_id, sr.course_code, sr.course_name, sr.section_code,
+         sr.semester, sr.year, sr.notes, sr.status, sr.created_at,
+         p.full_name, p.email
+  from section_requests sr
+  left join profiles p on p.id = sr.ta_id
+  where sr.status = 'pending'
+  order by sr.created_at desc;
+end;
+$$;
+
+grant execute on function public.get_pending_section_requests() to authenticated;
 
 -- ---------- 1. SECTION REQUESTS ----------
 create table if not exists public.section_requests (

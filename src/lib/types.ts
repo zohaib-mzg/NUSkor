@@ -268,6 +268,8 @@ export interface SectionRequest {
   rejection_reason: string | null;
   created_at: string;
   profiles?: { full_name?: string | null; email?: string } | null;
+  ta_name?: string | null;
+  ta_email?: string | null;
 }
 
 export interface LeaderboardEntry {

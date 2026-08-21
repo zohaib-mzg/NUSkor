@@ -15,7 +15,7 @@ import type {
   AssessmentStats,
   LeaderboardEntry,
 } from "@/lib/types";
-import { formatRegNo, gradeFor, one, percent } from "@/lib/utils";
+import { formatRegNo, one, percent } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
@@ -199,7 +199,7 @@ export default function MarksPage() {
           value={summary.possible ? `${summary.pct.toFixed(1)}%` : "N/A"}
           hint={
             summary.possible
-              ? `${gradeFor(summary.total, summary.possible).grade} · ${summary.total} / ${summary.possible}`
+              ? `${summary.total} / ${summary.possible}`
               : "No marks yet"
           }
         />
@@ -243,9 +243,13 @@ export default function MarksPage() {
   );
 }
 
+// Truncate (never round) to 2 decimal places: 1.999 -> "1.99"
+function truncate2(value: number): string {
+  return (Math.floor(value * 100) / 100).toFixed(2);
+}
+
 function SectionBlock({ section, myRegNo }: { section: SectionMarks; myRegNo: string | null }) {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-
   return (
     <section className="card overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] bg-white px-5 py-4">
@@ -257,7 +261,7 @@ function SectionBlock({ section, myRegNo }: { section: SectionMarks; myRegNo: st
           <p className="mt-0.5 text-xs text-ink/50">
             {section.sectionCode} · {section.assessments.length} assessments ·{" "}
             {section.totalPossible > 0
-              ? `${percent(section.totalObtained, section.totalPossible).toFixed(1)}% overall · Grade ${gradeFor(section.totalObtained, section.totalPossible).grade}`
+              ? `${percent(section.totalObtained, section.totalPossible).toFixed(1)}% overall`
               : "No marks published yet"}
             {section.weightedPct !== null && (
               <>
@@ -293,7 +297,7 @@ function SectionBlock({ section, myRegNo }: { section: SectionMarks; myRegNo: st
               <th className="th text-right">Weight</th>
               <th className="th text-right">Marks</th>
               <th className="th text-right">%</th>
-              <th className="th text-right">Grade</th>
+              <th className="th text-right">Absolutes</th>
               <th className="th text-right">Class avg</th>
               <th className="th text-right">Min / Max</th>
             </tr>
@@ -328,10 +332,12 @@ function SectionBlock({ section, myRegNo }: { section: SectionMarks; myRegNo: st
                 <td className="td text-right">
                   {a.obtained === null ? (
                     <span className="text-ink/35">N/A</span>
-                  ) : (
-                    <span className="inline-flex h-7 w-9 items-center justify-center rounded-lg bg-gold/20 font-bold text-gold-deep">
-                      {gradeFor(a.obtained, a.total).grade}
+                  ) : a.weightage > 0 ? (
+                    <span className="font-semibold">
+                      {truncate2((a.obtained / a.total) * a.weightage)}
                     </span>
+                  ) : (
+                    <span className="text-ink/35">—</span>
                   )}
                 </td>
                 <td className="td text-right text-ink/70">

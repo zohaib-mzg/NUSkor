@@ -87,7 +87,7 @@ begin
     select upper(regexp_replace(split_part(u.email, '@', 1), '[^0-9A-Za-z]', '', 'g'))
       into v_local
     from auth.users u where u.id = new.id;
-    v_arr := substring(v_local from '^L([0-9]{2})([0-9]{3,})$');
+    v_arr := regexp_match(v_local, '^L([0-9]{2})([0-9]{3,})$');
     if v_arr is not null then
       new.registration_no := v_arr[1] || 'L-' || v_arr[2];
     end if;
@@ -114,7 +114,7 @@ with norm as (
 update public.students s
 set registration_no = (m.arr)[1] || 'L-' || (m.arr)[2]
 from (
-  select n.id, substring(n.loc from '^L([0-9]{2})([0-9]{3,})$') as arr
+  select n.id, regexp_match(n.loc, '^L([0-9]{2})([0-9]{3,})$') as arr
   from norm n
 ) m
 where s.id = m.id

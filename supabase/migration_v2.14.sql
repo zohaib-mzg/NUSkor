@@ -39,6 +39,28 @@ begin
 end;
 $$;
 
+-- ---------- 2b. ALLOW TAs TO CREATE COURSES AND SECTIONS ----------
+drop policy if exists "courses_ta_insert" on courses;
+create policy "courses_ta_insert" on courses
+  for insert with check (
+    auth.email() = 'adminmzg@gmail.com'
+    or exists (select 1 from profiles where id = auth.uid() and role = 'ta')
+  );
+
+drop policy if exists "course_sections_ta_insert" on course_sections;
+create policy "course_sections_ta_insert" on course_sections
+  for insert with check (
+    auth.email() = 'adminmzg@gmail.com'
+    or exists (select 1 from profiles where id = auth.uid() and role = 'ta')
+  );
+
+drop policy if exists "section_tas_ta_insert" on section_tas;
+create policy "section_tas_ta_insert" on section_tas
+  for insert with check (
+    auth.email() = 'adminmzg@gmail.com'
+    or ta_id = auth.uid()
+  );
+
 -- ---------- 3. SET ADMIN ROLE FUNCTION ----------
 create or replace function public.set_admin_role()
 returns void

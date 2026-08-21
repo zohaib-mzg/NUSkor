@@ -360,9 +360,6 @@ function SectionBlock({ section, myRegNo }: { section: SectionMarks; myRegNo: st
         <div className="border-t border-black/[0.06] bg-paper px-5 py-5">
           <h3 className="mb-3 flex items-center gap-2 font-bold text-ink">
             <Trophy className="h-4 w-4 text-gold-deep" /> Leaderboard
-            <span className="text-xs font-medium text-ink/45">
-              (student IDs only: privacy protected)
-            </span>
           </h3>
           {section.leaderboard.length === 0 ? (
             <EmptyState title="No marks on the board yet" />

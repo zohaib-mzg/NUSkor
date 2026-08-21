@@ -16,7 +16,7 @@ import type {
   Booking,
   EvaluationPeriod,
 } from "@/lib/types";
-import { cn, formatDate, gradeFor, one, percent } from "@/lib/utils";
+import { cn, formatDate, one, percent } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
@@ -199,7 +199,7 @@ export default function StudentDashboard() {
           value={myMarks.possible > 0 ? `${overall.toFixed(1)}%` : "N/A"}
           hint={
             myMarks.possible > 0
-              ? `${gradeFor(myMarks.total, myMarks.possible).grade} · ${myMarks.total} / ${myMarks.possible}`
+              ? `${myMarks.total} / ${myMarks.possible}`
               : "No marks published yet"
           }
         />

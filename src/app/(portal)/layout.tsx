@@ -29,14 +29,12 @@ export default async function PortalLayout({
   if (!profile) redirect("/login");
 
   // Force admin role if email matches — belt-and-suspenders fix
-  // for when the callback didn't set it properly (e.g. prior TA role)
+  // Uses SECURITY DEFINER RPC to bypass RLS role-change restriction
   let role = profile.role as string;
   const email = (profile.email ?? "").toLowerCase();
   if (email === ADMIN_EMAIL && role !== "admin") {
     role = "admin";
-    await supabase
-      .from("profiles")
-      .upsert({ id: user.id, role: "admin" }, { onConflict: "id" });
+    await supabase.rpc("set_admin_role");
   }
 
   // Students must have a student account (created via a TA invitation).

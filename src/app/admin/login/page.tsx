@@ -37,18 +37,8 @@ export default function AdminLoginPage() {
       return;
     }
 
-    // Upsert profile with admin role
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      await supabase
-        .from("profiles")
-        .upsert(
-          { id: user.id, email: user.email, role: "admin", full_name: user.user_metadata?.full_name ?? null },
-          { onConflict: "id" }
-        );
-    }
+    // Upsert profile with admin role via SECURITY DEFINER RPC
+    await supabase.rpc("set_admin_role");
 
     window.location.href = "/admin";
   }

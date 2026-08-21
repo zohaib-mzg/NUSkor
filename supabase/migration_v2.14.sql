@@ -25,6 +25,19 @@ begin
 end;
 $$ language plpgsql security definer;
 
+-- ---------- 0b. SET ADMIN ROLE FUNCTION ----------
+-- Bypasses RLS so the admin login page and portal layout can set the role.
+create or replace function public.set_admin_role()
+returns void
+language plpgsql security definer
+as $$
+begin
+  update profiles set role = 'admin' where id = auth.uid();
+end;
+$$;
+
+grant execute on function public.set_admin_role() to authenticated;
+
 -- ---------- 1. SECTION REQUESTS ----------
 create table if not exists public.section_requests (
   id uuid default gen_random_uuid() primary key,

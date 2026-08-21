@@ -28,9 +28,7 @@ export default async function AdminGuardLayout({
 
   // Force admin role if email matches
   if (email === ADMIN_EMAIL && role !== "admin") {
-    await supabase
-      .from("profiles")
-      .upsert({ id: user.id, role: "admin" }, { onConflict: "id" });
+    await supabase.rpc("set_admin_role");
     return <>{children}</>;
   }
 

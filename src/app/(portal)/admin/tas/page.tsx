@@ -57,6 +57,10 @@ export default function TaManagementPage() {
     sectionLabel: string;
     assignmentId: string;
   } | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<{
+    taId: string;
+    taName: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -301,6 +305,24 @@ export default function TaManagementPage() {
     load();
   }
 
+  async function confirmRevoke() {
+    if (!revokeTarget) return;
+    setBusy(true);
+    const supabase = createClient();
+    // Remove all section assignments
+    await supabase.from("section_tas").delete().eq("ta_id", revokeTarget.taId);
+    // Downgrade role to student
+    const { error: err } = await supabase
+      .from("profiles")
+      .update({ role: "student" })
+      .eq("id", revokeTarget.taId);
+    setBusy(false);
+    setRevokeTarget(null);
+    if (err) return error(err.message);
+    success("TA role revoked. They are now a student.");
+    load();
+  }
+
   async function approveSectionRequest(req: SectionRequest) {
     setBusy(true);
     const supabase = createClient();
@@ -536,7 +558,18 @@ export default function TaManagementPage() {
                         disabled={isFull}
                       >
                         <Plus className="h-3.5 w-3.5" />{" "}
-                        Assign Section
+                        Assign
+                      </button>
+                      <button
+                        className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                        onClick={() =>
+                          setRevokeTarget({
+                            taId: ta.profile.id,
+                            taName: cleanName(ta.profile.full_name) || ta.profile.email || "TA",
+                          })
+                        }
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Revoke
                       </button>
                     </div>
                   </div>
@@ -734,6 +767,16 @@ export default function TaManagementPage() {
         title={`Remove ${removeTarget?.taName}?`}
         message={`Remove ${removeTarget?.taName} from ${removeTarget?.sectionLabel}? They will lose access to that section's students, marks, and evaluations.`}
         confirmLabel="Remove"
+      />
+
+      {/* Revoke TA role confirm */}
+      <ConfirmDialog
+        open={!!revokeTarget}
+        onClose={() => setRevokeTarget(null)}
+        onConfirm={confirmRevoke}
+        title={`Revoke TA role for ${revokeTarget?.taName}?`}
+        message={`This will remove all section assignments and downgrade ${revokeTarget?.taName} to a student. They will lose access to all TA features.`}
+        confirmLabel="Revoke TA"
       />
     </div>
   );

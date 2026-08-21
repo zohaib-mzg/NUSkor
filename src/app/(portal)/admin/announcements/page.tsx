@@ -130,14 +130,19 @@ export default function AdminAnnouncementsPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    const { error: err } = await supabase
+    const { error: err, count } = await supabase
       .from("announcements")
-      .update({
-        deleted_at: new Date().toISOString(),
-        deleted_by: user?.id ?? null,
-      })
+      .update(
+        {
+          deleted_at: new Date().toISOString(),
+          deleted_by: user?.id ?? null,
+        },
+        { count: "exact" }
+      )
       .eq("id", toDelete.id);
     if (err) return error(err.message);
+    if ((count ?? 0) === 0)
+      return error("You do not have permission to delete this announcement.");
     success("Announcement deleted.");
     setToDelete(null);
     load();

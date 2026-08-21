@@ -143,14 +143,19 @@ async function deleteItem() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    const { error: err } = await supabase
+    const { error: err, count } = await supabase
       .from("announcements")
-      .update({
-        deleted_at: new Date().toISOString(),
-        deleted_by: user?.id ?? null,
-      })
+      .update(
+        {
+          deleted_at: new Date().toISOString(),
+          deleted_by: user?.id ?? null,
+        },
+        { count: "exact" }
+      )
       .eq("id", toDelete.id);
     if (err) return error(err.message);
+    if ((count ?? 0) === 0)
+      return error("You do not have permission to delete this announcement.");
     success("Announcement deleted.");
     setToDelete(null);
     load();
@@ -210,28 +215,32 @@ async function deleteItem() {
                   <Badge tone={statusTone(a.status) as "green" | "neutral" | "red"}>
                     {a.status}
                   </Badge>
-                  <button
-                    onClick={() => togglePublish(a)}
-                    className="btn-outline px-3 py-1.5 text-xs"
-                  >
-                    {a.status === "published" ? (
-                      <span className="inline-flex items-center gap-1.5"><EyeOff className="h-3.5 w-3.5" /> Unpublish</span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5"><Eye className="h-3.5 w-3.5" /> Publish</span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setModal({ mode: "edit", item: a })}
-                    className="btn-outline px-3 py-1.5 text-xs"
-                  >
-                    <Pencil className="h-3.5 w-3.5" /> Edit
-                  </button>
-<button
-                    onClick={() => setToDelete(a)}
-                    className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  {a.section_id && (
+                    <>
+                      <button
+                        onClick={() => togglePublish(a)}
+                        className="btn-outline px-3 py-1.5 text-xs"
+                      >
+                        {a.status === "published" ? (
+                          <span className="inline-flex items-center gap-1.5"><EyeOff className="h-3.5 w-3.5" /> Unpublish</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5"><Eye className="h-3.5 w-3.5" /> Publish</span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setModal({ mode: "edit", item: a })}
+                        className="btn-outline px-3 py-1.5 text-xs"
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </button>
+                      <button
+                        onClick={() => setToDelete(a)}
+                        className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
               <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink/70">

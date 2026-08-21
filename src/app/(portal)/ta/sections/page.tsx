@@ -97,66 +97,21 @@ export default function TaSectionsPage() {
     if (!courseCode.trim() || !courseName.trim() || !sectionCode.trim()) return;
     setCreateBusy(true);
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    // 1. Find or create course
-    const code = courseCode.trim().toUpperCase();
-    let { data: course } = await supabase
-      .from("courses")
-      .select("id")
-      .eq("code", code)
-      .maybeSingle();
-
-    if (!course) {
-      const { data: newCourse, error: cErr } = await supabase
-        .from("courses")
-        .insert({ code, title: courseName.trim(), created_by: user.id })
-        .select("id")
-        .single();
-      if (cErr) {
-        setCreateBusy(false);
-        return error(cErr.message);
-      }
-      course = newCourse;
-    }
-
-    // 2. Create section
-    const { data: section, error: sErr } = await supabase
-      .from("course_sections")
-      .insert({
-        course_id: course.id,
-        section_code: sectionCode.trim(),
-        semester: reqSemester,
-        academic_year: String(reqYear),
-        status: "active",
-        created_by: user.id,
-      })
-      .select("id")
-      .single();
-
-    if (sErr) {
-      setCreateBusy(false);
-      return error(sErr.message);
-    }
-
-    // 3. Assign self as TA
-    const { error: taErr } = await supabase.from("section_tas").insert({
-      ta_id: user.id,
-      section_id: section.id,
-      semester: reqSemester,
+    const { error: rpcErr } = await supabase.rpc("create_ta_section", {
+      p_course_code: courseCode.trim(),
+      p_course_name: courseName.trim(),
+      p_section_code: sectionCode.trim(),
+      p_semester: reqSemester,
+      p_year: String(reqYear),
     });
 
     setCreateBusy(false);
-    if (taErr) return error(taErr.message);
+    if (rpcErr) return error(rpcErr.message);
     success("Section created and assigned to you.");
     setCreateOpen(false);
     setCourseCode("");
     setCourseName("");
     setSectionCode("");
-    // Reload
     setLoading(true);
     window.location.reload();
   }

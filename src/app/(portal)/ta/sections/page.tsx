@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, Users, UserRound, Plus, Loader2 } from "lucide-react";
+import { BookOpen, Users, UserRound, Plus, Loader2, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { CourseSection } from "@/lib/types";
 import { one } from "@/lib/utils";
@@ -12,6 +12,7 @@ import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
 import Modal from "@/components/ui/Modal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
 
 interface SectionSummary {
@@ -27,6 +28,8 @@ export default function TaSectionsPage() {
   const [sections, setSections] = useState<SectionSummary[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] =
+    useState<SectionSummary | null>(null);
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -115,6 +118,18 @@ export default function TaSectionsPage() {
     window.location.reload();
   }
 
+  async function deleteCourse() {
+    if (!deleteTarget) return;
+    const supabase = createClient();
+    const { error: rpcErr } = await supabase.rpc("delete_ta_section", {
+      p_section_id: deleteTarget.section.id,
+    });
+    if (rpcErr) return error(rpcErr.message);
+    success("Course deleted along with all of its data.");
+    setDeleteTarget(null);
+    window.location.reload();
+  }
+
   if (loading) return <Spinner label="Loading your sections..." />;
 
   return (
@@ -160,20 +175,40 @@ export default function TaSectionsPage() {
               <p className="mt-1 text-xs text-ink/50">
                 {section.semester ?? "No semester"}
               </p>
-              <div className="mt-4 flex items-center gap-4 border-t border-black/[0.05] pt-4 text-xs text-ink/55">
-                <span className="flex items-center gap-1.5">
-                  <UserRound className="h-3.5 w-3.5 text-gold-deep" />
-                  {taCount} {taCount === 1 ? "TA" : "TAs"}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-gold-deep" />
-                  {studentCount} students
-                </span>
+              <div className="mt-4 flex items-center justify-between gap-4 border-t border-black/[0.05] pt-4 text-xs text-ink/55">
+                <div className="flex items-center gap-4">
+                  <span className="flex items-center gap-1.5">
+                    <UserRound className="h-3.5 w-3.5 text-gold-deep" />
+                    {taCount} {taCount === 1 ? "TA" : "TAs"}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5 text-gold-deep" />
+                    {studentCount} students
+                  </span>
+                </div>
+                <button
+                  className="btn-outline px-2.5 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                  onClick={() => setDeleteTarget({ section, taCount, studentCount })}
+                  title="Delete this course"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={deleteCourse}
+        title="Delete this course?"
+        message={`This will permanently delete ${
+          deleteTarget?.section.course?.code ?? "this course"
+        } · ${deleteTarget?.section.section_code ?? ""} and ALL data associated with it: enrolled students' records for this section, invitations, assessments, marks, weightages, evaluation periods, slots, bookings, and announcements. Student accounts themselves are kept. This action cannot be undone.`}
+        confirmLabel="Delete permanently"
+      />
 
       <Modal
         open={createOpen}

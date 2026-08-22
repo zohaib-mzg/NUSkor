@@ -207,74 +207,95 @@ export default function EvaluationsPage() {
                   />
                 </div>
               ) : (
-                <div className="grid gap-3 px-5 py-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {period.slots.map((slot) => {
-                    const full = slot.booked >= slot.capacity;
-                    const mine = period.booking?.slot_id === slot.slot_id;
-                    const available = slot.is_open && !full && !mine;
-                    return (
-                      <div
-                        key={slot.slot_id}
-                        className={
-                          mine
-                            ? "rounded-xl border-2 border-green-500 bg-green-50/50 p-4"
-                            : available
-                              ? "rounded-xl border border-black/[0.08] bg-white p-4 transition-all hover:border-gold hover:shadow-lift"
-                              : "rounded-xl border border-black/[0.05] bg-paper/80 p-4 opacity-70"
-                        }
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="inline-flex items-center gap-1.5 font-bold text-ink">
-                            <Clock className="h-4 w-4 text-gold-deep" />
-                            {slot.start_time}–{slot.end_time}
-                          </span>
-                          <Badge
-                            tone={
-                              mine
-                                ? "green"
-                                : !slot.is_open
-                                  ? "red"
-                                  : full
-                                    ? "red"
-                                    : "neutral"
-                            }
-                          >
-                            {mine
-                              ? `Yours (${slot.booked}/${slot.capacity})`
-                              : !slot.is_open
-                                ? "Closed"
-                                : full
-                                  ? `Full (${slot.booked}/${slot.capacity})`
-                                  : `Free · ${slot.booked}/${slot.capacity}`}
-                          </Badge>
+                <div className="px-5 py-5">
+                  {(() => {
+                    const groups: { date: string; slots: typeof period.slots }[] = [];
+                    for (const slot of period.slots) {
+                      const last = groups[groups.length - 1];
+                      if (last && last.date === slot.slot_date) {
+                        last.slots.push(slot);
+                      } else {
+                        groups.push({ date: slot.slot_date, slots: [slot] });
+                      }
+                    }
+                    return groups.map((group, gi) => {
+                      const d = new Date(group.date + "T00:00:00");
+                      const dayName = d.toLocaleDateString("en-GB", { weekday: "long" });
+                      const dateLabel = formatDate(group.date);
+                      return (
+                        <div key={group.date} className={gi > 0 ? "mt-5 border-t border-black/[0.06] pt-5" : ""}>
+                          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-ink/50">{dayName}</p>
+                          <p className="mb-3 text-sm font-semibold text-ink">{dateLabel}</p>
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {group.slots.map((slot) => {
+                              const full = slot.booked >= slot.capacity;
+                              const mine = period.booking?.slot_id === slot.slot_id;
+                              const available = slot.is_open && !full && !mine;
+                              return (
+                                <div
+                                  key={slot.slot_id}
+                                  className={
+                                    mine
+                                      ? "rounded-xl border-2 border-green-500 bg-green-50/50 p-4"
+                                      : available
+                                        ? "rounded-xl border border-black/[0.08] bg-white p-4 transition-all hover:border-gold hover:shadow-lift"
+                                        : "rounded-xl border border-black/[0.05] bg-paper/80 p-4 opacity-70"
+                                  }
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="inline-flex items-center gap-1.5 font-bold text-ink">
+                                      <Clock className="h-4 w-4 text-gold-deep" />
+                                      {slot.start_time}–{slot.end_time}
+                                    </span>
+                                    <Badge
+                                      tone={
+                                        mine
+                                          ? "green"
+                                          : !slot.is_open
+                                            ? "red"
+                                            : full
+                                              ? "red"
+                                              : "neutral"
+                                      }
+                                    >
+                                      {mine
+                                        ? `Yours (${slot.booked}/${slot.capacity})`
+                                        : !slot.is_open
+                                          ? "Closed"
+                                          : full
+                                            ? `Full (${slot.booked}/${slot.capacity})`
+                                            : `Free · ${slot.booked}/${slot.capacity}`}
+                                    </Badge>
+                                  </div>
+                                  <button
+                                    onClick={() => bookSlot(period.id, slot.slot_id)}
+                                    disabled={!available || acting === slot.slot_id}
+                                    className={
+                                      mine
+                                        ? "btn-outline mt-3 w-full py-2 text-xs"
+                                        : "btn-primary mt-3 w-full py-2 text-xs"
+                                    }
+                                  >
+                                    {acting === slot.slot_id
+                                      ? "Booking..."
+                                      : mine
+                                        ? "Your slot"
+                                        : !slot.is_open
+                                          ? "Closed"
+                                          : full
+                                            ? "Slot full"
+                                            : period.booking
+                                              ? "Switch to this slot"
+                                              : "Book this slot"}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <p className="mt-2 text-sm text-ink/60">
-                          {formatDate(slot.slot_date)}
-                        </p>
-                        <button
-                          onClick={() => bookSlot(period.id, slot.slot_id)}
-                          disabled={!available || acting === slot.slot_id}
-                          className={
-                            mine
-                              ? "btn-outline mt-3 w-full py-2 text-xs"
-                              : "btn-primary mt-3 w-full py-2 text-xs"
-                          }
-                        >
-                          {acting === slot.slot_id
-                            ? "Booking..."
-                            : mine
-                              ? "Your slot"
-                              : !slot.is_open
-                                ? "Closed"
-                                : full
-                                  ? "Slot full"
-                                  : period.booking
-                                    ? "Switch to this slot"
-                                    : "Book this slot"}
-                        </button>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               )}
             </section>

@@ -37,16 +37,21 @@ export default async function PortalLayout({
     await supabase.rpc("set_admin_role");
   }
 
-  // Students must have a student account (created via a TA invitation).
-  if (role === "student") {
+  // ── TA / Admin role: skip student check entirely ──
+  if (role === "ta" || role === "admin") {
+    // TA and admin users never need a student row.
+    // Fall through to render.
+  } else if (role === "student") {
+    // Students must have a student account (created via a TA invitation).
     const { data: studentRow } = await supabase
       .from("students")
       .select("id")
       .eq("id", user.id)
       .maybeSingle();
     if (!studentRow) {
-      // TA applicants (pending/approved) belong on the application
-      // screen — never the student invitation wall.
+      // Check if this user has any TA application (pending, approved, or rejected).
+      // TA applicants always belong on the TA application screen — never the
+      // student invitation wall.
       const { data: app } = await supabase
         .from("ta_applications")
         .select("status")
@@ -54,7 +59,7 @@ export default async function PortalLayout({
         .order("requested_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (app && app.status !== "rejected") redirect("/ta-apply");
+      if (app) redirect("/ta-apply");
       redirect("/join?missing=1");
     }
   }

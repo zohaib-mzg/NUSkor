@@ -26,38 +26,37 @@ export async function GET(request: NextRequest) {
             .maybeSingle();
           const currentRole = (profile as { role?: string } | null)?.role;
 
-          // If already TA, go to dashboard
+          // If already an approved TA, go straight to dashboard
           if (currentRole === "ta") {
             // fall through to default redirect
           } else {
-            // Record TA application
+            // Check existing application status
             const email = user.email?.toLowerCase() ?? "";
             const { data: existing } = await supabase
               .from("ta_applications")
               .select("id, status")
               .eq("user_id", user.id)
               .maybeSingle();
-            if (!existing || existing.status === "rejected") {
+
+            if (!existing) {
+              // No application yet — create one
               const { error: applyErr } = await supabase
                 .from("ta_applications")
-                .upsert(
-                  {
-                    user_id: user.id,
-                    email,
-                    full_name: user.user_metadata?.full_name ?? null,
-                    status: "pending",
-                    requested_at: new Date().toISOString(),
-                  },
-                  { onConflict: "user_id" }
-                );
+                .insert({
+                  user_id: user.id,
+                  email,
+                  full_name: user.user_metadata?.full_name ?? null,
+                  status: "pending",
+                  requested_at: new Date().toISOString(),
+                });
               if (applyErr) {
-                // Application could not be recorded — surface it instead of
-                // dumping the user on a page that can never succeed.
                 return NextResponse.redirect(
                   forwardedRedirect(request, origin, "/login?error=apply", next)
                 );
               }
             }
+            // Whether pending, rejected, or already exists — always go to
+            // the TA application page which handles all statuses.
             return NextResponse.redirect(forwardedRedirect(request, origin, "/ta-apply", next));
           }
         }

@@ -124,6 +124,9 @@ const load = useCallback(async () => {
     if (!selectedAssessment || rows.length === 0) return;
     setSaving(true);
     const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     const toRemove = rows.filter(
       (r) => r.saved !== null && r.mark.trim() === ""
@@ -158,6 +161,8 @@ const load = useCallback(async () => {
             student_id: r.id,
             assessment_id: selectedAssessment.id,
             obtained: Number(r.mark),
+            updated_by: user?.id ?? null,
+            updated_at: new Date().toISOString(),
           },
           { onConflict: "student_id,assessment_id" }
         );
@@ -547,6 +552,9 @@ const [busy, setBusy] = useState(false);
     if (!report || !assessment) return;
     setBusy(true);
     const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     for (const row of report.imported) {
       if (row.score > assessment.total_marks) continue;
       const { error: err } = await supabase.from("marks").upsert(
@@ -554,6 +562,8 @@ const [busy, setBusy] = useState(false);
           student_id: row.studentId,
           assessment_id: assessment.id,
           obtained: row.score,
+          updated_by: user?.id ?? null,
+          updated_at: new Date().toISOString(),
         },
         { onConflict: "student_id,assessment_id" }
       );

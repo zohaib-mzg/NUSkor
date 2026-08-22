@@ -17,6 +17,27 @@ import { formatDate } from "@/lib/utils";
 import { ToastProvider } from "@/components/ui/Toast";
 import Spinner from "@/components/ui/Spinner";
 
+const PROGRAMS = [
+  "BSCS",
+  "BSDS",
+  "BSAI",
+  "BSEE",
+  "BBA",
+  "BSAF",
+  "BSCHE",
+  "BSCET",
+];
+const SEMESTERS = [
+  "1st Semester",
+  "2nd Semester",
+  "3rd Semester",
+  "4th Semester",
+  "5th Semester",
+  "6th Semester",
+  "7th Semester",
+  "8th Semester",
+];
+
 export default function InviteClient({
   token,
   details,
@@ -50,6 +71,10 @@ function InviteInner({
   const [checking, setChecking] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
   const [busy, setBusy] = useState(false);
+  // null = still checking whether a student record exists
+  const [needsProfile, setNeedsProfile] = useState<boolean | null>(null);
+  const [program, setProgram] = useState("");
+  const [semester, setSemester] = useState("");
   const [result, setResult] = useState<
     | { ok: true; already: boolean }
     | { ok: false; message: string }
@@ -63,36 +88,57 @@ function InviteInner({
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!cancelled) {
-        setSignedIn(!!user);
-        setChecking(false);
+      if (cancelled) return;
+      setSignedIn(!!user);
+      if (user) {
+        // Returning students skip the profile step; first-timers fill it in.
+        const { data: existing } = await supabase
+          .from("students")
+          .select("id")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!cancelled) setNeedsProfile(!existing);
+      } else {
+        if (!cancelled) setNeedsProfile(false);
       }
+      if (!cancelled) setChecking(false);
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const join = useCallback(async () => {
-    setBusy(true);
-    const supabase = createClient();
-    const { data, error: err } = await supabase.rpc("join_section", {
-      p_token: token,
-    });
-    setBusy(false);
-    if (err) {
-      setResult({ ok: false, message: err.message });
-      return;
-    }
-    const res = data as JoinSectionResult;
-    setResult({ ok: true, already: res.already_enrolled });
-  }, [token]);
+  const join = useCallback(
+    async (pProgram?: string, pSemester?: string) => {
+      setBusy(true);
+      const supabase = createClient();
+      const { data, error: err } = await supabase.rpc("join_section", {
+        p_token: token,
+        p_program: pProgram || null,
+        p_semester: pSemester || null,
+      });
+      setBusy(false);
+      if (err) {
+        setResult({ ok: false, message: err.message });
+        return;
+      }
+      const res = data as JoinSectionResult;
+      setResult({ ok: true, already: res.already_enrolled });
+    },
+    [token]
+  );
 
   useEffect(() => {
-    if (details && signedIn && !busy && !result) {
+    if (
+      details &&
+      signedIn &&
+      !busy &&
+      !result &&
+      needsProfile === false
+    ) {
       join();
     }
-  }, [details, signedIn, busy, result, join]);
+  }, [details, signedIn, busy, result, needsProfile, join]);
 
   async function signIn() {
     setBusy(true);
@@ -218,6 +264,56 @@ function InviteInner({
                 to join. This is your only sign-in step.
               </p>
             </div>
+          ) : needsProfile ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                join(program.trim(), semester);
+              }}
+              className="space-y-4"
+            >
+              <p className="text-sm text-ink/55">
+                Before you join, tell us a bit about yourself. This is saved
+                once with your student record.
+              </p>
+              <div>
+                <label className="label">Your program</label>
+                <input
+                  className="input"
+                  list="invite-program-options"
+                  placeholder="e.g. BSDS"
+                  value={program}
+                  onChange={(e) => setProgram(e.target.value.toUpperCase())}
+                  disabled={busy}
+                  required
+                />
+                <datalist id="invite-program-options">
+                  {PROGRAMS.map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
+              </div>
+              <div>
+                <label className="label">Current semester</label>
+                <select
+                  className="input"
+                  value={semester}
+                  onChange={(e) => setSemester(e.target.value)}
+                  disabled={busy}
+                  required
+                >
+                  <option value="">Select semester</option>
+                  {SEMESTERS.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button type="submit" className="btn-primary w-full" disabled={busy}>
+                {busy ? "Joining..." : "Continue"}
+              </button>
+            </form>
           ) : (
             <div className="text-center">
               <Spinner label="Enrolling you in the section..." />

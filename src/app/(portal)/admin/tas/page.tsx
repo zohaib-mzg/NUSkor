@@ -90,10 +90,14 @@ export default function TaManagementPage() {
     }
 
     // Upgrade role to ta
-    await supabase
+    const { error: roleErr } = await supabase
       .from("profiles")
       .update({ role: "ta" })
       .eq("id", app.user_id);
+    if (roleErr) {
+      setBusy(false);
+      return error(`Application approved but role upgrade failed: ${roleErr.message}`);
+    }
 
     success("TA approved.");
     setBusy(false);

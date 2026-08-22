@@ -9,6 +9,27 @@ import { one } from "@/lib/utils";
 import { ToastProvider } from "@/components/ui/Toast";
 import Spinner from "@/components/ui/Spinner";
 
+const PROGRAMS = [
+  "BSCS",
+  "BSDS",
+  "BSAI",
+  "BSEE",
+  "BBA",
+  "BSAF",
+  "BSCHE",
+  "BSCET",
+];
+const SEMESTERS = [
+  "1st Semester",
+  "2nd Semester",
+  "3rd Semester",
+  "4th Semester",
+  "5th Semester",
+  "6th Semester",
+  "7th Semester",
+  "8th Semester",
+];
+
 export default function JoinClient({
   initialToken,
   missing,
@@ -35,6 +56,8 @@ function JoinInner({
   const [signedIn, setSignedIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [token, setToken] = useState(initialToken);
+  const [program, setProgram] = useState("");
+  const [semester, setSemester] = useState("");
   const [result, setResult] = useState<
     | { ok: true; section: string }
     | { ok: false; message: string }
@@ -59,13 +82,15 @@ function JoinInner({
   }, []);
 
   const join = useCallback(
-    async (code: string) => {
+    async (code: string, pProgram?: string, pSemester?: string) => {
       const t = code.trim();
       if (!t) return;
       setBusy(true);
       const supabase = createClient();
       const { data, error: err } = await supabase.rpc("join_section", {
         p_token: t,
+        p_program: pProgram || null,
+        p_semester: pSemester || null,
       });
       setBusy(false);
       if (err) {
@@ -93,11 +118,9 @@ function JoinInner({
     []
   );
 
-  useEffect(() => {
-    if (initialToken && signedIn && !busy && !result) {
-      join(initialToken);
-    }
-  }, [initialToken, signedIn, busy, result, join]);
+  // Deep-linked tokens (?t=...) are prefilled into the input below; joining
+  // always requires an explicit click so first-timers fill their profile
+  // fields first.
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-paper px-4">
@@ -173,10 +196,42 @@ function JoinInner({
                       disabled={busy}
                     />
                   </div>
+                  <div>
+                    <label className="label">Your program</label>
+                    <input
+                      className="input"
+                      list="program-options"
+                      placeholder="e.g. BSDS"
+                      value={program}
+                      onChange={(e) => setProgram(e.target.value.toUpperCase())}
+                      disabled={busy}
+                    />
+                    <datalist id="program-options">
+                      {PROGRAMS.map((p) => (
+                        <option key={p} value={p} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div>
+                    <label className="label">Current semester</label>
+                    <select
+                      className="input"
+                      value={semester}
+                      onChange={(e) => setSemester(e.target.value)}
+                      disabled={busy}
+                    >
+                      <option value="">Select semester</option>
+                      {SEMESTERS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <button
                     className="btn-primary w-full"
-                    onClick={() => join(token)}
-                    disabled={busy || !token.trim()}
+                    onClick={() => join(token, program, semester)}
+                    disabled={busy || !token.trim() || !program.trim() || !semester}
                   >
                     {busy ? "Joining..." : "Join section"}
                   </button>

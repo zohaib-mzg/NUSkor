@@ -4,11 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, CheckCheck, Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/ui/Toast";
 import type { Notification } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
 
 export default function NotificationBell() {
   const router = useRouter();
+  const { error: toastError } = useToast();
   const [items, setItems] = useState<Notification[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
@@ -50,7 +52,11 @@ export default function NotificationBell() {
   async function openItem(n: Notification) {
     const supabase = createClient();
     if (!n.is_read) {
-      await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("id", n.id);
+      if (error) return toastError(error.message);
     }
     setOpen(false);
     const url =
@@ -65,10 +71,11 @@ export default function NotificationBell() {
 
   async function markAllRead() {
     const supabase = createClient();
-    await supabase
+    const { error } = await supabase
       .from("notifications")
       .update({ is_read: true })
       .eq("is_read", false);
+    if (error) return toastError(error.message);
     load();
   }
 

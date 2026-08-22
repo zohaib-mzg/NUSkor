@@ -38,16 +38,25 @@ export async function GET(request: NextRequest) {
               .eq("user_id", user.id)
               .maybeSingle();
             if (!existing || existing.status === "rejected") {
-              await supabase.from("ta_applications").upsert(
-                {
-                  user_id: user.id,
-                  email,
-                  full_name: user.user_metadata?.full_name ?? null,
-                  status: "pending",
-                  requested_at: new Date().toISOString(),
-                },
-                { onConflict: "user_id" }
-              );
+              const { error: applyErr } = await supabase
+                .from("ta_applications")
+                .upsert(
+                  {
+                    user_id: user.id,
+                    email,
+                    full_name: user.user_metadata?.full_name ?? null,
+                    status: "pending",
+                    requested_at: new Date().toISOString(),
+                  },
+                  { onConflict: "user_id" }
+                );
+              if (applyErr) {
+                // Application could not be recorded — surface it instead of
+                // dumping the user on a page that can never succeed.
+                return NextResponse.redirect(
+                  forwardedRedirect(request, origin, "/login?error=apply", next)
+                );
+              }
             }
             return NextResponse.redirect(forwardedRedirect(request, origin, "/ta-apply", next));
           }

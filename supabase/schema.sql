@@ -1084,10 +1084,42 @@ begin
   -- Catalog rows they created survive without attribution
   -- (courses.created_by etc. are ON DELETE SET NULL).
   delete from profiles where id = uid;
+
+  -- Remove the auth entry LAST: cascades sessions, refresh tokens
+  -- and identities, instantly invalidating every signed-in device.
+  -- Re-signup goes through handle_new_user as a brand-new user.
+  delete from auth.users where id = uid;
 end;
 $$;
 
 grant execute on function public.delete_account() to authenticated;
+
+-- =========================================================
+-- PROFILE DELETION CLEANUP
+--
+-- Keeps dashboard/auth-admin deletions consistent with the app:
+-- a deleted TA takes their sections and announcements with them.
+-- =========================================================
+create or replace function public.handle_profile_delete()
+returns trigger
+language plpgsql security definer
+as $$
+begin
+  if old.role = 'ta' then
+    delete from announcements where created_by = old.id;
+    -- Cascades to assessments -> marks, enrollments, invites,
+    -- evaluation periods -> slots -> bookings, section_tas,
+    -- section announcements.
+    delete from course_sections where created_by = old.id;
+  end if;
+  return old;
+end;
+$$;
+
+drop trigger if exists trg_profiles_delete_cleanup on public.profiles;
+create trigger trg_profiles_delete_cleanup
+  before delete on public.profiles
+  for each row execute function public.handle_profile_delete();
 
 -- =========================================================
 -- NOTIFICATIONS RPCs (in-app + Web Push)

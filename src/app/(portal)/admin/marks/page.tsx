@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Download, FileDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { notifyAll } from "@/lib/push";
 import type { Assessment, CourseSection, Student } from "@/lib/types";
 import { cleanName, one, parseCsv, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
@@ -101,6 +102,17 @@ const load = useCallback(async () => {
 
   const selectedAssessment = assessments.find((a) => a.id === assessmentId);
 
+  async function notifyMarksReleased(assessment: Assessment) {
+    if (assessment.status !== "published") return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (assessment.release_date && assessment.release_date > today) return;
+    try {
+      await notifyAll("marks_released", assessment.id);
+    } catch (err) {
+      console.error("marks notification failed", err);
+    }
+  }
+
   function applyRowMark(id: string, value: string) {
     setRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, mark: value } : r))
@@ -162,6 +174,7 @@ const load = useCallback(async () => {
       info("Nothing to save. Marks are already up to date.");
     } else {
       success(`Saved ${toUpdate.length} and removed ${toRemove.length} mark${changes === 1 ? "" : "s"}.`);
+      await notifyMarksReleased(selectedAssessment);
     }
     await loadMarks(selectedAssessment.id);
   }
@@ -416,6 +429,7 @@ async function exportSelectedAssessments(selectedIds: string[]) {
         onImported={async () => {
           setCsvOpen(false);
           if (assessmentId) await loadMarks(assessmentId);
+          if (selectedAssessment) await notifyMarksReleased(selectedAssessment);
           success("CSV import complete.");
         }}
       />

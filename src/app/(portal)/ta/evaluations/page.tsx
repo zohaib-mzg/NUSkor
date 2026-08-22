@@ -11,6 +11,7 @@ import {
   CalendarCheck2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { notifyAll } from "@/lib/push";
 import type {
   Booking,
   CourseSection,
@@ -127,11 +128,16 @@ const load = useCallback(async () => {
       return error("End date must be on or after the start date.");
     }
     const supabase = createClient();
-    const { error: err } = await supabase.from("evaluation_periods").insert(payload);
+    const { data, error: err } = await supabase.from("evaluation_periods").insert(payload).select("id").single();
     if (err) return error(err.message);
     success("Evaluation period created.");
     setModal(false);
     load();
+    try {
+      await notifyAll("evaluation_created", data.id);
+    } catch (err) {
+      console.error("evaluation notification failed", err);
+    }
   }
 
   async function addSlot(e: React.FormEvent<HTMLFormElement>) {

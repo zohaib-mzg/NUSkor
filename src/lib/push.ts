@@ -114,11 +114,12 @@ export async function notifyAll(type: string, relatedId: string): Promise<Notify
   const result = data as NotifyResult;
   if (result && result.recipients.length > 0) {
     try {
-      await supabase.functions.invoke("send-push-notification", {
+      const { error: fnError } = await supabase.functions.invoke("send-push-notification", {
         body: { type, relatedId },
       });
-    } catch {
-      // push failures never break the in-app notification flow
+      if (fnError) console.error("push delivery failed:", fnError.message);
+    } catch (e) {
+      console.error("push delivery exception:", e);
     }
   }
   return result;

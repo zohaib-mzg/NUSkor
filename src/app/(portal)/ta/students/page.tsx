@@ -197,7 +197,17 @@ async function copyLink(token: string) {
 
   function exportCsv() {
     const header = ["registration_no", "email", "full_name"];
-    const lines = students.map((r) => {
+    const sorted = [...students].sort((a, b) => {
+      const ra = regNoDisplay(studentOf(a)?.registration_no, studentOf(a)?.profiles?.email);
+      const rb = regNoDisplay(studentOf(b)?.registration_no, studentOf(b)?.profiles?.email);
+      const na = ra.replace(/\D/g, "");
+      const nb = rb.replace(/\D/g, "");
+      if (!na && !nb) return 0;
+      if (!na) return 1;
+      if (!nb) return -1;
+      return na.localeCompare(nb, undefined, { numeric: true });
+    });
+    const lines = sorted.map((r) => {
       const st = studentOf(r);
       return [regNoDisplay(st?.registration_no, st?.profiles?.email), st?.profiles?.email ?? "", cleanName(st?.profiles?.full_name).replace(/"/g, '""')]
         .map((v) => `"${v}"`)

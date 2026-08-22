@@ -72,6 +72,17 @@ export function exportMarksSheet(
 ) {
   if (assessments.length === 0) return;
 
+  // Sort students by normalised registration number (ascending).
+  // Strip non-digits so "24L-2502" → "242502"; "N/A" → "" → pushed to end.
+  const students = [...ctx.students].sort((a, b) => {
+    const na = (a.registration_no ?? "").replace(/\D/g, "");
+    const nb = (b.registration_no ?? "").replace(/\D/g, "");
+    if (!na && !nb) return 0;
+    if (!na) return 1;
+    if (!nb) return -1;
+    return na.localeCompare(nb, undefined, { numeric: true });
+  });
+
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Marks");
 
@@ -116,7 +127,7 @@ export function exportMarksSheet(
   ws.views = [{ state: "frozen", ySplit: 3 }];
 
   // ── Student data (row 4+) ──
-  ctx.students.forEach((st, idx) => {
+  students.forEach((st, idx) => {
     const rowNum = 4 + idx;
     const row = ws.getRow(rowNum);
 
@@ -151,7 +162,7 @@ export function exportMarksSheet(
   });
 
   // ── Auto-filter on row 3 ──
-  if (ctx.students.length > 0) {
+  if (students.length > 0) {
     ws.autoFilter = {
       from: { row: 3, column: 1 },
       to: { row: 3, column: TOTAL_COLS },

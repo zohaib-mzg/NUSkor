@@ -379,6 +379,22 @@ language sql security definer stable as $$
   );
 $$;
 
+-- Semester-aware overload. IMPORTANT: no DEFAULT on p_semester —
+-- a default here makes every 1-arg call ambiguous (PG error 42725
+-- "function is not unique"), which silently breaks notifications
+-- and every RLS policy that checks TA access.
+drop function if exists public.is_ta_of_section(uuid, text);
+create or replace function public.is_ta_of_section(p_section_id uuid, p_semester text)
+returns boolean
+language sql security definer stable as $$
+  select exists (
+    select 1 from section_tas st
+    where st.section_id = p_section_id
+      and st.ta_id = auth.uid()
+      and (p_semester is null or st.semester = p_semester)
+  );
+$$;
+
 drop function if exists public.is_ta_of_student(uuid);
 create or replace function public.is_ta_of_student(p_student_id uuid)
 returns boolean

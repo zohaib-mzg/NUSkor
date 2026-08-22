@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Megaphone,
   ArrowRight,
+  Shield,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getPushSubscription, listDeviceSubscriptions } from "@/lib/push";
@@ -237,6 +238,23 @@ export default function StudentDashboard() {
           </Link>
         </section>
       )}
+
+      <section className="card mt-6 flex flex-wrap items-center justify-between gap-4 border-blue-500/30 bg-blue-500/[0.04] p-6">
+        <div className="flex items-center gap-4">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500 text-white">
+            <Shield className="h-5 w-5" />
+          </span>
+          <div>
+            <h2 className="font-bold text-ink">Become a TA</h2>
+            <p className="text-sm text-ink/55">
+              Want to manage courses, invite students, and track marks? Apply to become a Teaching Assistant.
+            </p>
+          </div>
+        </div>
+        <Link href="/ta-apply" className="btn-primary">
+          Apply now <ArrowRight className="h-4 w-4" />
+        </Link>
+      </section>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
         {/* Latest + recent assessments */}

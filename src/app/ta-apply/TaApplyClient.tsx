@@ -19,11 +19,13 @@ export default function TaApplyClient({
   email,
   fullName,
   application,
+  currentRole,
 }: {
   userId: string;
   email: string;
   fullName: string | null;
   application: Application | null;
+  currentRole: string;
 }) {
   return (
     <ToastProvider>
@@ -32,6 +34,7 @@ export default function TaApplyClient({
         email={email}
         fullName={fullName}
         application={application}
+        currentRole={currentRole}
       />
     </ToastProvider>
   );
@@ -42,11 +45,13 @@ function TaApplyInner({
   email,
   fullName,
   application,
+  currentRole,
 }: {
   userId: string;
   email: string;
   fullName: string | null;
   application: Application | null;
+  currentRole: string;
 }) {
   const { success, error } = useToast();
   const [app, setApp] = useState<Application | null>(application);
@@ -72,8 +77,10 @@ function TaApplyInner({
     success("Request submitted. An admin will review it.");
   }
 
-  const hasExisting = app !== null;
-  const canApply = !hasExisting || app?.status === "rejected";
+  // Revoked TAs (role='student') can always re-apply regardless of previous status
+  const isRevoked = currentRole === "student" && app?.status === "approved";
+  const hasExisting = app !== null && !isRevoked;
+  const canApply = !hasExisting || app?.status === "rejected" || isRevoked;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-ink px-4 py-10">
@@ -98,14 +105,16 @@ function TaApplyInner({
             {canApply && (
               <>
                 <p className="text-sm text-ink/55">
-                  Request access to the TA portal. Once approved, you can create
-                  your own courses and sections.
+                  {isRevoked
+                    ? "Your previous TA access was revoked. You can re-apply to become a TA again."
+                    : "Request access to the TA portal. Once approved, you can create your own courses and sections."}
                 </p>
 
-                {app?.status === "rejected" && (
+                {(app?.status === "rejected" || isRevoked) && (
                   <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                    Your previous request was rejected.
-                    {app.rejection_reason && ` Reason: ${app.rejection_reason}`}
+                    {isRevoked
+                      ? "Your previous TA access was revoked by an admin."
+                      : `Your previous request was rejected.${app.rejection_reason ? ` Reason: ${app.rejection_reason}` : ""}`}
                   </div>
                 )}
 

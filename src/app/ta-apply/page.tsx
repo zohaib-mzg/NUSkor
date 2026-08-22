@@ -35,6 +35,7 @@ export default async function TaApplyPage() {
       email={profile.email}
       fullName={profile.full_name}
       application={app ?? null}
+      currentRole={profile.role}
     />
   );
 }

@@ -44,7 +44,19 @@ export default async function PortalLayout({
       .select("id")
       .eq("id", user.id)
       .maybeSingle();
-    if (!studentRow) redirect("/join?missing=1");
+    if (!studentRow) {
+      // TA applicants (pending/approved) belong on the application
+      // screen — never the student invitation wall.
+      const { data: app } = await supabase
+        .from("ta_applications")
+        .select("status")
+        .eq("user_id", user.id)
+        .order("requested_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (app && app.status !== "rejected") redirect("/ta-apply");
+      redirect("/join?missing=1");
+    }
   }
 
   // Check if admin is also a TA (has section_tas assignments)

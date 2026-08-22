@@ -143,6 +143,15 @@ function JoinInner({
                 You need an invitation from your TA to join NUSkor. Please ask
                 your TA to send you a NUSkor invitation link.
               </p>
+              <p className="mt-3 text-xs text-ink/45">
+                Are you a teaching assistant?{" "}
+                <Link
+                  href="/ta-apply"
+                  className="font-semibold text-gold-deep hover:underline"
+                >
+                  Request TA access instead
+                </Link>
+              </p>
               <form action="/auth/signout" method="post" className="mt-4">
                 <button type="submit" className="btn-outline w-full">
                   <LogIn className="h-4 w-4" /> Back to Login

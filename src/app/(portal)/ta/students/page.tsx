@@ -17,7 +17,6 @@ import { createClient } from "@/lib/supabase/client";
 import type { CourseSection, Student, StudentInvite } from "@/lib/types";
 import { cleanName, formatDate, one, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
-import SemesterSelector from "@/components/SemesterSelector";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
@@ -237,7 +236,6 @@ async function copyLink(token: string) {
         title="Students & Invitations"
         subtitle="Manage who is in your sections and invite students to join."
         icon={Users}
-        actions={<SemesterSelector />}
       />
 
       {sections.length === 0 ? (

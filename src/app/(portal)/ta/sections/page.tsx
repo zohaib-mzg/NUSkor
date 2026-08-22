@@ -5,8 +5,7 @@ import { BookOpen, Users, UserRound, Plus, Loader2, Trash2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client";
 import type { CourseSection } from "@/lib/types";
 import { one } from "@/lib/utils";
-import { useSemester, currentSemester } from "@/lib/semester";
-import SemesterSelector from "@/components/SemesterSelector";
+import { currentSemester } from "@/lib/semester";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
@@ -24,7 +23,6 @@ interface SectionSummary {
 export default function TaSectionsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
-  const [semester] = useSemester();
   const [sections, setSections] = useState<SectionSummary[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
@@ -93,7 +91,7 @@ export default function TaSectionsPage() {
     return () => {
       cancelled = true;
     };
-  }, [semester]);
+  }, []);
 
   async function createSection() {
     if (!courseCode.trim() || !courseName.trim() || !sectionCode.trim()) return;
@@ -139,15 +137,12 @@ export default function TaSectionsPage() {
         subtitle="Sections assigned to you. Create new sections from the button below."
         icon={BookOpen}
         actions={
-          <>
-            <SemesterSelector />
-            <button
-              className="btn-primary"
-              onClick={() => setCreateOpen(true)}
-            >
-              <Plus className="h-4 w-4" /> Create Section
-            </button>
-          </>
+          <button
+            className="btn-primary"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-4 w-4" /> Create Section
+          </button>
         }
       />
 

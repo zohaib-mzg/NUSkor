@@ -876,9 +876,24 @@ begin
   if v_inserted > 0 then
     update student_invites
     set used_count = used_count + 1,
-        status = 'accepted',
-        accepted_at = now(),
-        accepted_by = auth.uid()
+        status = case
+          when v_invite.max_uses is not null
+               and v_invite.used_count + 1 >= v_invite.max_uses
+          then 'accepted'
+          else status
+        end,
+        accepted_at = case
+          when v_invite.max_uses is not null
+               and v_invite.used_count + 1 >= v_invite.max_uses
+          then now()
+          else accepted_at
+        end,
+        accepted_by = case
+          when v_invite.max_uses is not null
+               and v_invite.used_count + 1 >= v_invite.max_uses
+          then auth.uid()
+          else accepted_by
+        end
     where id = v_invite.id;
   else
     v_already := true;
@@ -905,12 +920,12 @@ begin
   select * into v_invite from student_invites where token = p_token;
   if v_invite is null or v_invite.status = 'revoked' then
     raise exception 'This invitation is no longer valid';
-  elsif v_invite.status <> 'active' then
-    raise exception 'This invitation is no longer active';
   elsif v_invite.expires_at < now() then
     raise exception 'This invitation has expired';
   elsif v_invite.max_uses is not null and v_invite.used_count >= v_invite.max_uses then
     raise exception 'This invitation has reached its usage limit';
+  elsif v_invite.status <> 'active' then
+    raise exception 'This invitation is no longer active';
   end if;
 
   select jsonb_build_object(

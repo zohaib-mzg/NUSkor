@@ -496,7 +496,7 @@ function AssessmentCard({
                         )}
                       </td>
                       <td className="px-3 py-1.5 text-right font-medium text-ink/70">
-                        {e.total ?? "N/A"}
+                        {e.obtained != null ? `${e.obtained} / ${e.total_marks ?? "?"}` : "N/A"}
                       </td>
                       <td className="px-3 py-1.5 text-right font-medium text-ink/70">
                         {e.percent}%

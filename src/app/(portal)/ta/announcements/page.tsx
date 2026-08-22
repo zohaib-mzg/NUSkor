@@ -7,7 +7,6 @@ import { notifyAll } from "@/lib/push";
 import type { Announcement, CourseSection } from "@/lib/types";
 import { formatDate, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
-import SemesterSelector from "@/components/SemesterSelector";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
@@ -170,12 +169,9 @@ async function deleteItem() {
         subtitle="Target a section or the whole portal. Publishing notifies every recipient."
         icon={Megaphone}
         actions={
-          <>
-            <SemesterSelector />
-            <button className="btn-primary" onClick={() => setModal({ mode: "create" })}>
-              <Plus className="h-4 w-4" /> New announcement
-            </button>
-          </>
+          <button className="btn-primary" onClick={() => setModal({ mode: "create" })}>
+            <Plus className="h-4 w-4" /> New announcement
+          </button>
         }
       />
 

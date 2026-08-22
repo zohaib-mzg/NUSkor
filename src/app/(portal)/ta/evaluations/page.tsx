@@ -20,7 +20,6 @@ import type {
 } from "@/lib/types";
 import { cleanName, formatDate, one, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
-import SemesterSelector from "@/components/SemesterSelector";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
@@ -307,12 +306,9 @@ const dates: string[] = [];
         subtitle="Create periods, add time slots, and let students book."
         icon={CalendarClock}
         actions={
-          <>
-            <SemesterSelector />
-            <button className="btn-primary" onClick={() => setModal(true)}>
-              <Plus className="h-4 w-4" /> New period
-            </button>
-          </>
+          <button className="btn-primary" onClick={() => setModal(true)}>
+            <Plus className="h-4 w-4" /> New period
+          </button>
         }
       />
 
@@ -423,64 +419,85 @@ const dates: string[] = [];
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[560px]">
-                      <thead className="bg-paper">
-                        <tr>
-                          <th className="th">Date</th>
-                          <th className="th">Time</th>
-                          <th className="th">Booked</th>
-                          <th className="th text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {period.slots.map((slot) => {
-                          const full = slot.booked >= slot.capacity;
-                          return (
-                            <tr key={slot.slot_id} className="bg-white">
-                              <td className="td font-semibold text-ink">
-                                {formatDate(slot.slot_date)}
-                              </td>
-                              <td className="td">
-                                {slot.start_time}–{slot.end_time}
-                              </td>
-                              <td className="td">
-                                <Badge
-                                  tone={
-                                    !slot.is_open
-                                      ? "neutral"
-                                      : full
-                                        ? "red"
-                                        : "green"
-                                  }
-                                >
-                                  {slot.booked}/{slot.capacity}{" "}
-                                  {!slot.is_open ? "· closed" : full ? "· full" : ""}
-                                </Badge>
-                              </td>
-                              <td className="td">
-                                <div className="flex justify-end gap-2">
-                                  <button
-                                    onClick={() => toggleSlot(slot)}
-                                    className="btn-outline px-3 py-1.5 text-xs"
-                                  >
-                                    <Power className="h-3.5 w-3.5" />
-                                    {slot.is_open ? "Close" : "Reopen"}
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      setToDeleteSlot({ period, slotId: slot.slot_id })
-                                    }
-                                    className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                    {(() => {
+                      // Group slots by date (data is pre-sorted by slot_date, start_time)
+                      const groups: { date: string; slots: SlotWithBookings[] }[] = [];
+                      for (const slot of period.slots) {
+                        const last = groups[groups.length - 1];
+                        if (last && last.date === slot.slot_date) {
+                          last.slots.push(slot);
+                        } else {
+                          groups.push({ date: slot.slot_date, slots: [slot] });
+                        }
+                      }
+                      return groups.map((group, gi) => {
+                        const d = new Date(group.date + "T00:00:00");
+                        const dayName = d.toLocaleDateString("en-GB", { weekday: "long" });
+                        const dateLabel = formatDate(group.date);
+                        return (
+                          <div key={group.date} className={gi > 0 ? "border-t border-black/[0.06]" : ""}>
+                            <div className="bg-paper/60 px-5 py-2.5">
+                              <p className="text-xs font-bold uppercase tracking-wider text-ink/50">{dayName}</p>
+                              <p className="text-sm font-semibold text-ink">{dateLabel}</p>
+                            </div>
+                            <table className="w-full min-w-[560px]">
+                              <thead className="bg-paper/30">
+                                <tr>
+                                  <th className="th">Time</th>
+                                  <th className="th">Booked</th>
+                                  <th className="th text-right">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {group.slots.map((slot) => {
+                                  const full = slot.booked >= slot.capacity;
+                                  return (
+                                    <tr key={slot.slot_id} className="bg-white">
+                                      <td className="td font-semibold text-ink">
+                                        {slot.start_time}–{slot.end_time}
+                                      </td>
+                                      <td className="td">
+                                        <Badge
+                                          tone={
+                                            !slot.is_open
+                                              ? "neutral"
+                                              : full
+                                                ? "red"
+                                                : "green"
+                                          }
+                                        >
+                                          {slot.booked}/{slot.capacity}{" "}
+                                          {!slot.is_open ? "· closed" : full ? "· full" : ""}
+                                        </Badge>
+                                      </td>
+                                      <td className="td">
+                                        <div className="flex justify-end gap-2">
+                                          <button
+                                            onClick={() => toggleSlot(slot)}
+                                            className="btn-outline px-3 py-1.5 text-xs"
+                                          >
+                                            <Power className="h-3.5 w-3.5" />
+                                            {slot.is_open ? "Close" : "Reopen"}
+                                          </button>
+                                          <button
+                                            onClick={() =>
+                                              setToDeleteSlot({ period, slotId: slot.slot_id })
+                                            }
+                                            className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 )}
               </section>

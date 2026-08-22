@@ -7,7 +7,6 @@ import { notifyAll } from "@/lib/push";
 import type { Assessment, CourseSection, Student } from "@/lib/types";
 import { cleanName, one, parseCsv, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
-import SemesterSelector from "@/components/SemesterSelector";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
@@ -267,12 +266,9 @@ async function exportSelectedAssessments(selectedIds: string[]) {
         subtitle="Enter marks per assessment, or bulk-import from a CSV file."
         icon={Star}
         actions={
-          <>
-            <SemesterSelector />
-            <button className="btn-primary" onClick={() => setCsvOpen(true)} disabled={!assessmentId}>
-              <Upload className="h-4 w-4" /> CSV import
-            </button>
-          </>
+          <button className="btn-primary" onClick={() => setCsvOpen(true)} disabled={!assessmentId}>
+            <Upload className="h-4 w-4" /> CSV import
+          </button>
         }
       />
 

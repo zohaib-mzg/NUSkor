@@ -20,12 +20,8 @@ import Spinner from "@/components/ui/Spinner";
 const PROGRAMS = [
   "BSCS",
   "BSDS",
+  "BSCY",
   "BSAI",
-  "BSEE",
-  "BBA",
-  "BSAF",
-  "BSCHE",
-  "BSCET",
 ];
 const SEMESTERS = [
   "1st Semester",
@@ -278,20 +274,18 @@ function InviteInner({
               </p>
               <div>
                 <label className="label">Your program</label>
-                <input
+                <select
                   className="input"
-                  list="invite-program-options"
-                  placeholder="e.g. BSDS"
                   value={program}
-                  onChange={(e) => setProgram(e.target.value.toUpperCase())}
+                  onChange={(e) => setProgram(e.target.value)}
                   disabled={busy}
                   required
-                />
-                <datalist id="invite-program-options">
+                >
+                  <option value="">Select program</option>
                   {PROGRAMS.map((p) => (
-                    <option key={p} value={p} />
+                    <option key={p} value={p}>{p}</option>
                   ))}
-                </datalist>
+                </select>
               </div>
               <div>
                 <label className="label">Current semester</label>

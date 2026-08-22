@@ -85,7 +85,7 @@ export default function MarksPage() {
         supabase
           .from("assessments")
           .select(
-            "id, section_id, title, type, total_marks, weightage"
+            "id, section_id, title, type, total_marks, weightage, status"
           ),
       ]);
 
@@ -104,7 +104,9 @@ export default function MarksPage() {
         }[];
       }[];
       const marks = (markRes.data ?? []) as Mark[];
-      const assessments = (assRes.data ?? []) as Assessment[];
+      const assessments = ((assRes.data ?? []) as Assessment[]).filter(
+        (a) => a.status === "published"
+      );
       setMyRegNo(
         (studentRes.data as { registration_no: string | null } | null)
           ?.registration_no ?? null

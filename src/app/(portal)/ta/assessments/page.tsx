@@ -90,6 +90,7 @@ export default function TaAssessmentsPage() {
 
 const supabase = createClient();
     let savedId: string | null = null;
+    let wasPublishedBefore = false;
     if (modal?.mode === "create") {
       const { data, error: err } = await supabase
         .from("assessments")
@@ -100,6 +101,7 @@ const supabase = createClient();
       savedId = data.id;
       success(`"${payload.title}" created.`);
     } else if (modal?.mode === "edit" && modal.assessment) {
+      wasPublishedBefore = modal.assessment.status === "published";
       const { error: err } = await supabase
         .from("assessments")
         .update(payload)
@@ -108,7 +110,7 @@ const supabase = createClient();
       savedId = modal.assessment.id;
       success("Assessment updated.");
     }
-    if (savedId && payload.status === "published") {
+    if (savedId && payload.status === "published" && !wasPublishedBefore) {
       const today = new Date().toISOString().slice(0, 10);
       if (!payload.release_date || payload.release_date <= today) {
         try {

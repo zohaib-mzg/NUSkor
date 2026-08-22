@@ -586,12 +586,21 @@ create policy "assessments_admin_or_ta_delete" on assessments
   for delete using (is_admin() or is_ta_of_section(section_id));
 
 -- ---- MARKS ----
+-- Students can only see marks for published assessments.
+-- TAs and Admins see all marks (is_admin / is_ta_of_student).
 drop policy if exists "marks_select_own_admin_or_ta" on marks;
 create policy "marks_select_own_admin_or_ta" on marks
   for select using (
-    student_id = auth.uid()
-    or is_admin()
+    is_admin()
     or is_ta_of_student(student_id)
+    or (
+      student_id = auth.uid()
+      and exists (
+        select 1 from assessments a
+        where a.id = marks.assessment_id
+          and a.status = 'published'
+      )
+    )
   );
 drop policy if exists "marks_admin_or_ta_write" on marks;
 create policy "marks_admin_or_ta_write" on marks
@@ -1425,11 +1434,12 @@ grant execute on function public.get_push_recipients(text, uuid)
   to authenticated;
 
 -- Class stats for ONE assessment: avg / min / max / count
--- (excludes archived students)
+-- Only returns stats for published assessments (students can't see draft/archived marks).
+-- TAs/admins bypass RLS so they see stats for any status.
 drop function if exists public.get_assessment_stats(uuid);
 create or replace function public.get_assessment_stats(p_assessment_id uuid)
 returns table (avg_marks numeric, min_marks numeric, max_marks numeric, total_students bigint)
-language sql security definer stable
+language sql stable
 as $$
   select
     round(avg(m.obtained)::numeric, 2),
@@ -1438,14 +1448,17 @@ as $$
     count(*)
   from marks m
   join students s on s.id = m.student_id and s.archived_at is null
-  where m.assessment_id = p_assessment_id;
+  join assessments a on a.id = m.assessment_id
+  where m.assessment_id = p_assessment_id
+    and a.status = 'published';
 $$;
 
 -- Batch variant: stats for MANY assessments in a single round trip.
+-- Only returns stats for published assessments.
 drop function if exists public.get_assessment_stats_many(uuid[]);
 create or replace function public.get_assessment_stats_many(p_assessment_ids uuid[])
 returns table (assessment_id uuid, avg_marks numeric, min_marks numeric, max_marks numeric, total_students bigint)
-language sql security definer stable
+language sql stable
 as $$
   select
     m.assessment_id,
@@ -1455,7 +1468,9 @@ as $$
     count(*)
   from marks m
   join students s on s.id = m.student_id and s.archived_at is null
+  join assessments a on a.id = m.assessment_id
   where m.assessment_id = any(p_assessment_ids)
+    and a.status = 'published'
   group by m.assessment_id;
 $$;
 
@@ -1480,11 +1495,11 @@ as $$
 $$;
 
 -- Privacy-conscious leaderboard: registration numbers ONLY, never names.
--- Students can match their own row via their registration number.
+-- Only includes marks from published assessments.
 drop function if exists public.get_leaderboard(uuid);
 create or replace function public.get_leaderboard(p_section_id uuid)
 returns table (registration_no text, total numeric, percent numeric, rank bigint)
-language sql security definer stable
+language sql stable
 as $$
   with scored as (
     select s.id, s.registration_no,
@@ -1493,7 +1508,9 @@ as $$
     from students s
     join enrollments e on e.student_id = s.id and e.section_id = p_section_id
     left join marks m on m.student_id = s.id
-    left join assessments a on a.id = m.assessment_id and a.section_id = p_section_id
+    left join assessments a on a.id = m.assessment_id
+      and a.section_id = p_section_id
+      and a.status = 'published'
     where s.archived_at is null
     group by s.id, s.registration_no
   ),
@@ -1508,6 +1525,52 @@ as $$
   from ranked
   order by rank;
 $$;
+
+grant execute on function public.get_leaderboard(uuid)
+  to authenticated;
+
+-- Assessment-specific leaderboard: ranks students within a single assessment.
+-- Only includes published assessments for student visibility.
+drop function if exists public.get_assessment_leaderboard(uuid, uuid);
+create or replace function public.get_assessment_leaderboard(
+  p_assessment_id uuid,
+  p_section_id uuid
+)
+returns table (
+  registration_no text,
+  obtained numeric,
+  total_marks numeric,
+  percent numeric,
+  rank bigint
+)
+language sql stable
+as $$
+  with scored as (
+    select s.id, s.registration_no,
+           coalesce(m.obtained, 0) as obtained,
+           a.total_marks,
+           case when a.total_marks > 0
+             then round((coalesce(m.obtained, 0) / a.total_marks) * 100, 1)
+             else 0
+           end as pct
+    from students s
+    join enrollments e on e.student_id = s.id and e.section_id = p_section_id
+    left join marks m on m.student_id = s.id and m.assessment_id = p_assessment_id
+    join assessments a on a.id = p_assessment_id
+    where s.archived_at is null
+  ),
+  ranked as (
+    select registration_no, obtained, total_marks, pct,
+           rank() over (order by obtained desc, registration_no) as rank
+    from scored
+  )
+  select registration_no, obtained, total_marks, pct, rank
+  from ranked
+  order by rank;
+$$;
+
+grant execute on function public.get_assessment_leaderboard(uuid, uuid)
+  to authenticated;
 
 -- =========================================================
 -- USEFUL INDEXES
@@ -1600,6 +1663,28 @@ insert into students (id)
 select id from profiles
 where role = 'student'
 on conflict do nothing;
+
+-- =========================================================
+-- Trigger: auto-notify students when assessment status changes to published
+-- =========================================================
+create or replace function public.on_assessment_published()
+returns trigger as $$
+begin
+  if new.status = 'published'
+     and (old.status is null or old.status <> 'published') then
+    if exists (select 1 from marks m where m.assessment_id = new.id) then
+      perform create_notifications('marks_released', new.id);
+    end if;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_assessment_published on assessments;
+create trigger trg_assessment_published
+  after update of status on assessments
+  for each row
+  execute function on_assessment_published();
 
 -- =========================================================
 -- END v2

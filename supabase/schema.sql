@@ -486,6 +486,10 @@ create policy "sections_admin_write" on course_sections
 drop policy if exists "sections_admin_update" on course_sections;
 create policy "sections_admin_update" on course_sections
   for update using (is_admin()) with check (is_admin());
+drop policy if exists "sections_ta_update_leaderboard" on course_sections;
+create policy "sections_ta_update_leaderboard" on course_sections
+  for update using (is_ta_of_section(id))
+  with check (is_ta_of_section(id));
 drop policy if exists "sections_admin_delete" on course_sections;
 create policy "sections_admin_delete" on course_sections
   for delete using (is_admin());

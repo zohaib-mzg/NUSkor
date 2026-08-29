@@ -9,11 +9,6 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronUp,
-  BarChart3,
-  Award,
-  BookOpen,
-  TrendingDown,
-  Eye,
   EyeOff,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -30,6 +25,8 @@ import {
   weightedOverallPct,
 } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
+import StatCard from "@/components/ui/StatCard";
+import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -64,84 +61,8 @@ interface OverallEntry {
   rank: number;
 }
 
-function ScoreRing({
-  pct,
-  size = 64,
-  stroke = 5,
-}: {
-  pct: number;
-  size?: number;
-  stroke?: number;
-}) {
-  const radius = (size - stroke) / 2;
-  const circ = 2 * Math.PI * radius;
-  const offset = circ - (Math.min(pct, 100) / 100) * circ;
-  const color =
-    pct >= 80 ? "#22c55e" : pct >= 60 ? "#F5C518" : pct >= 40 ? "#f97316" : "#ef4444";
-
-  return (
-    <svg width={size} height={size} className="shrink-0 -rotate-90">
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="#e5e5e5"
-        strokeWidth={stroke}
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke={color}
-        strokeWidth={stroke}
-        strokeDasharray={circ}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        className="transition-all duration-700 ease-out"
-      />
-    </svg>
-  );
-}
-
-function ProgressBar({
-  obtained,
-  total,
-}: {
-  obtained: number;
-  total: number;
-}) {
-  const pct = total > 0 ? (obtained / total) * 100 : 0;
-  const color =
-    pct >= 80 ? "bg-green-500" : pct >= 60 ? "bg-gold" : pct >= 40 ? "bg-orange-500" : "bg-red-500";
-
-  return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.06]">
-      <div
-        className={`h-full rounded-full ${color} transition-all duration-500`}
-        style={{ width: `${Math.min(pct, 100)}%` }}
-      />
-    </div>
-  );
-}
-
-function StatPill({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string | number;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <div className="flex items-center gap-2 rounded-lg bg-black/[0.03] px-3 py-2">
-      <Icon className="h-3.5 w-3.5 text-ink/40" />
-      <span className="text-xs text-ink/50">{label}</span>
-      <span className="text-xs font-semibold text-ink">{value}</span>
-    </div>
-  );
+function truncate2(value: number): string {
+  return (Math.floor(value * 100) / 100).toFixed(2);
 }
 
 export default function MarksPage() {
@@ -341,78 +262,51 @@ export default function MarksPage() {
     };
   }, [sections, hasAnyMarks]);
 
-  if (loading) return <Spinner label="Loading your marks..." />;
+  if (loading)
+    return <Spinner label="Loading your marks..." />;
 
   return (
     <div>
       <PageHeader
         title="My Marks"
-        subtitle="Track your performance across all courses."
+        subtitle="Full marksheet with class stats and your standing."
         icon={ClipboardList}
       />
 
-      {/* Hero summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Overall performance ring */}
-        <div className="card flex items-center gap-4 p-5">
-          <div className="relative">
-            <ScoreRing pct={summary.hasMarks ? summary.overallPct : 0} />
-            <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-ink">
-              {summary.hasMarks ? `${summary.overallPct.toFixed(0)}` : "—"}
-            </span>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-ink/50">Overall Score</p>
-            <p className="text-lg font-extrabold text-ink">
-              {summary.hasMarks ? `${summary.overallPct.toFixed(1)}%` : "N/A"}
-            </p>
-            <p className="text-[11px] text-ink/40">Weighted average</p>
-          </div>
-        </div>
-
-        {/* Rank */}
-        <div className="card flex items-center gap-4 p-5">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gold/15">
-            <Trophy className="h-6 w-6 text-gold-deep" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-ink/50">Your Rank</p>
-            <p className="text-lg font-extrabold text-ink">
-              {summary.overallRank === Infinity
-                ? "N/A"
-                : `#${summary.overallRank}`}
-            </p>
-            <p className="text-[11px] text-ink/40">Across all sections</p>
-          </div>
-        </div>
-
-        {/* Assessments */}
-        <div className="card flex items-center gap-4 p-5">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10">
-            <Target className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-ink/50">Assessments</p>
-            <p className="text-lg font-extrabold text-ink">
-              {summary.assessments}
-            </p>
-            <p className="text-[11px] text-ink/40">Published total</p>
-          </div>
-        </div>
-
-        {/* Sections */}
-        <div className="card flex items-center gap-4 p-5">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-500/10">
-            <BookOpen className="h-6 w-6 text-purple-600" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-ink/50">Sections</p>
-            <p className="text-lg font-extrabold text-ink">
-              {sections.length}
-            </p>
-            <p className="text-[11px] text-ink/40">Enrolled courses</p>
-          </div>
-        </div>
+        <StatCard
+          icon={TrendingUp}
+          label="Overall Absolute"
+          value={
+            summary.hasMarks
+              ? `${summary.overallPct.toFixed(1)}`
+              : "N/A"
+          }
+          hint="Weighted across published assessments"
+        />
+        <StatCard
+          icon={Target}
+          label="Assessments"
+          value={summary.assessments}
+          hint="Across your courses"
+          accent="dark"
+        />
+        <StatCard
+          icon={Trophy}
+          label="Overall rank"
+          value={
+            summary.overallRank === Infinity
+              ? "N/A"
+              : `#${summary.overallRank}`
+          }
+          accent="gold"
+        />
+        <StatCard
+          icon={Users}
+          label="Enrolled sections"
+          value={sections.length}
+          hint="With published assessments"
+        />
       </div>
 
       {sections.length === 0 ? (
@@ -423,7 +317,7 @@ export default function MarksPage() {
           />
         </div>
       ) : (
-        <div className="mt-6 space-y-6">
+        <div className="mt-6 space-y-8">
           {sections.map((sec) => (
             <SectionBlock
               key={sec.sectionId}
@@ -450,89 +344,86 @@ function AssessmentCard({
   leaderboardVisible: boolean;
 }) {
   const [showLb, setShowLb] = useState(false);
+  const absolute =
+    a.obtained !== null && a.weightage > 0
+      ? (a.obtained / a.total) * a.weightage
+      : null;
   const isMe = (entry: LeaderboardEntry) =>
     myRegNo && entry.registration_no === myRegNo;
 
-  const showLeaderboard = hasAnyMarks && leaderboardVisible && a.leaderboard.length > 0;
-
   return (
-    <div className="group rounded-xl border border-black/[0.06] bg-white p-5 transition-all hover:shadow-lift">
-      {/* Header row */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
+    <div className="rounded-xl border border-black/[0.08] bg-white p-5">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
             <h3 className="font-bold text-ink">{a.title}</h3>
-            <span className="inline-flex items-center rounded-md bg-black/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ink/50">
-              {a.type}
-            </span>
+            <Badge tone="neutral">{a.type}</Badge>
           </div>
-          <p className="mt-1 text-xs text-ink/40">
-            Weight: {a.weightage > 0 ? `${a.weightage}%` : "—"} · Total: {a.total}
+          <p className="mt-1 text-xs text-ink/50">
+            Weight: {a.weightage > 0 ? `${a.weightage}%` : "—"}
           </p>
         </div>
-
-        {/* Score */}
-        <div className="flex items-center gap-3">
+        <div className="text-right">
           {a.obtained !== null ? (
-            <div className="text-right">
-              <p className="text-xl font-extrabold text-ink">
-                {a.obtained}
-                <span className="text-sm font-normal text-ink/30">
-                  /{a.total}
+            <>
+              <p className="text-lg font-bold text-ink">
+                {a.obtained}{" "}
+                <span className="text-sm font-normal text-ink/40">
+                  / {a.total}
                 </span>
               </p>
-              <p className={`text-xs font-semibold ${
-                a.myPercent >= 80 ? "text-green-600" : a.myPercent >= 60 ? "text-gold-deep" : "text-red-500"
-              }`}>
+              <p className="text-xs text-ink/50">
                 {a.myPercent.toFixed(1)}%
               </p>
-            </div>
+            </>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-3 py-1.5 text-xs font-medium text-ink/40">
-              <TrendingDown className="h-3 w-3" />
-              Awaiting marks
-            </span>
+            <p className="text-sm text-ink/35">
+              Not published
+            </p>
           )}
         </div>
       </div>
 
-      {/* Progress bar */}
-      {a.obtained !== null && (
-        <div className="mt-3">
-          <ProgressBar obtained={a.obtained} total={a.total} />
-        </div>
-      )}
-
       {/* Stats row */}
-      {hasAnyMarks && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {a.stats?.avg_marks != null && (
-            <StatPill
-              label="Class Avg"
-              value={`${a.stats.avg_marks}/${a.total}`}
-              icon={BarChart3}
-            />
-          )}
-          {a.stats?.min_marks != null && a.stats?.max_marks != null && (
-            <StatPill
-              label="Range"
-              value={`${a.stats.min_marks}–${a.stats.max_marks}`}
-              icon={TrendingUp}
-            />
-          )}
-          {a.stats?.total_students != null && (
-            <StatPill
-              label="Students"
-              value={a.stats.total_students}
-              icon={Users}
-            />
-          )}
-        </div>
-      )}
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-ink/60">
+        {absolute !== null && (
+          <span>
+            Absolute:{" "}
+            <span className="font-semibold text-ink">
+              {truncate2(absolute)}
+            </span>
+          </span>
+        )}
 
-      {/* Leaderboard */}
-      {showLeaderboard && (
-        <div className="mt-4 border-t border-black/[0.05] pt-3">
+        {hasAnyMarks && a.stats?.avg_marks != null && (
+          <span>
+            Class Avg:{" "}
+            <span className="font-semibold text-ink">
+              {a.stats.avg_marks} / {a.total}
+            </span>
+          </span>
+        )}
+
+        {hasAnyMarks && a.stats?.min_marks != null && (
+          <span>
+            Min / Max:{" "}
+            <span className="font-semibold text-ink">
+              {a.stats.min_marks} / {a.stats.max_marks}
+            </span>
+          </span>
+        )}
+
+        {a.obtained === null && (
+          <span className="text-ink/35">
+            Awaiting marks
+          </span>
+        )}
+      </div>
+
+      {/* Per-assessment leaderboard */}
+      {hasAnyMarks && leaderboardVisible && a.leaderboard.length > 0 && (
+        <div className="mt-3 border-t border-black/[0.06] pt-3">
           <button
             onClick={() => setShowLb((v) => !v)}
             className="flex items-center gap-1.5 text-xs font-semibold text-gold-deep hover:underline"
@@ -546,10 +437,10 @@ function AssessmentCard({
             )}
           </button>
           {showLb && (
-            <div className="mt-2 overflow-hidden rounded-lg border border-black/[0.05]">
+            <div className="mt-2 overflow-x-auto rounded-lg bg-paper/50">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-black/[0.02]">
+                  <tr className="border-b border-black/[0.06]">
                     <th className="px-3 py-2 text-left font-semibold text-ink/50">
                       Rank
                     </th>
@@ -568,35 +459,31 @@ function AssessmentCard({
                   {a.leaderboard.map((e, i) => (
                     <tr
                       key={e.registration_no ?? i}
-                      className={`border-t border-black/[0.03] transition-colors ${
-                        isMe(e) ? "bg-gold/10" : "hover:bg-black/[0.01]"
+                      className={`border-b border-black/[0.03] ${
+                        isMe(e) ? "bg-gold/15" : ""
                       }`}
                     >
-                      <td className="px-3 py-2 font-semibold text-ink/60">
+                      <td className="px-3 py-1.5 font-semibold text-ink/60">
                         {e.rank <= 3 ? (
-                          <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
-                            e.rank === 1 ? "bg-gold text-ink" : e.rank === 2 ? "bg-gray-200 text-ink" : "bg-amber-100 text-amber-800"
-                          }`}>
+                          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-bold text-ink">
                             #{e.rank}
                           </span>
                         ) : (
                           `#${e.rank}`
                         )}
                       </td>
-                      <td className="px-3 py-2 font-semibold text-ink">
+                      <td className="px-3 py-1.5 font-semibold text-ink">
                         {formatRegNo(e.registration_no) ?? "N/A"}
                         {isMe(e) && (
-                          <span className="ml-1.5 inline-flex items-center rounded-full bg-ink px-1.5 py-0.5 text-[9px] font-bold text-white">
-                            YOU
-                          </span>
+                          <Badge tone="dark" className="ml-1.5">
+                            You
+                          </Badge>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-right font-medium text-ink/70">
-                        {e.obtained != null
-                          ? `${e.obtained} / ${e.total_marks ?? "?"}`
-                          : "N/A"}
+                      <td className="px-3 py-1.5 text-right font-medium text-ink/70">
+                        {e.obtained != null ? `${e.obtained} / ${e.total_marks ?? "?"}` : "N/A"}
                       </td>
-                      <td className="px-3 py-2 text-right font-semibold text-ink/70">
+                      <td className="px-3 py-1.5 text-right font-medium text-ink/70">
                         {e.percent}%
                       </td>
                     </tr>
@@ -628,80 +515,44 @@ function SectionBlock({
   myRegNo: string | null;
   hasAnyMarks: boolean;
 }) {
-  const scored = section.assessments.filter((a) => a.obtained !== null);
-  const avgPct =
-    scored.length > 0
-      ? scored.reduce((s, a) => s + a.myPercent, 0) / scored.length
-      : 0;
-
   return (
     <section className="card overflow-hidden">
-      {/* Section header */}
-      <div className="border-b border-black/[0.05] bg-gradient-to-r from-ink/[0.02] to-transparent px-6 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15">
-              <BookOpen className="h-5 w-5 text-gold-deep" />
-            </div>
-            <div>
-              <h2 className="font-bold text-ink">
-                {section.code}{" "}
-                <span className="font-medium text-ink/35">→</span>{" "}
-                <span className="font-medium text-ink/60">
-                  {section.title}
-                </span>
-              </h2>
-              <p className="mt-0.5 text-xs text-ink/40">
-                {section.sectionCode} · {section.assessments.length} assessments
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {section.leaderboardVisible ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-[10px] font-semibold text-green-700">
-                <Eye className="h-3 w-3" /> Lb visible
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-2.5 py-1 text-[10px] font-semibold text-ink/40">
-                <EyeOff className="h-3 w-3" /> Lb hidden
-              </span>
-            )}
-            {hasAnyMarks && section.myRank && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-3 py-1.5 text-xs font-bold text-gold-deep">
-                <Award className="h-3.5 w-3.5" />
-                Rank #{section.myRank.rank}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Overall progress */}
-        {section.hasScoredMarks && (
-          <div className="mt-3 flex items-center gap-3">
-            <div className="flex-1">
-              <ProgressBar obtained={avgPct} total={100} />
-            </div>
-            <span className="text-xs font-bold text-ink">
-              {section.weightedOverall.toFixed(1)}%
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] bg-white px-5 py-4">
+        <div>
+          <h2 className="font-bold text-ink">
+            {section.code}{" "}
+            <span className="font-medium text-ink/45">→</span>{" "}
+            <span className="font-medium text-ink/70">
+              {section.title}
             </span>
-          </div>
-        )}
-        {!section.hasScoredMarks && (
-          <p className="mt-2 text-xs text-ink/35">No marks published yet</p>
-        )}
+          </h2>
+          <p className="mt-0.5 text-xs text-ink/50">
+            {section.sectionCode} ·{" "}
+            {section.assessments.length} assessments ·{" "}
+            {section.hasScoredMarks
+              ? `${section.weightedOverall.toFixed(1)}% overall`
+              : "No marks published yet"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {hasAnyMarks && section.myRank && (
+            <Badge tone="gold">
+              <Trophy className="h-3 w-3" /> Rank #
+              {section.myRank.rank}
+            </Badge>
+          )}
+        </div>
       </div>
 
-      {/* Assessment cards */}
-      <div className="divide-y divide-black/[0.04] p-5 space-y-0">
+      <div className="space-y-4 p-5">
         {section.assessments.map((a) => (
-          <div key={a.id} className="py-3 first:pt-0 last:pb-0">
-            <AssessmentCard
-              a={a}
-              myRegNo={myRegNo}
-              hasAnyMarks={hasAnyMarks}
-              leaderboardVisible={section.leaderboardVisible}
-            />
-          </div>
+          <AssessmentCard
+            key={a.id}
+            a={a}
+            myRegNo={myRegNo}
+            hasAnyMarks={hasAnyMarks}
+            leaderboardVisible={section.leaderboardVisible}
+          />
         ))}
       </div>
     </section>

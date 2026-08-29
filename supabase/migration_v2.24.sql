@@ -6,3 +6,9 @@ ALTER TABLE public.course_sections
 
 COMMENT ON COLUMN public.course_sections.leaderboard_visible
   IS 'When false, students in this section cannot see the leaderboard or per-assessment rankings.';
+
+-- Allow TAs to update leaderboard_visible on their own sections
+DROP POLICY IF EXISTS "sections_ta_update_leaderboard" ON public.course_sections;
+CREATE POLICY "sections_ta_update_leaderboard" ON public.course_sections
+  FOR UPDATE USING (is_ta_of_section(id))
+  WITH CHECK (is_ta_of_section(id));

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, Users, UserRound, Plus, Loader2, Trash2 } from "lucide-react";
+import { BookOpen, Users, UserRound, Plus, Loader2, Trash2, Trophy, Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { CourseSection } from "@/lib/types";
 import { one } from "@/lib/utils";
@@ -28,6 +28,7 @@ export default function TaSectionsPage() {
   const [createBusy, setCreateBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] =
     useState<SectionSummary | null>(null);
+  const [togglingLb, setTogglingLb] = useState<string | null>(null);
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -128,6 +129,25 @@ export default function TaSectionsPage() {
     window.location.reload();
   }
 
+  async function toggleLeaderboard(sectionId: string, current: boolean) {
+    setTogglingLb(sectionId);
+    const supabase = createClient();
+    const { error: dbErr } = await supabase
+      .from("course_sections")
+      .update({ leaderboard_visible: !current })
+      .eq("id", sectionId);
+    setTogglingLb(null);
+    if (dbErr) return error(dbErr.message);
+    success(!current ? "Leaderboard is now visible to students." : "Leaderboard hidden from students.");
+    setSections((prev) =>
+      prev.map((s) =>
+        s.section.id === sectionId
+          ? { ...s, section: { ...s.section, leaderboard_visible: !current } }
+          : s
+      )
+    );
+  }
+
   if (loading) return <Spinner label="Loading your sections..." />;
 
   return (
@@ -181,13 +201,34 @@ export default function TaSectionsPage() {
                     {studentCount} students
                   </span>
                 </div>
-                <button
-                  className="btn-outline px-2.5 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
-                  onClick={() => setDeleteTarget({ section, taCount, studentCount })}
-                  title="Delete this course"
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Delete
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    className={`btn-outline px-2.5 py-1.5 text-xs ${
+                      section.leaderboard_visible
+                        ? "text-green-700 hover:border-green-300 hover:bg-green-50"
+                        : "text-ink/40 hover:border-ink/20 hover:bg-ink/5"
+                    }`}
+                    onClick={() => toggleLeaderboard(section.id, section.leaderboard_visible)}
+                    disabled={togglingLb === section.id}
+                    title={section.leaderboard_visible ? "Hide leaderboard from students" : "Show leaderboard to students"}
+                  >
+                    {togglingLb === section.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : section.leaderboard_visible ? (
+                      <Eye className="h-3.5 w-3.5" />
+                    ) : (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    )}
+                    {section.leaderboard_visible ? "Lb On" : "Lb Off"}
+                  </button>
+                  <button
+                    className="btn-outline px-2.5 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                    onClick={() => setDeleteTarget({ section, taCount, studentCount })}
+                    title="Delete this course"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}

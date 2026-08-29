@@ -105,6 +105,7 @@ create table if not exists course_sections (
   academic_year text,
   status text not null default 'active'
     check (status in ('active', 'archived')),
+  leaderboard_visible boolean not null default true,
   created_by uuid references profiles(id) on delete set null,
   created_at timestamptz not null default now(),
   unique (course_id, section_code)

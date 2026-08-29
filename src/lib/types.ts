@@ -36,6 +36,7 @@ export interface CourseSection {
   semester: string | null;
   academic_year: string | null;
   status: "active" | "archived";
+  leaderboard_visible: boolean;
   created_by: string | null;
   created_at: string;
   course?: { code: string; title: string } | null;

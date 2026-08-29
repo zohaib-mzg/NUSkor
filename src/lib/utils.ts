@@ -92,7 +92,7 @@ const NOISE_TOKENS = new Set([
   "LHR", "ISB", "KHI", "FSD", "PWR", "ABD", "MULT", "SIAL",
   "MAIN", "CITY", "TECH",
 ]);
-const BS_PROGRAM = /^BS[A-Z]{2,4}$/;
+const BS_PROGRAM = /^BS(\([A-Z]{2,4}\)|[A-Z]{2,4})$/;
 const YEAR = /^(19|20)\d{2}$/;
 
 export function cleanName(raw: string | null | undefined): string {

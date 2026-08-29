@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { UserX, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { UserX, CheckCircle2, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { CourseSection } from "@/lib/types";
-import { cleanName, formatDate, one, regNoDisplay } from "@/lib/utils";
+import { cleanName, formatDate, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -33,7 +32,6 @@ export default function TaDeletionRequestsPage() {
   const [requests, setRequests] = useState<DeletionRequest[]>([]);
   const [reviewTarget, setReviewTarget] = useState<DeletionRequest | null>(null);
   const [reviewApprove, setReviewApprove] = useState(false);
-  const [acting, setActing] = useState(false);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -58,13 +56,11 @@ export default function TaDeletionRequestsPage() {
 
   async function reviewRequest() {
     if (!reviewTarget) return;
-    setActing(true);
     const supabase = createClient();
     const { error: err } = await supabase.rpc("review_deletion_request", {
       p_request_id: reviewTarget.id,
       p_approve: reviewApprove,
     });
-    setActing(false);
     setReviewTarget(null);
     if (err) return error(err.message);
     success(

@@ -32,7 +32,6 @@ export default function AdminDeletionRequestsPage() {
   const [requests, setRequests] = useState<DeletionRequest[]>([]);
   const [reviewTarget, setReviewTarget] = useState<DeletionRequest | null>(null);
   const [reviewApprove, setReviewApprove] = useState(false);
-  const [acting, setActing] = useState(false);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -57,13 +56,11 @@ export default function AdminDeletionRequestsPage() {
 
   async function reviewRequest() {
     if (!reviewTarget) return;
-    setActing(true);
     const supabase = createClient();
     const { error: err } = await supabase.rpc("review_deletion_request", {
       p_request_id: reviewTarget.id,
       p_approve: reviewApprove,
     });
-    setActing(false);
     setReviewTarget(null);
     if (err) return error(err.message);
     success(

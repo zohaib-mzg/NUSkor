@@ -113,8 +113,7 @@ export default function LandingPage() {
       {/* Features */}
       <section className="mx-auto max-w-6xl px-5 pb-20">
         <h2 className="mb-8 text-center text-2xl font-bold tracking-tight text-ink">
-          Built for <span className="text-gold-deep">1 TA</span> and{" "}
-          <span className="text-gold-deep">400+ students</span>
+          Features
         </h2>
         <div className="grid gap-5 sm:grid-cols-2">
           {features.map((f) => (

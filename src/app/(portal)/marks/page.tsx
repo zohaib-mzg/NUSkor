@@ -148,15 +148,16 @@ export default function MarksPage() {
 
           const lbVisible = sec.leaderboard_visible;
 
-          const [statsRes, overallLbRes] =
-            studentHasMarks && lbVisible
-              ? await Promise.all([
-                  supabase.rpc("get_assessment_stats_many", {
-                    p_assessment_ids: courseAssessments.map((a) => a.id),
-                  }),
-                  supabase.rpc("get_leaderboard", { p_section_id: sec.id }),
-                ])
-              : [{ data: [] }, { data: [] }];
+          const [statsRes, overallLbRes] = studentHasMarks
+            ? await Promise.all([
+                supabase.rpc("get_assessment_stats_many", {
+                  p_assessment_ids: courseAssessments.map((a) => a.id),
+                }),
+                lbVisible
+                  ? supabase.rpc("get_leaderboard", { p_section_id: sec.id })
+                  : Promise.resolve({ data: [] }),
+              ])
+            : [{ data: [] }, { data: [] }];
 
           if (cancelled) return;
 
@@ -168,24 +169,23 @@ export default function MarksPage() {
             ).map((s) => [s.assessment_id, s])
           );
 
-          const leaderboardResults =
-            studentHasMarks && lbVisible
-              ? await Promise.all(
-                  courseAssessments.map(async (a) => {
-                    const { data } = await supabase.rpc(
-                      "get_assessment_leaderboard",
-                      {
-                        p_assessment_id: a.id,
-                        p_section_id: sec.id,
-                      }
-                    );
-                    return {
-                      assessmentId: a.id,
-                      leaderboard: (data ?? []) as LeaderboardEntry[],
-                    };
-                  })
-                )
-              : [];
+          const leaderboardResults = lbVisible
+            ? await Promise.all(
+                courseAssessments.map(async (a) => {
+                  const { data } = await supabase.rpc(
+                    "get_assessment_leaderboard",
+                    {
+                      p_assessment_id: a.id,
+                      p_section_id: sec.id,
+                    }
+                  );
+                  return {
+                    assessmentId: a.id,
+                    leaderboard: (data ?? []) as LeaderboardEntry[],
+                  };
+                })
+              )
+            : [];
 
           const lbByAssessment = new Map(
             leaderboardResults.map((r) => [r.assessmentId, r.leaderboard])

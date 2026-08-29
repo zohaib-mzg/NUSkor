@@ -20,6 +20,7 @@ import {
   X,
   ShieldCheck,
   Settings,
+  UserX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import NotificationBell from "@/components/NotificationBell";
@@ -47,6 +48,7 @@ const taNav: NavItem[] = [
   { href: "/ta/marks", label: "Marks", icon: <Star className="h-[18px] w-[18px]" />, match: ["/ta/marks"] },
   { href: "/ta/evaluations", label: "Evaluation Periods", icon: <CalendarClock className="h-[18px] w-[18px]" />, match: ["/ta/evaluations"] },
   { href: "/ta/announcements", label: "Announcements", icon: <Megaphone className="h-[18px] w-[18px]" />, match: ["/ta/announcements"] },
+  { href: "/ta/deletion-requests", label: "Deletion Requests", icon: <UserX className="h-[18px] w-[18px]" />, match: ["/ta/deletion-requests"] },
   { href: "/settings", label: "Settings", icon: <Settings className="h-[18px] w-[18px]" />, match: ["/settings"] },
 ];
 
@@ -54,6 +56,7 @@ const adminNav: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: <LayoutDashboard className="h-[18px] w-[18px]" />, match: ["/admin"] },
   { href: "/admin/tas", label: "TA Management", icon: <ShieldCheck className="h-[18px] w-[18px]" />, match: ["/admin/tas"] },
   { href: "/admin/analytics", label: "Analytics", icon: <BarChart3 className="h-[18px] w-[18px]" />, match: ["/admin/analytics"] },
+  { href: "/admin/deletion-requests", label: "Deletion Requests", icon: <UserX className="h-[18px] w-[18px]" />, match: ["/admin/deletion-requests"] },
 ];
 
 export default function PortalShell({

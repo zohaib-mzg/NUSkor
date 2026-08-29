@@ -1768,5 +1768,155 @@ create trigger trg_assessment_published
   execute function on_assessment_published();
 
 -- =========================================================
+-- ACCOUNT DELETION REQUESTS (student requests, TA approves)
+-- =========================================================
+create table if not exists account_deletion_requests (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null references students(id) on delete cascade,
+  reason text,
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'rejected')),
+  reviewed_by uuid references profiles(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (student_id, status)
+);
+
+-- RLS: students can see their own requests; TAs can see requests for their students
+alter table account_deletion_requests enable row level security;
+
+drop policy if exists "deletion_req_select" on account_deletion_requests;
+create policy "deletion_req_select" on account_deletion_requests
+  for select using (
+    student_id = auth.uid()
+    or is_admin()
+    or exists (
+      select 1 from enrollments e
+      join section_tas st on st.section_id = e.section_id
+      where e.student_id = account_deletion_requests.student_id
+        and st.ta_id = auth.uid()
+    )
+  );
+
+drop policy if exists "deletion_req_student_insert" on account_deletion_requests;
+create policy "deletion_req_student_insert" on account_deletion_requests
+  for insert with check (
+    student_id = auth.uid()
+    and status = 'pending'
+  );
+
+drop policy if exists "deletion_req_ta_update" on account_deletion_requests;
+create policy "deletion_req_ta_update" on account_deletion_requests
+  for update using (
+    is_admin()
+    or exists (
+      select 1 from enrollments e
+      join section_tas st on st.section_id = e.section_id
+      where e.student_id = account_deletion_requests.student_id
+        and st.ta_id = auth.uid()
+    )
+  ) with check (
+    is_admin()
+    or exists (
+      select 1 from enrollments e
+      join section_tas st on st.section_id = e.section_id
+      where e.student_id = account_deletion_requests.student_id
+        and st.ta_id = auth.uid()
+    )
+  );
+
+grant select, insert on account_deletion_requests to authenticated;
+grant update (status, reviewed_by, reviewed_at) on account_deletion_requests to authenticated;
+
+-- RPC: student requests account deletion
+create or replace function public.request_account_deletion(p_reason text default null)
+returns void
+language plpgsql security definer
+as $$
+declare
+  uid uuid := auth.uid();
+  v_student_id uuid;
+begin
+  if uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select id into v_student_id from students where id = uid;
+  if v_student_id is null then
+    raise exception 'Only students can request account deletion';
+  end if;
+
+  -- reject if there is already a pending request
+  if exists (
+    select 1 from account_deletion_requests
+    where student_id = uid and status = 'pending'
+  ) then
+    raise exception 'You already have a pending deletion request';
+  end if;
+
+  insert into account_deletion_requests (student_id, reason)
+  values (uid, nullif(btrim(coalesce(p_reason, '')), ''));
+end;
+$$;
+
+grant execute on function public.request_account_deletion(text) to authenticated;
+
+-- RPC: TA/admin reviews (approves/rejects) a deletion request
+create or replace function public.review_deletion_request(
+  p_request_id uuid,
+  p_approve boolean
+)
+returns void
+language plpgsql security definer
+as $$
+declare
+  v_req account_deletion_requests%rowtype;
+  v_uid uuid := auth.uid();
+begin
+  select * into v_req from account_deletion_requests where id = p_request_id;
+  if v_req.id is null then
+    raise exception 'Request not found';
+  end if;
+  if v_req.status <> 'pending' then
+    raise exception 'Request already reviewed';
+  end if;
+
+  -- must be admin or TA of a section the student is enrolled in
+  if not is_admin() and not exists (
+    select 1 from enrollments e
+    join section_tas st on st.section_id = e.section_id
+    where e.student_id = v_req.student_id and st.ta_id = v_uid
+  ) then
+    raise exception 'Not authorised to review this request';
+  end if;
+
+  update account_deletion_requests
+  set status = case when p_approve then 'approved' else 'rejected' end,
+      reviewed_by = v_uid,
+      reviewed_at = now()
+  where id = p_request_id;
+
+  -- if approved, actually delete the student
+  if p_approve then
+    delete from course_sections where created_by = v_req.student_id;
+    delete from announcements where created_by = v_req.student_id;
+    delete from marks where student_id = v_req.student_id;
+    delete from enrollments where student_id = v_req.student_id;
+    delete from bookings where student_id = v_req.student_id;
+    delete from user_notification_settings where user_id = v_req.student_id;
+    delete from notifications where user_id = v_req.student_id;
+    delete from push_subscriptions where user_id = v_req.student_id;
+    delete from section_tas where ta_id = v_req.student_id;
+    delete from student_invites where created_by_ta = v_req.student_id;
+    delete from ta_applications where user_id = v_req.student_id;
+    delete from profiles where id = v_req.student_id;
+    delete from auth.users where id = v_req.student_id;
+  end if;
+end;
+$$;
+
+grant execute on function public.review_deletion_request(uuid, boolean) to authenticated;
+
+-- =========================================================
 -- END v2
 -- =========================================================

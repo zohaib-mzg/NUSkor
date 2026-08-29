@@ -30,6 +30,8 @@ export default function SettingsPage() {
   const [prefs, setPrefs] = useState<NotificationSettings | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deletionStatus, setDeletionStatus] = useState<"none" | "pending" | "approved" | "rejected">("none");
 
   const load = useCallback(async () => {
     const sub = await getPushSubscription();
@@ -40,6 +42,19 @@ export default function SettingsPage() {
     setEnabled(!!sub && dev.length > 0);
     setDevices(dev);
     setPrefs(settings);
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase
+        .from("account_deletion_requests")
+        .select("status")
+        .eq("student_id", user.id)
+        .eq("status", "pending")
+        .maybeSingle();
+      if (data) setDeletionStatus("pending");
+    }
+
     setLoading(false);
   }, []);
 
@@ -100,17 +115,20 @@ export default function SettingsPage() {
 
   if (loading) return <Spinner label="Loading settings..." />;
 
-  async function deleteAccount() {
+  async function requestDeletion() {
     setDeleteBusy(true);
     const supabase = createClient();
-    const { error: err } = await supabase.rpc("delete_account");
+    const { error: err } = await supabase.rpc("request_account_deletion", {
+      p_reason: deleteReason || null,
+    });
     if (err) {
       setDeleteBusy(false);
       return error(err.message);
     }
-    // Sign out and redirect
-    await supabase.auth.signOut();
-    window.location.href = "/";
+    success("Deletion request submitted. Your TA will review it.");
+    setDeleteOpen(false);
+    setDeleteReason("");
+    setDeletionStatus("pending");
   }
 
   const prefRows: { key: "announcements" | "marks_released" | "evaluation_updates"; label: string; hint: string }[] = [
@@ -222,30 +240,53 @@ export default function SettingsPage() {
       {/* Danger zone */}
       <section className="card mt-6 border-red-200 bg-red-50/50 p-6">
         <h2 className="font-bold text-red-700">Danger zone</h2>
-        <p className="mt-1 text-sm text-red-600/70">
-          Permanently delete your account and all associated data. This cannot be
-          undone. You will be removed from all courses, sections, and your marks
-          history will be erased.
-        </p>
-        <button
-          className="mt-4 btn-outline border-red-300 text-red-600 hover:border-red-400 hover:bg-red-100"
-          onClick={() => setDeleteOpen(true)}
-        >
-          <Trash2 className="h-4 w-4" /> Delete my account
-        </button>
+        {deletionStatus === "pending" ? (
+          <div className="mt-3 rounded-xl border border-yellow-300 bg-yellow-50 p-4">
+            <p className="text-sm font-semibold text-yellow-800">Deletion request pending</p>
+            <p className="mt-1 text-xs text-yellow-700">
+              Your TA is reviewing your account deletion request. You will be
+              notified once it is approved or rejected.
+            </p>
+          </div>
+        ) : (
+          <>
+            <p className="mt-1 text-sm text-red-600/70">
+              Request to delete your account and all associated data. Your TA must
+              approve the request before it is processed. This cannot be undone —
+              you will be removed from all courses and your marks history will be
+              erased.
+            </p>
+            <button
+              className="mt-4 btn-outline border-red-300 text-red-600 hover:border-red-400 hover:bg-red-100"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" /> Request account deletion
+            </button>
+          </>
+        )}
       </section>
 
       <Modal
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
-        title="Delete your account?"
+        title="Request account deletion?"
       >
         <div className="space-y-4">
           <p className="text-sm text-ink/60">
-            This will permanently delete your account and all associated data
-            including marks, enrollments, bookings, and announcements. This
-            action cannot be undone.
+            Your TA will review this request. Once approved, your account and all
+            associated data (marks, enrollments, bookings) will be permanently
+            deleted. This action cannot be undone.
           </p>
+          <div>
+            <label className="text-sm font-medium text-ink/70">Reason (optional)</label>
+            <textarea
+              className="mt-1 w-full rounded-xl border border-black/[0.08] bg-paper px-4 py-2.5 text-sm outline-none focus:border-gold"
+              rows={3}
+              placeholder="Why do you want to delete your account?"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+            />
+          </div>
           <div className="flex justify-end gap-3">
             <button
               className="btn-outline"
@@ -255,10 +296,10 @@ export default function SettingsPage() {
             </button>
             <button
               className="btn-primary bg-red-600 hover:bg-red-700"
-              onClick={deleteAccount}
+              onClick={requestDeletion}
               disabled={deleteBusy}
             >
-              {deleteBusy ? "Deleting..." : "Yes, delete my account"}
+              {deleteBusy ? "Submitting..." : "Submit request"}
             </button>
           </div>
         </div>

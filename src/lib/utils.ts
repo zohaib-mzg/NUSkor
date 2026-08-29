@@ -26,6 +26,18 @@ export function formatTime(value: string): string {
   });
 }
 
+export function formatSlotTime(time: string, use24h: boolean): string {
+  const cleaned = time.replace(/:\d{2}$/, "");
+  if (use24h) return cleaned;
+  const [h, m] = cleaned.split(":").map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export function percent(obtained: number, total: number): number {
   if (!total) return 0;
   return (obtained / total) * 100;

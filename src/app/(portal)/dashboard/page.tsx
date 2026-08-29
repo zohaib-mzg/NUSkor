@@ -208,10 +208,10 @@ export default function StudentDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           icon={ClipboardList}
-          label={myMarks.weighted !== null ? "Overall performance" : "Marks"}
+          label={myMarks.weighted !== null ? "Overall Absolutes" : "Marks"}
           value={
             myMarks.weighted !== null
-              ? `${myMarks.weighted.toFixed(1)}%`
+              ? myMarks.weighted.toFixed(1)
               : "N/A"
           }
           hint={
@@ -415,11 +415,6 @@ export default function StudentDashboard() {
               })}
             </ul>
           )}
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-ink/45">
-            <Badge tone="gold">Tip</Badge>
-            One booking per evaluation period is enforced by the database.
-            No student can book twice, ever.
-          </div>
         </section>
       </div>
 

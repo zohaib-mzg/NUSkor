@@ -18,7 +18,7 @@ import type {
   EvaluationPeriod,
   SlotWithBookings,
 } from "@/lib/types";
-import { cleanName, formatDate, one, regNoDisplay } from "@/lib/utils";
+import { cleanName, formatDate, formatSlotTime, one, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -51,6 +51,7 @@ const [genFor, setGenFor] = useState<PeriodAdmin | null>(null);
     period: PeriodAdmin;
     slotId: string;
   } | null>(null);
+  const [use24h, setUse24h] = useState(true);
 
 const load = useCallback(async () => {
     const supabase = createClient();
@@ -312,6 +313,26 @@ const dates: string[] = [];
         }
       />
 
+      <div className="mb-4 flex items-center gap-2">
+        <span className="text-sm text-ink/60">Time format:</span>
+        <button
+          onClick={() => setUse24h(true)}
+          className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+            use24h ? "bg-ink text-white" : "bg-ink/10 text-ink/60 hover:bg-ink/20"
+          }`}
+        >
+          24-hour
+        </button>
+        <button
+          onClick={() => setUse24h(false)}
+          className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+            !use24h ? "bg-ink text-white" : "bg-ink/10 text-ink/60 hover:bg-ink/20"
+          }`}
+        >
+          12-hour
+        </button>
+      </div>
+
       {periods.length === 0 ? (
         <div className="card">
           <EmptyState
@@ -454,7 +475,7 @@ const dates: string[] = [];
                                   return (
                                     <tr key={slot.slot_id} className="bg-white">
                                       <td className="td font-semibold text-ink">
-                                        {slot.start_time}–{slot.end_time}
+                                        {formatSlotTime(slot.start_time, use24h)}–{formatSlotTime(slot.end_time, use24h)}
                                       </td>
                                       <td className="td">
                                         <Badge
@@ -762,7 +783,7 @@ const dates: string[] = [];
                       </td>
                       <td className="td text-ink/70">
                         {b.evaluation_slots
-                          ? `${formatDate(b.evaluation_slots.slot_date)}, ${b.evaluation_slots.start_time}–${b.evaluation_slots.end_time}`
+                          ? `${formatDate(b.evaluation_slots.slot_date)}, ${formatSlotTime(b.evaluation_slots.start_time, use24h)}–${formatSlotTime(b.evaluation_slots.end_time, use24h)}`
                           : "N/A"}
                       </td>
                       <td className="td">

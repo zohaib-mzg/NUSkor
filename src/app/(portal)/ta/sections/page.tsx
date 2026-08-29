@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, Users, UserRound, Plus, Loader2, Trash2, Trophy, Eye, EyeOff } from "lucide-react";
+import { BookOpen, Users, UserRound, Plus, Loader2, Trash2, Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { CourseSection } from "@/lib/types";
 import { one } from "@/lib/utils";

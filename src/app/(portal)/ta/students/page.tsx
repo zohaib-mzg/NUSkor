@@ -16,6 +16,24 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { CourseSection, Student, StudentInvite } from "@/lib/types";
 import { cleanName, formatDate, one, regNoDisplay } from "@/lib/utils";
+
+function sortByRegNo<T>(list: T[], getReg: (item: T) => string | null): T[] {
+  return [...list].sort((a, b) => {
+    const ra = getReg(a) ?? "";
+    const rb = getReg(b) ?? "";
+    const na = ra.replace(/\D/g, "");
+    const nb = rb.replace(/\D/g, "");
+    if (!na && !nb) return 0;
+    if (!na) return 1;
+    if (!nb) return -1;
+    return na.localeCompare(nb, undefined, { numeric: true });
+  });
+}
+
+function extractStudent(r: EnrollmentRow): Student | null {
+  if (!r.student) return null;
+  return Array.isArray(r.student) ? (r.student[0] ?? null) : r.student;
+}
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -311,7 +329,10 @@ async function copyLink(token: string) {
                         </tr>
                       </thead>
                       <tbody>
-                        {students.map((row) => {
+                        {sortByRegNo(students, (row) => {
+                          const st = extractStudent(row);
+                          return st?.registration_no ?? st?.profiles?.email?.split("@")[0] ?? null;
+                        }).map((row) => {
                           const st = studentOf(row);
                           return (
                             <tr key={row.id} className="bg-white">

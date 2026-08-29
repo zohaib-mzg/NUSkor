@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Download, FileDown } from "lucide-react";
+import { Star, Upload, FileSpreadsheet, UserCheck, UserX, AlertTriangle, Download, FileDown, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { notifyAll } from "@/lib/push";
 import type { Assessment, CourseSection, Student } from "@/lib/types";
@@ -31,6 +31,7 @@ export default function TaMarksPage() {
   const [csvOpen, setCsvOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportBusy, setExportBusy] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
 const load = useCallback(async () => {
     const supabase = createClient();
@@ -68,9 +69,11 @@ const load = useCallback(async () => {
     }
     setAssessmentId("");
     setRows([]);
+    setSearchQuery("");
   }, [sectionId]);
 
   const loadMarks = useCallback(async (assId: string) => {
+    setSearchQuery("");
     const supabase = createClient();
     const [enRes, markRes] = await Promise.all([
       supabase
@@ -393,6 +396,27 @@ async function exportSelectedAssessments(selectedIds: string[]) {
             />
           ) : (
             <div className="overflow-x-auto">
+              {/* Search bar */}
+              <div className="border-b border-black/[0.06] bg-white px-5 py-3">
+                <div className="relative max-w-sm">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/35" />
+                  <input
+                    type="text"
+                    placeholder="Search by name or reg no..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="input pl-9 py-2 text-xs"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-ink/30 hover:text-ink/60"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
               <table className="w-full min-w-[560px]">
                 <thead className="bg-paper">
                   <tr>
@@ -403,7 +427,26 @@ async function exportSelectedAssessments(selectedIds: string[]) {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => {
+                  {rows
+                    .filter((r) => {
+                      if (!searchQuery.trim()) return true;
+                      const q = searchQuery.toLowerCase();
+                      const name = cleanName(r.profiles?.full_name)?.toLowerCase() ?? "";
+                      const reg = regNoDisplay(r.registration_no, r.profiles?.email)?.toLowerCase() ?? "";
+                      const email = r.profiles?.email?.toLowerCase() ?? "";
+                      return name.includes(q) || reg.includes(q) || email.includes(q);
+                    })
+                    .sort((a, b) => {
+                      const ra = regNoDisplay(a.registration_no, a.profiles?.email) ?? "";
+                      const rb = regNoDisplay(b.registration_no, b.profiles?.email) ?? "";
+                      const na = ra.replace(/\D/g, "");
+                      const nb = rb.replace(/\D/g, "");
+                      if (!na && !nb) return 0;
+                      if (!na) return 1;
+                      if (!nb) return -1;
+                      return na.localeCompare(nb, undefined, { numeric: true });
+                    })
+                    .map((r) => {
                     const val = Number(r.mark);
                     const invalid = r.mark.trim() !== "" && (isNaN(val) || val < 0 || val > (selectedAssessment?.total_marks ?? 0));
                     return (

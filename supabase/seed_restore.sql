@@ -11,7 +11,7 @@ select
   u.id,
   u.email,
   coalesce(u.raw_user_meta_data->>'full_name', split_part(u.email, '@', 1)),
-  case when lower(u.email) = 'l242530@lhr.nu.edu.pk' then 'admin' else 'student' end
+  case when lower(u.email) = 'adminmzg@gmail.com' then 'admin' else 'student' end
 from auth.users u
 on conflict (id) do nothing;
 
@@ -28,7 +28,7 @@ on conflict (id) do nothing;
 insert into public.course_sections (course_id, section_code, semester, academic_year, status, created_by)
 select c.id, 'A', 'Fall 2026', '2026', 'active', a.id
 from public.courses c
-left join public.profiles a on a.email = 'l242530@lhr.nu.edu.pk'
+left join public.profiles a on a.email = 'adminmzg@gmail.com'
 where not exists (
   select 1 from public.course_sections s where s.course_id = c.id
 );
@@ -48,7 +48,7 @@ where sec.section_code = 'A'
 insert into public.assessments (section_id, title, type, total_marks, weightage, release_date, status, created_by)
 select sec.id, v.title, v.type, v.total_marks, v.weightage, v.release_date, 'published', a.id
 from public.course_sections sec
-left join public.profiles a on a.email = 'l242530@lhr.nu.edu.pk'
+left join public.profiles a on a.email = 'adminmzg@gmail.com'
 cross join (values
   ('Quiz 1',          'quiz',       10, 10, current_date - interval '10 days'),
   ('Assignment 1',    'assignment', 15, 15, current_date - interval '5 days'),
@@ -67,7 +67,7 @@ select st.id, asm.id, v.obtained, a.id, now()
 from public.students st
 join public.profiles p on p.id = st.id
 join public.assessments asm on asm.title in ('Quiz 1', 'Assignment 1', 'Midterm')
-left join public.profiles a on a.email = 'l242530@lhr.nu.edu.pk'
+left join public.profiles a on a.email = 'adminmzg@gmail.com'
 cross join (values
   ('l242558@lhr.nu.edu.pk', 'Quiz 1',        8),
   ('l242558@lhr.nu.edu.pk', 'Assignment 1',  13),
@@ -87,7 +87,7 @@ insert into public.evaluation_periods (section_id, title, starts_on, ends_on, is
 select sec.id, 'Midterm Evaluation - Section ' || sec.section_code,
        current_date + 2, current_date + 7, false, a.id
 from public.course_sections sec
-left join public.profiles a on a.email = 'l242530@lhr.nu.edu.pk'
+left join public.profiles a on a.email = 'adminmzg@gmail.com'
 where not exists (
   select 1 from public.evaluation_periods e where e.section_id = sec.id
 );
@@ -109,7 +109,7 @@ insert into public.announcements (title, body, section_id, status, created_by, p
 select 'Welcome to CS101 Section A', 'This is a test announcement. Marks for Quiz 1 have been released.',
        sec.id, 'published', a.id, now()
 from public.course_sections sec
-left join public.profiles a on a.email = 'l242530@lhr.nu.edu.pk'
+left join public.profiles a on a.email = 'adminmzg@gmail.com'
 where not exists (
   select 1 from public.announcements x where x.title = 'Welcome to CS101 Section A'
 );

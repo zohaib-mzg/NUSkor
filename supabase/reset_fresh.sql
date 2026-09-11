@@ -1,6 +1,6 @@
 -- =========================================================
 -- NUSkor — FULL FRESH RESET
--- Keeps ONLY the admin account (l242530@lhr.nu.edu.pk).
+-- Keeps ONLY the admin account (adminmzg@gmail.com).
 -- Deletes every other user and all app data, so everyone
 -- else signs in again as brand-new students (the
 -- handle_new_user trigger auto-registers them).
@@ -11,10 +11,10 @@
 -- ---------- 1. REMOVE ALL NON-ADMIN USERS ----------
 -- (profiles + students rows cascade-delete with their user)
 delete from auth.sessions
-where user_id not in (select id from auth.users where email = 'l242530@lhr.nu.edu.pk');
+where user_id not in (select id from auth.users where email = 'adminmzg@gmail.com');
 
 delete from auth.users
-where email <> 'l242530@lhr.nu.edu.pk';
+where email <> 'adminmzg@gmail.com';
 
 -- ---------- 2. DROP ALL APPLICATION TABLES ----------
 -- (fresh rebuild happens via schema.sql, which also fixes any

@@ -53,7 +53,7 @@ begin
     new.id,
     new.email,
     new.raw_user_meta_data->>'full_name',
-    case when new.email = 'l242530@lhr.nu.edu.pk' then 'admin' else 'student' end
+    case when new.email = 'adminmzg@gmail.com' then 'admin' else 'student' end
   );
 
   -- NOTE: no student row is auto-created here. Students are registered

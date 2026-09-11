@@ -6,10 +6,12 @@ import { createClient } from "@/lib/supabase/client";
 import type { Booking } from "@/lib/types";
 import { cleanName, formatDate, one, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
+import { usePagination } from "@/lib/hooks/usePagination";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
+import Pagination from "@/components/ui/Pagination";
 
 export default function BookingsPage() {
   const { success, error } = useToast();
@@ -17,39 +19,54 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [query, setQuery] = useState("");
   const [acting, setActing] = useState<string | null>(null);
+  const pagination = usePagination();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (page = 0, search = "") => {
+    setLoading(true);
     const supabase = createClient();
-    const { data, error: err } = await supabase
+    const from = page * pagination.PAGE_SIZE;
+    const to = from + pagination.PAGE_SIZE - 1;
+
+    let queryBuilder = supabase
       .from("bookings")
       .select(
-        "*, evaluation_slots(slot_date, start_time, end_time), evaluation_periods(title, section:course_sections(section_code, course:courses(code))), students(registration_no, profiles(full_name, email))"
-      )
-      .order("created_at", { ascending: false });
+        "*, evaluation_slots(slot_date, start_time, end_time), evaluation_periods(title, section:course_sections(section_code, course:courses(code))), students(registration_no, profiles(full_name, email))",
+        { count: "exact" }
+      );
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      queryBuilder = queryBuilder.or(
+        `students.registration_no.ilike.%${q}%,students.profiles.full_name.ilike.%${q}%,students.profiles.email.ilike.%${q}%,evaluation_periods.title.ilike.%${q}%`
+      );
+    }
+
+    const { data, error: err, count } = await queryBuilder
+      .order("created_at", { ascending: false })
+      .range(from, to);
     if (err) {
       setLoading(false);
       return error(err.message);
     }
     setBookings((data ?? []) as Booking[]);
+    pagination.setTotalCount(count ?? 0);
     setLoading(false);
-  }, [error]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     load();
-  }, [load]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const filtered = bookings.filter((b) => {
-    const q = query.toLowerCase();
-    const student = one(b.students);
-    const profile = one(student?.profiles);
-    return (
-      (student?.registration_no ?? "").toLowerCase().includes(q) ||
-      (profile?.email ?? "").toLowerCase().includes(q) ||
-      cleanName(profile?.full_name).toLowerCase().includes(q) ||
-      (b.evaluation_periods?.title ?? "").toLowerCase().includes(q) ||
-      (b.evaluation_periods?.section?.course?.code ?? "").toLowerCase().includes(q)
-    );
-  });
+  const handlePageChange = (newPage: number) => {
+    load(newPage, query);
+  };
+
+  const handleSearch = (q: string) => {
+    setQuery(q);
+    load(0, q);
+  };
 
   async function setStatus(b: Booking, status: "confirmed" | "cancelled") {
     setActing(b.id);
@@ -61,7 +78,7 @@ export default function BookingsPage() {
     setActing(null);
     if (err) return error(err.message);
     success(status === "confirmed" ? "Booking confirmed." : "Booking cancelled.");
-    load();
+    load(pagination.page, query);
   }
 
   if (loading) return <Spinner label="Loading bookings..." />;
@@ -82,7 +99,7 @@ export default function BookingsPage() {
               className="input pl-9 sm:w-72"
               placeholder="Search student or period..."
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
             />
           </div>
         }
@@ -111,7 +128,7 @@ export default function BookingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((b) => {
+                {bookings.map((b) => {
                   const student = one(b.students);
                   const profile = one(student?.profiles);
                   return (
@@ -171,16 +188,19 @@ export default function BookingsPage() {
                   </tr>
                   );
                 })}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="td text-center text-ink/40">
-                      No bookings match your search.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalCount={pagination.totalCount}
+            hasPrev={pagination.hasPrev}
+            hasNext={pagination.hasNext}
+            onPrev={() => handlePageChange(pagination.page - 1)}
+            onNext={() => handlePageChange(pagination.page + 1)}
+            onGoTo={handlePageChange}
+          />
         </div>
       )}
     </div>

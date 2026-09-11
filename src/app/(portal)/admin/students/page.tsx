@@ -6,12 +6,14 @@ import { createClient } from "@/lib/supabase/client";
 import type { Student, CourseSection } from "@/lib/types";
 import { cleanName, cn, one, regNoDisplay } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
+import { usePagination } from "@/lib/hooks/usePagination";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import Pagination from "@/components/ui/Pagination";
 
 export default function StudentsPage() {
   const { success, error } = useToast();
@@ -26,13 +28,33 @@ export default function StudentsPage() {
   const [editing, setEditing] = useState<Student | null>(null);
   const [enrollStudent, setEnrollStudent] = useState<Student | null>(null);
   const [toArchive, setToArchive] = useState<Student | null>(null);
+  const pagination = usePagination();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (page = 0, search = "", status: "active" | "archived" | "all" = "active") => {
+    setLoading(true);
     const supabase = createClient();
+    const from = page * pagination.PAGE_SIZE;
+    const to = from + pagination.PAGE_SIZE - 1;
+
+    let queryBuilder = supabase
+      .from("students")
+      .select("*, profiles(email, full_name, created_at)", { count: "exact" });
+
+    if (status === "active") {
+      queryBuilder = queryBuilder.is("archived_at", null);
+    } else if (status === "archived") {
+      queryBuilder = queryBuilder.not("archived_at", "is", null);
+    }
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      queryBuilder = queryBuilder.or(
+        `profiles.full_name.ilike.%${q}%,profiles.email.ilike.%${q}%,registration_no.ilike.%${q}%`
+      );
+    }
+
     const [sRes, secRes, eRes] = await Promise.all([
-      supabase
-        .from("students")
-        .select("*, profiles(email, full_name, created_at)"),
+      queryBuilder.order("created_at", { ascending: false }).range(from, to),
       supabase
         .from("course_sections")
         .select("*, course:courses(code, title)")
@@ -40,7 +62,10 @@ export default function StudentsPage() {
         .order("section_code"),
       supabase.from("enrollments").select("student_id, section_id"),
     ]);
-    if (!sRes.error) setStudents((sRes.data ?? []) as Student[]);
+    if (!sRes.error) {
+      setStudents((sRes.data ?? []) as Student[]);
+      pagination.setTotalCount(sRes.count ?? 0);
+    }
     if (!secRes.error)
       setSections((secRes.data ?? []) as CourseSection[]);
     if (!eRes.error)
@@ -48,23 +73,27 @@ export default function StudentsPage() {
         (eRes.data ?? []) as { student_id: string; section_id: string }[]
       );
     setLoading(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load(0, "", "active");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const filtered = students.filter((s) => {
-    const q = query.toLowerCase();
-    const archived = s.archived_at !== null;
-    if (statusFilter === "active" && archived) return false;
-    if (statusFilter === "archived" && !archived) return false;
-    return (
-      cleanName(s.profiles?.full_name).toLowerCase().includes(q) ||
-      (s.profiles?.email ?? "").toLowerCase().includes(q) ||
-      (s.registration_no ?? "").toLowerCase().includes(q)
-    );
-  });
+  const handlePageChange = (newPage: number) => {
+    load(newPage, query, statusFilter);
+  };
+
+  const handleSearch = (q: string) => {
+    setQuery(q);
+    load(0, q, statusFilter);
+  };
+
+  const handleStatusChange = (status: "active" | "archived" | "all") => {
+    setStatusFilter(status);
+    load(0, query, status);
+  };
 
   async function archiveStudent() {
     if (!toArchive) return;
@@ -84,7 +113,7 @@ export default function StudentsPage() {
       `"${cleanName(toArchive.profiles?.full_name) || "Student"}" deactivated. Marks and history are preserved for auditing.`
     );
     setToArchive(null);
-    load();
+    load(pagination.page, query, statusFilter);
   }
 
   async function restoreStudent(s: Student) {
@@ -95,7 +124,7 @@ export default function StudentsPage() {
       .eq("id", s.id);
     if (err) return error(err.message);
     success("Student restored.");
-    load();
+    load(pagination.page, query, statusFilter);
   }
 
   async function saveStudent(e: React.FormEvent<HTMLFormElement>) {
@@ -121,7 +150,7 @@ export default function StudentsPage() {
     }
     success("Student record updated.");
     setEditing(null);
-    load();
+    load(pagination.page, query, statusFilter);
   }
 
   function toggleEnroll(studentId: string, sectionId: string) {
@@ -138,7 +167,11 @@ export default function StudentsPage() {
         .then(({ error: err }) => {
           if (err) return error(`Could not unenroll: ${err.message}`);
           success("Removed from section.");
-          load();
+          setEnrollments((prev) =>
+            prev.filter(
+              (en) => !(en.student_id === studentId && en.section_id === sectionId)
+            )
+          );
         });
     } else {
       supabase
@@ -147,7 +180,10 @@ export default function StudentsPage() {
         .then(({ error: err }) => {
           if (err) return error(`Could not enroll: ${err.message}`);
           success("Enrolled in section.");
-          load();
+          setEnrollments((prev) => [
+            ...prev,
+            { student_id: studentId, section_id: sectionId },
+          ]);
         });
     }
   }
@@ -166,7 +202,7 @@ export default function StudentsPage() {
               {(["active", "archived", "all"] as const).map((f) => (
                 <button
                   key={f}
-                  onClick={() => setStatusFilter(f)}
+                  onClick={() => handleStatusChange(f)}
                   className={cn(
                     "px-3 py-1.5 text-xs font-semibold transition-colors",
                     statusFilter === f
@@ -184,7 +220,7 @@ export default function StudentsPage() {
                 className="input pl-9 sm:w-72"
                 placeholder="Search name, email, reg #..."
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
               />
             </div>
           </div>
@@ -214,7 +250,7 @@ export default function StudentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((s) => {
+                {students.map((s) => {
                   const enrolled = sections.filter((sec) =>
                     enrollments.some(
                       (en) => en.student_id === s.id && en.section_id === sec.id
@@ -296,7 +332,7 @@ export default function StudentsPage() {
                     </tr>
                   );
                 })}
-                {filtered.length === 0 && (
+                {students.length === 0 && (
                   <tr>
                     <td colSpan={7} className="td text-center text-ink/40">
                       No students match your search.
@@ -306,6 +342,16 @@ export default function StudentsPage() {
               </tbody>
             </table>
           </div>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalCount={pagination.totalCount}
+            hasPrev={pagination.hasPrev}
+            hasNext={pagination.hasNext}
+            onPrev={() => handlePageChange(pagination.page - 1)}
+            onNext={() => handlePageChange(pagination.page + 1)}
+            onGoTo={handlePageChange}
+          />
         </div>
       )}
 

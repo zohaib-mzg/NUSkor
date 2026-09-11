@@ -140,40 +140,33 @@ const load = useCallback(async () => {
         Number(r.mark) <= selectedAssessment.total_marks
     );
 
-    for (const r of toRemove) {
-      const { error: err } = await supabase
-        .from("marks")
-        .delete()
-        .eq("student_id", r.id)
-        .eq("assessment_id", selectedAssessment.id);
-      if (err) {
-        error(err.message);
-        setSaving(false);
-        return;
-      }
+    const errors: string[] = [];
+
+    if (toRemove.length > 0) {
+      const { error: err } = await supabase.rpc("bulk_delete_marks", {
+        p_assessment_id: selectedAssessment.id,
+        p_student_ids: toRemove.map((r) => r.id),
+      });
+      if (err) errors.push(err.message);
     }
 
-    for (const r of toUpdate) {
-      const { error: err } = await supabase
-        .from("marks")
-        .upsert(
-          {
-            student_id: r.id,
-            assessment_id: selectedAssessment.id,
-            obtained: Number(r.mark),
-            updated_by: user?.id ?? null,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "student_id,assessment_id" }
-        );
-      if (err) {
-        error(err.message);
-        setSaving(false);
-        return;
-      }
+    if (toUpdate.length > 0) {
+      const { error: err } = await supabase.rpc("bulk_upsert_marks", {
+        p_assessment_id: selectedAssessment.id,
+        p_marks: toUpdate.map((r) => ({
+          student_id: r.id,
+          obtained: Number(r.mark),
+        })),
+        p_updated_by: user?.id ?? null,
+      });
+      if (err) errors.push(err.message);
     }
 
     setSaving(false);
+    if (errors.length > 0) {
+      error(errors.join("; "));
+      return;
+    }
     const changes = toRemove.length + toUpdate.length;
     if (changes === 0) {
       info("Nothing to save. Marks are already up to date.");
@@ -555,18 +548,16 @@ const [busy, setBusy] = useState(false);
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    for (const row of report.imported) {
-      if (row.score > assessment.total_marks) continue;
-      const { error: err } = await supabase.from("marks").upsert(
-        {
-          student_id: row.studentId,
-          assessment_id: assessment.id,
-          obtained: row.score,
-          updated_by: user?.id ?? null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "student_id,assessment_id" }
-      );
+    const valid = report.imported.filter((r) => r.score <= assessment.total_marks);
+    if (valid.length > 0) {
+      const { error: err } = await supabase.rpc("bulk_upsert_marks", {
+        p_assessment_id: assessment.id,
+        p_marks: valid.map((r) => ({
+          student_id: r.studentId,
+          obtained: r.score,
+        })),
+        p_updated_by: user?.id ?? null,
+      });
       if (err) {
         error(`Import stopped: ${err.message}`);
         setBusy(false);

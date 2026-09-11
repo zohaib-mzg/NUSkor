@@ -7,12 +7,14 @@ import { notifyAll } from "@/lib/push";
 import type { Announcement, CourseSection } from "@/lib/types";
 import { formatDate, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
+import { usePagination } from "@/lib/hooks/usePagination";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import Pagination from "@/components/ui/Pagination";
 
 export default function AdminAnnouncementsPage() {
   const { success, error } = useToast();
@@ -23,27 +25,38 @@ export default function AdminAnnouncementsPage() {
     { mode: "create" } | { mode: "edit"; item: Announcement } | null
   >(null);
   const [toDelete, setToDelete] = useState<Announcement | null>(null);
+  const pagination = usePagination();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (page = 0) => {
+    setLoading(true);
     const supabase = createClient();
+    const from = page * pagination.PAGE_SIZE;
+    const to = from + pagination.PAGE_SIZE - 1;
+
     const [aRes, sRes] = await Promise.all([
       supabase
         .from("announcements")
-        .select("*, section:course_sections(section_code, course:courses(code))")
-        .order("created_at", { ascending: false }),
+        .select("*, section:course_sections(section_code, course:courses(code))", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(from, to),
       supabase
         .from("course_sections")
         .select("*, course:courses(code)")
         .eq("status", "active"),
     ]);
-    if (!aRes.error) setItems((aRes.data ?? []) as Announcement[]);
+    if (!aRes.error) {
+      setItems((aRes.data ?? []) as Announcement[]);
+      pagination.setTotalCount(aRes.count ?? 0);
+    }
     if (!sRes.error) setSections((sRes.data ?? []) as CourseSection[]);
     setLoading(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     load();
-  }, [load]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function publishNotifications(id: string) {
     try {
@@ -105,7 +118,7 @@ export default function AdminAnnouncementsPage() {
       success("Announcement updated.");
     }
     setModal(null);
-    load();
+    load(pagination.page);
   }
 
   async function togglePublish(item: Announcement) {
@@ -121,7 +134,7 @@ export default function AdminAnnouncementsPage() {
     if (err) return error(err.message);
     if (publishing) await publishNotifications(item.id);
     success(publishing ? "Published to students." : "Unpublished.");
-    load();
+    load(pagination.page);
   }
 
   async function deleteItem() {
@@ -133,7 +146,7 @@ export default function AdminAnnouncementsPage() {
     if (err) return error(err.message);
     success("Announcement deleted.");
     setToDelete(null);
-    load();
+    load(pagination.page);
   }
 
   if (loading) return <Spinner label="Loading announcements..." />;
@@ -219,6 +232,16 @@ export default function AdminAnnouncementsPage() {
               </p>
             </article>
           ))}
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalCount={pagination.totalCount}
+            hasPrev={pagination.hasPrev}
+            hasNext={pagination.hasNext}
+            onPrev={() => load(pagination.page - 1)}
+            onNext={() => load(pagination.page + 1)}
+            onGoTo={(p) => load(p)}
+          />
         </div>
       )}
 

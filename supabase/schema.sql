@@ -1654,7 +1654,153 @@ grant execute on function public.get_assessment_leaderboard(uuid, uuid)
   to authenticated;
 
 -- =========================================================
--- USEFUL INDEXES
+-- BATCH MARKS UPSERT / DELETE (optimization #1)
+-- Single-call bulk operations to replace per-row loops.
+-- =========================================================
+drop function if exists public.bulk_upsert_marks(uuid, jsonb, uuid);
+create or replace function public.bulk_upsert_marks(
+  p_assessment_id uuid,
+  p_marks jsonb,
+  p_updated_by uuid
+) returns void
+language plpgsql security definer
+set search_path = ''
+as $$
+begin
+  insert into public.marks (student_id, assessment_id, obtained, updated_by, updated_at)
+  select
+    (m->>'student_id')::uuid,
+    p_assessment_id,
+    (m->>'obtained')::numeric,
+    p_updated_by,
+    now()
+  from jsonb_array_elements(p_marks) as m
+  on conflict (student_id, assessment_id)
+  do update set
+    obtained = excluded.obtained,
+    updated_by = excluded.updated_by,
+    updated_at = now();
+end;
+$$;
+
+drop function if exists public.bulk_delete_marks(uuid, uuid[]);
+create or replace function public.bulk_delete_marks(
+  p_assessment_id uuid,
+  p_student_ids uuid[]
+) returns void
+language plpgsql security definer
+set search_path = ''
+as $$
+begin
+  delete from public.marks
+  where assessment_id = p_assessment_id
+    and student_id = any(p_student_ids);
+end;
+$$;
+
+grant execute on function public.bulk_upsert_marks(uuid, jsonb, uuid)
+  to authenticated;
+grant execute on function public.bulk_delete_marks(uuid, uuid[])
+  to authenticated;
+
+-- =========================================================
+-- STUDENT MARKS DATA (optimization #3)
+-- Single-call data fetch replacing N+1 assessment leaderboard RPCs.
+-- Returns all published assessments for a student with their marks,
+-- stats, and per-section leaderboard in one round trip.
+-- =========================================================
+drop function if exists public.get_student_marks_data(uuid);
+create or replace function public.get_student_marks_data(
+  p_student_id uuid
+) returns table (
+  section_id uuid,
+  section_code text,
+  course_code text,
+  course_title text,
+  leaderboard_visible boolean,
+  assessment_id uuid,
+  assessment_title text,
+  assessment_type text,
+  total_marks numeric,
+  weightage numeric,
+  obtained numeric,
+  avg_marks numeric,
+  min_marks numeric,
+  max_marks numeric,
+  stat_total_students bigint,
+  lb_registration_no text,
+  lb_obtained numeric,
+  lb_total_marks numeric,
+  lb_percent numeric,
+  lb_rank bigint
+)
+language sql stable
+security definer
+set search_path = ''
+as $$
+  with student_sections as (
+    select e.section_id, cs.section_code, c.code as course_code,
+           c.title as course_title, cs.leaderboard_visible
+    from public.enrollments e
+    join public.course_sections cs on cs.id = e.section_id
+    join public.courses c on c.id = cs.course_id
+    where e.student_id = p_student_id
+  ),
+  section_assessments as (
+    select ss.*, a.id as assessment_id, a.title as assessment_title,
+           a.type as assessment_type, a.total_marks, a.weightage
+    from student_sections ss
+    left join public.assessments a on a.section_id = ss.section_id and a.status = 'published'
+  ),
+  assessment_stats as (
+    select sa.assessment_id,
+           round(avg(m.obtained)::numeric, 2) as avg_marks,
+           min(m.obtained) as min_marks,
+           max(m.obtained) as max_marks,
+           count(*)::bigint as total_students
+    from section_assessments sa
+    join public.marks m on m.assessment_id = sa.assessment_id
+    join public.enrollments e on e.student_id = m.student_id and e.section_id = sa.section_id
+    join public.students s on s.id = m.student_id and s.archived_at is null
+    join public.profiles pr on pr.id = s.id and pr.role = 'student'
+    where sa.assessment_id is not null
+    group by sa.assessment_id
+  ),
+  section_leaderboard as (
+    select sa.section_id, sa.assessment_id,
+           s.registration_no, m.obtained, a.total_marks,
+           case when a.total_marks > 0
+             then round((m.obtained / a.total_marks) * 100, 1)
+             else 0 end as percent,
+           rank() over (partition by sa.assessment_id order by m.obtained desc) as rnk
+    from section_assessments sa
+    join public.marks m on m.assessment_id = sa.assessment_id
+    join public.assessments a on a.id = m.assessment_id and a.status = 'published'
+    join public.enrollments e on e.student_id = m.student_id and e.section_id = sa.section_id
+    join public.students s on s.id = m.student_id and s.archived_at is null
+    join public.profiles pr on pr.id = s.id and pr.role = 'student'
+    where sa.leaderboard_visible and sa.assessment_id is not null
+  )
+  select
+    sa.section_id, sa.section_code, sa.course_code, sa.course_title,
+    sa.leaderboard_visible, sa.assessment_id, sa.assessment_title,
+    sa.assessment_type, sa.total_marks, sa.weightage,
+    my_m.obtained,
+    ast.avg_marks, ast.min_marks, ast.max_marks, ast.total_students,
+    sl.registration_no, sl.obtained, sl.total_marks, sl.percent, sl.rnk
+  from section_assessments sa
+  left join public.marks my_m on my_m.student_id = p_student_id and my_m.assessment_id = sa.assessment_id
+  left join assessment_stats ast on ast.assessment_id = sa.assessment_id
+  left join section_leaderboard sl on sl.assessment_id = sa.assessment_id
+  where sa.assessment_id is not null
+  order by sa.section_code, sa.assessment_title, sl.rnk;
+$$;
+
+grant execute on function public.get_student_marks_data(uuid)
+  to authenticated;
+
+-- =========================================================
+-- USEFUL INDEXES (original + optimization #9 additions)
 -- =========================================================
 create index if not exists idx_enrollments_section on enrollments(section_id);
 create index if not exists idx_assessments_section on assessments(section_id);
@@ -1672,6 +1818,14 @@ create index if not exists idx_push_subs_user on push_subscriptions(user_id);
 create index if not exists idx_student_invites_section on student_invites(section_id);
 create index if not exists idx_announcements_deleted on announcements(deleted_at);
 create index if not exists idx_students_archived on students(archived_at);
+
+-- Optimization #9: composite covering indexes for frequent query patterns
+create index if not exists idx_marks_assessment_student on marks(assessment_id, student_id);
+create index if not exists idx_enrollments_section_student on enrollments(section_id, student_id);
+create index if not exists idx_bookings_student_period on bookings(student_id, evaluation_period_id);
+create index if not exists idx_assessments_section_status on assessments(section_id, status);
+create index if not exists idx_notifications_user_read on notifications(user_id, is_read, created_at desc);
+create index if not exists idx_sections_status_semester on course_sections(status, semester);
 
 -- Exact-duplicate slot guard (auto-generation safety)
 create unique index if not exists idx_slots_unique

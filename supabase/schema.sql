@@ -44,8 +44,8 @@ drop function if exists public.handle_new_user();
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  if new.email not like '%@lhr.nu.edu.pk' then
-    raise exception 'Only @lhr.nu.edu.pk accounts are allowed';
+  if new.email not like '%@nu.edu.pk' then
+    raise exception 'Only @nu.edu.pk accounts are allowed';
   end if;
 
   insert into public.profiles (id, email, full_name, role)

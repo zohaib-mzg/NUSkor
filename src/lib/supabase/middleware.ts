@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const ALLOWED_DOMAIN = "@lhr.nu.edu.pk";
+const ALLOWED_DOMAIN = "@nu.edu.pk";
 const ADMIN_EMAIL = "adminmzg@gmail.com";
 const PUBLIC_ROUTES = ["/", "/login", "/join", "/invite", "/access-denied", "/auth/callback", "/admin", "/admin/login", "/_next"];
 

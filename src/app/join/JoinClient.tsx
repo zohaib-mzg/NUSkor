@@ -123,7 +123,7 @@ function JoinInner({
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <h1 className="font-display text-3xl font-bold text-ink">
-            <span className="font-caveat text-xl">nu</span><span className="text-gold-deep font-extrabold">Skor</span>
+            <span className="font-caveat text-3xl font-extrabold tracking-tight">nu</span><span className="text-gold-deep font-extrabold">Skor</span>
           </h1>
           <p className="mt-1 text-sm text-ink/55">Join a course section</p>
         </div>

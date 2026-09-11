@@ -90,7 +90,7 @@ function TaApplyInner({
             <GraduationCap className="h-6 w-6 text-ink" />
           </div>
           <div>
-            <p className="text-lg font-bold text-white"><span className="font-caveat text-xl">nu</span><span className="font-extrabold">Skor</span></p>
+            <p className="text-lg font-bold text-white"><span className="font-caveat text-2xl font-extrabold tracking-tight">nu</span><span className="font-extrabold">Skor</span></p>
             <p className="text-xs text-white/50">TA Portal</p>
           </div>
         </div>

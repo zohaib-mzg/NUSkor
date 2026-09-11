@@ -50,7 +50,7 @@ export default function AdminLoginPage() {
           <Image src="/logo.png" alt="nuSkor logo" fill sizes="40px" className="object-cover" />
         </div>
         <span className="text-lg font-extrabold tracking-tight text-ink">
-          <span className="font-caveat text-xl">nu</span><span className="text-gold-deep font-extrabold">Skor</span>
+          <span className="font-caveat text-3xl font-extrabold tracking-tight">nu</span><span className="text-gold-deep font-extrabold">Skor</span>
         </span>
       </div>
 

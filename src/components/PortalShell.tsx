@@ -112,7 +112,7 @@ export default function PortalShell({
         <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-gold">
           <Image
             src="/logo.png"
-            alt="NUSkor logo"
+            alt="nuSkor logo"
             fill
             sizes="40px"
             className="object-cover"
@@ -120,7 +120,7 @@ export default function PortalShell({
         </div>
         <div className="min-w-0">
           <p className="text-lg font-extrabold tracking-tight">
-            NUS<span className="text-gold">kor</span>
+            <span className="font-caveat text-xl">nu</span><span className="text-gold font-extrabold">Skor</span>
           </p>
           <p
             className={cn(
@@ -268,13 +268,13 @@ export default function PortalShell({
         <div className="flex items-center gap-2">
           <Image
             src="/logo.png"
-            alt="NUSkor"
+            alt="nuSkor"
             width={28}
             height={28}
             className="rounded-full ring-1 ring-gold"
           />
           <span className="text-sm font-extrabold tracking-tight text-ink">
-            NUS<span className="text-gold-deep">kor</span>
+            <span className="font-caveat text-xl">nu</span><span className="text-gold-deep font-extrabold">Skor</span>
           </span>
         </div>
         <button

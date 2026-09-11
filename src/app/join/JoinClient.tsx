@@ -123,7 +123,7 @@ function JoinInner({
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <h1 className="font-display text-3xl font-bold text-ink">
-            NUS<span className="text-gold-deep">kor</span>
+            <span className="font-caveat text-xl">nu</span><span className="text-gold-deep font-extrabold">Skor</span>
           </h1>
           <p className="mt-1 text-sm text-ink/55">Join a course section</p>
         </div>
@@ -136,8 +136,8 @@ function JoinInner({
               <UserX className="mx-auto h-10 w-10 text-ink/40" />
               <h2 className="mt-3 font-bold text-ink">Student Account Not Found</h2>
               <p className="mt-1 text-sm text-ink/55">
-                You need an invitation from your TA to join NUSkor. Please ask
-                your TA to send you a NUSkor invitation link.
+                You need an invitation from your TA to join nuSkor. Please ask
+                your TA to send you a nuSkor invitation link.
               </p>
               <p className="mt-3 text-xs text-ink/45">
                 Are you a teaching assistant?{" "}
@@ -259,7 +259,7 @@ function JoinInner({
         </div>
 
         <p className="mt-6 text-center text-xs text-ink/40">
-          NUSkor — TA Evaluation & Marks Portal
+          nuSkor — TA Evaluation & Marks Portal
         </p>
       </div>
     </main>

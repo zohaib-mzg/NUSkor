@@ -499,7 +499,7 @@ async function copyLink(token: string) {
               required
             />
 <p className="mt-1 text-xs text-ink/45">
-              The student must already have a NUSkor account on the
+              The student must already have a nuSkor account on the
               @nu.edu.pk domain (e.g. they joined via an invitation link).
             </p>
           </div>

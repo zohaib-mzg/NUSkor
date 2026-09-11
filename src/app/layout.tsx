@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { Caveat } from "next/font/google";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -12,15 +13,20 @@ const geistMono = localFont({
   variable: "--font-geist-mono",
   weight: "100 900",
 });
+const caveat = Caveat({
+  subsets: ["latin"],
+  variable: "--font-caveat",
+  weight: "700",
+});
 
 export const metadata: Metadata = {
   title: {
-    default: "NUSkor: Evaluation & Marks Portal",
-    template: "%s · NUSkor",
+    default: "nuSkor: Evaluation & Marks Portal",
+    template: "%s · nuSkor",
   },
   description:
-    "Marks, evaluation slots and bookings for FAST-NUCES Lahore. Empowering Students. Elevating Futures.",
-  applicationName: "NUSkor",
+    "Marks, evaluation slots and bookings for FAST-NUCES. Empowering Students. Elevating Futures.",
+  applicationName: "nuSkor",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -53,7 +59,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} antialiased`}>
         {children}
       </body>
     </html>

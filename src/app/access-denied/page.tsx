@@ -13,7 +13,7 @@ export default function AccessDeniedPage() {
           Access denied
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-ink/55">
-          NUSkor is restricted to institutional accounts. If you signed in with
+          nuSkor is restricted to institutional accounts. If you signed in with
           a different email, sign out and try again with your FAST-NUCES Lahore
           account.
         </p>
@@ -26,9 +26,9 @@ export default function AccessDeniedPage() {
         </div>
         <div className="mt-6 flex items-center justify-center gap-2 text-xs text-ink/40">
           <div className="relative h-6 w-6 overflow-hidden rounded-full ring-1 ring-gold">
-            <Image src="/logo.png" alt="NUSkor" fill sizes="24px" className="object-cover" />
+            <Image src="/logo.png" alt="nuSkor" fill sizes="24px" className="object-cover" />
           </div>
-          NUSkor · Empowering Students. Elevating Futures.
+          nuSkor · Empowering Students. Elevating Futures.
         </div>
       </div>
       <Link href="/" className="mt-4 text-sm font-semibold text-gold-deep hover:underline">

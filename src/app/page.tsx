@@ -41,10 +41,10 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
           <div className="flex items-center gap-2.5">
             <div className="relative h-9 w-9 overflow-hidden rounded-full ring-2 ring-gold">
-              <Image src="/logo.png" alt="NUSkor logo" fill sizes="36px" className="object-cover" />
+              <Image src="/logo.png" alt="nuSkor logo" fill sizes="36px" className="object-cover" />
             </div>
             <span className="text-lg font-extrabold tracking-tight text-ink">
-              NUS<span className="text-gold-deep">kor</span>
+              <span className="font-caveat text-xl">nu</span><span className="text-gold-deep font-extrabold">Skor</span>
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -67,7 +67,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl px-5 pb-16 pt-16 text-center sm:pt-24">
           <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center">
             <div className="relative h-24 w-24 overflow-hidden rounded-full shadow-lift ring-4 ring-gold/40">
-              <Image src="/logo.png" alt="NUSkor logo" fill sizes="96px" className="object-cover" />
+              <Image src="/logo.png" alt="nuSkor logo" fill sizes="96px" className="object-cover" />
             </div>
           </div>
           <h1 className="mx-auto max-w-3xl text-4xl font-extrabold leading-tight tracking-tight text-ink sm:text-5xl">
@@ -75,7 +75,7 @@ export default function LandingPage() {
             <span className="text-gold-deep">no more spreadsheets.</span>
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-ink/60 sm:text-lg">
-            NUSkor is the evaluation &amp; marks portal for FAST-NUCES Lahore.
+            nuSkor is the evaluation &amp; marks portal for FAST-NUCES.
             Students see their marks and book evaluation slots; TAs run everything
             from one clean dashboard.
           </p>
@@ -167,7 +167,7 @@ export default function LandingPage() {
       <footer className="border-t border-black/[0.06] py-8 text-center">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-5">
           <div className="relative h-10 w-10 overflow-hidden rounded-full ring-2 ring-gold">
-            <Image src="/logo.png" alt="NUSkor logo" fill sizes="40px" className="object-cover" />
+              <Image src="/logo.png" alt="nuSkor logo" fill sizes="40px" className="object-cover" />
           </div>
           <p className="text-sm font-bold text-ink">
             NUS<span className="text-gold-deep">kor</span>

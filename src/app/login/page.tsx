@@ -52,10 +52,10 @@ function LoginContent() {
     <div className="flex min-h-screen flex-col bg-paper">
       <div className="flex items-center gap-3 px-6 py-5">
         <div className="relative h-10 w-10 overflow-hidden rounded-full ring-2 ring-gold">
-          <Image src="/logo.png" alt="NUSkor logo" fill sizes="40px" className="object-cover" />
+          <Image src="/logo.png" alt="nuSkor logo" fill sizes="40px" className="object-cover" />
         </div>
         <span className="text-lg font-extrabold tracking-tight text-ink">
-          NUS<span className="text-gold-deep">kor</span>
+          <span className="font-caveat text-xl">nu</span><span className="text-gold-deep font-extrabold">Skor</span>
         </span>
       </div>
 
@@ -130,7 +130,7 @@ function LoginContent() {
       </main>
 
       <footer className="pb-6 text-center text-xs text-ink/40">
-        NUSkor · Empowering Students. Elevating Futures.
+        nuSkor · Empowering Students. Elevating Futures.
       </footer>
     </div>
   );

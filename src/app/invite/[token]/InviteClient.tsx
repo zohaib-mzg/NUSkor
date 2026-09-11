@@ -160,7 +160,7 @@ function InviteInner({
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <h1 className="font-display text-3xl font-bold text-ink">
-            NUS<span className="text-gold-deep">kor</span>
+            <span className="font-caveat text-xl">nu</span><span className="text-gold-deep font-extrabold">Skor</span>
           </h1>
           <p className="mt-1 text-sm text-ink/55">Course section invitation</p>
         </div>
@@ -176,7 +176,7 @@ function InviteInner({
                 {errorMessage ?? "This invitation is no longer valid."}
               </p>
               <p className="mt-2 text-xs text-ink/45">
-                Please ask your TA for a new NUSkor invitation link.
+                Please ask your TA for a new nuSkor invitation link.
               </p>
             </div>
           ) : result ? (
@@ -316,7 +316,7 @@ function InviteInner({
         </div>
 
         <p className="mt-6 text-center text-xs text-ink/40">
-          NUSkor — TA Evaluation &amp; Marks Portal ·{" "}
+          nuSkor — TA Evaluation &amp; Marks Portal ·{" "}
           <Link href="/login" className="text-gold-deep hover:underline">
             Sign in instead
           </Link>

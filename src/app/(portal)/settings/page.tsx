@@ -154,7 +154,7 @@ export default function SettingsPage() {
               <p className="mt-1 text-sm text-ink/55">
                 {enabled
                   ? "Push is on for this account. You will receive a system notification on every enrolled device."
-                  : "Turn on push to get notifications even when NUSkor is not open."}
+                  : "Turn on push to get notifications even when nuSkor is not open."}
               </p>
             </div>
             {supported ? (
@@ -176,7 +176,7 @@ export default function SettingsPage() {
 
           {!supported && (
             <p className="mt-4 rounded-xl border border-black/[0.07] bg-paper p-4 text-sm text-ink/55">
-              Your browser does not support Web Push. You can still use NUSkor, but
+              Your browser does not support Web Push. You can still use nuSkor, but
               notifications will only appear inside the app.
             </p>
           )}
@@ -203,7 +203,7 @@ export default function SettingsPage() {
           <h2 className="font-bold text-ink">Notification categories</h2>
           <p className="mt-1 text-sm text-ink/55">
             Choose which categories push to your devices. Disabling a category only stops
-            push; you still see it inside NUSkor.
+            push; you still see it inside nuSkor.
           </p>
           <div className="mt-4 space-y-3">
             {prefRows.map((row) => (

@@ -2,12 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  .font-caveat {
-    font-family: var(--font-caveat), cursive;
-  }
-}
-
 :root {
   --background: #faf9f5;
   --foreground: #111111;

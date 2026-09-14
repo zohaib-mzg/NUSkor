@@ -23,8 +23,7 @@ function LoginContent() {
       options: {
         redirectTo,
         queryParams: {
-          hd: "nu.edu.pk",
-          prompt: "select_account",
+          prompt: "select_account"
         },
       },
     });

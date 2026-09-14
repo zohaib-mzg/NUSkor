@@ -65,6 +65,7 @@ GRANT EXECUTE ON FUNCTION public.book_evaluation_slot(uuid, uuid)
   TO authenticated;
 
 -- ---------- 2. Capacity check trigger (safety net) ----------
+DROP TRIGGER IF EXISTS trg_check_slot_capacity ON bookings;
 DROP FUNCTION IF EXISTS public.check_slot_capacity();
 CREATE OR REPLACE FUNCTION public.check_slot_capacity()
 RETURNS trigger AS $$

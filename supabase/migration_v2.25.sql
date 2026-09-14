@@ -25,6 +25,7 @@ COMMENT ON COLUMN public.bookings.evaluation_completed_at
 --    Admins retain full access.
 -- =========================================================
 DROP POLICY IF EXISTS "bookings_update_own_or_admin" ON public.bookings;
+DROP POLICY IF EXISTS "bookings_update_own_or_admin_or_ta" ON public.bookings;
 CREATE POLICY "bookings_update_own_or_admin_or_ta" ON public.bookings
   FOR UPDATE USING (
     student_id = auth.uid()

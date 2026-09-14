@@ -140,6 +140,7 @@ export default function TaEvaluationPeriodsPage() {
       )
       .eq("evaluation_period_id", period.id)
       .eq("slot_id", slot.slot_id)
+      .eq("status", "confirmed")
       .order("created_at", { ascending: false });
     setSlotBookings((data ?? []) as Booking[]);
     setSlotBookingsLoading(false);
@@ -167,7 +168,8 @@ export default function TaEvaluationPeriodsPage() {
             "*, evaluation_slots(slot_date, start_time, end_time), students(registration_no, profiles(full_name, email))"
           )
           .eq("evaluation_period_id", period.id)
-          .eq("slot_id", expandedSlot);
+          .eq("slot_id", expandedSlot)
+          .eq("status", "confirmed");
         setSlotBookings((data ?? []) as Booking[]);
       }
     }
@@ -195,7 +197,8 @@ export default function TaEvaluationPeriodsPage() {
             "*, evaluation_slots(slot_date, start_time, end_time), students(registration_no, profiles(full_name, email))"
           )
           .eq("evaluation_period_id", period.id)
-          .eq("slot_id", expandedSlot);
+          .eq("slot_id", expandedSlot)
+          .eq("status", "confirmed");
         setSlotBookings((data ?? []) as Booking[]);
       }
     }

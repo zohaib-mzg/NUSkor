@@ -8,7 +8,6 @@ import {
   Power,
   Trash2,
   Wand2,
-  CalendarCheck2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { notifyAll } from "@/lib/push";

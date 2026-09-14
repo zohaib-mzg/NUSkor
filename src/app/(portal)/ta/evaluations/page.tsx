@@ -9,7 +9,6 @@ import {
   Trash2,
   Wand2,
   CalendarCheck2,
-  Users,
   CheckCircle2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";

@@ -16,7 +16,7 @@ import type {
   EvaluationPeriod,
   SlotWithBookings,
 } from "@/lib/types";
-import { formatDate, formatSlotTime, one } from "@/lib/utils";
+import { formatDate, formatSlotRange, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -35,8 +35,6 @@ export default function EvaluationsPage() {
   const [periods, setPeriods] = useState<PeriodWithData[]>([]);
   const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
   const [acting, setActing] = useState<string | null>(null);
-  const [use24h, setUse24h] = useState(true);
-
   async function load() {
     const supabase = createClient();
     const {
@@ -137,26 +135,6 @@ export default function EvaluationsPage() {
         icon={CalendarDays}
       />
 
-      <div className="mb-4 flex items-center gap-2">
-        <span className="text-sm text-ink/60">Time format:</span>
-        <button
-          onClick={() => setUse24h(true)}
-          className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
-            use24h ? "bg-ink text-white" : "bg-ink/10 text-ink/60 hover:bg-ink/20"
-          }`}
-        >
-          24-hour
-        </button>
-        <button
-          onClick={() => setUse24h(false)}
-          className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
-            !use24h ? "bg-ink text-white" : "bg-ink/10 text-ink/60 hover:bg-ink/20"
-          }`}
-        >
-          12-hour
-        </button>
-      </div>
-
       {periods.length === 0 ? (
         <div className="card">
           <EmptyState
@@ -202,7 +180,7 @@ export default function EvaluationsPage() {
                       <p className="font-bold text-ink">Your slot is confirmed</p>
                       <p className="text-sm text-ink/60">
                         {period.booking.evaluation_slots
-                          ? `${formatDate(period.booking.evaluation_slots.slot_date)}, ${formatSlotTime(period.booking.evaluation_slots.start_time, use24h)}–${formatSlotTime(period.booking.evaluation_slots.end_time, use24h)}`
+                          ? `${formatDate(period.booking.evaluation_slots.slot_date)}, ${formatSlotRange(period.booking.evaluation_slots.start_time, period.booking.evaluation_slots.end_time)}`
                           : "Booking confirmed"}
                         {" "}· {period.booking.status}
                       </p>
@@ -285,7 +263,7 @@ export default function EvaluationsPage() {
                                   <div className="flex items-center justify-between">
                                     <span className="inline-flex items-center gap-1.5 font-bold text-ink">
                                       <Clock className="h-4 w-4 text-gold-deep" />
-                                      {formatSlotTime(slot.start_time, use24h)}–{formatSlotTime(slot.end_time, use24h)}
+                                      {formatSlotRange(slot.start_time, slot.end_time)}
                                     </span>
                                     <Badge
                                       tone={

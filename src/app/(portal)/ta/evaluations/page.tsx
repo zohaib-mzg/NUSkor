@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CalendarClock,
   Plus,
@@ -8,8 +8,11 @@ import {
   Power,
   Trash2,
   Wand2,
-  CalendarCheck2,
+  MoreVertical,
+  ChevronRight,
   CheckCircle2,
+  CircleDot,
+  ChevronUp,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { notifyAll } from "@/lib/push";
@@ -19,7 +22,14 @@ import type {
   EvaluationPeriod,
   SlotWithBookings,
 } from "@/lib/types";
-import { cleanName, formatDate, formatSlotTime, one, regNoDisplay } from "@/lib/utils";
+import {
+  cleanName,
+  formatDate,
+  formatSlotRange,
+  formatCompactPeriodDate,
+  one,
+  regNoDisplay,
+} from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -41,12 +51,6 @@ export default function TaEvaluationPeriodsPage() {
   const [slotFor, setSlotFor] = useState<PeriodAdmin | null>(null);
   const [genFor, setGenFor] = useState<PeriodAdmin | null>(null);
   const [genBusy, setGenBusy] = useState(false);
-  const [bookingsSlot, setBookingsSlot] = useState<{
-    period: PeriodAdmin;
-    slot: SlotWithBookings;
-  } | null>(null);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [bookingsLoading, setBookingsLoading] = useState(false);
   const [toClose, setToClose] = useState<PeriodAdmin | null>(null);
   const [toReopen, setToReopen] = useState<PeriodAdmin | null>(null);
   const [toDeleteAllSlots, setToDeleteAllSlots] = useState<PeriodAdmin | null>(null);
@@ -55,10 +59,29 @@ export default function TaEvaluationPeriodsPage() {
     period: PeriodAdmin;
     slotId: string;
   } | null>(null);
-  const [use24h, setUse24h] = useState(true);
   const [markingEval, setMarkingEval] = useState<string | null>(null);
 
-const load = useCallback(async () => {
+  // Expandable bookings state
+  const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
+  const [slotBookings, setSlotBookings] = useState<Booking[]>([]);
+  const [slotBookingsLoading, setSlotBookingsLoading] = useState(false);
+
+  // ⋮ menu state
+  const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const load = useCallback(async () => {
     const supabase = createClient();
     const { data: stRes } = await supabase
       .from("section_tas")
@@ -99,9 +122,15 @@ const load = useCallback(async () => {
     load();
   }, [load]);
 
-  async function openBookingsForSlot(period: PeriodAdmin, slot: SlotWithBookings) {
-    setBookingsSlot({ period, slot });
-    setBookingsLoading(true);
+  async function toggleBookings(period: PeriodAdmin, slot: SlotWithBookings) {
+    const key = slot.slot_id;
+    if (expandedSlot === key) {
+      setExpandedSlot(null);
+      setSlotBookings([]);
+      return;
+    }
+    setExpandedSlot(key);
+    setSlotBookingsLoading(true);
     const supabase = createClient();
     const { data } = await supabase
       .from("bookings")
@@ -111,8 +140,8 @@ const load = useCallback(async () => {
       .eq("evaluation_period_id", period.id)
       .eq("slot_id", slot.slot_id)
       .order("created_at", { ascending: false });
-    setBookings((data ?? []) as Booking[]);
-    setBookingsLoading(false);
+    setSlotBookings((data ?? []) as Booking[]);
+    setSlotBookingsLoading(false);
   }
 
   async function markDone(bookingId: string) {
@@ -124,9 +153,36 @@ const load = useCallback(async () => {
     setMarkingEval(null);
     if (err) return error(err.message);
     success("Evaluation marked as done.");
-    if (bookingsSlot) {
-      await openBookingsForSlot(bookingsSlot.period, bookingsSlot.slot);
+    // Refresh expanded bookings
+    if (expandedSlot) {
+      const supabase = createClient();
+      const period = periods.find((p) =>
+        p.slots.some((s) => s.slot_id === expandedSlot)
+      );
+      if (period) {
+        const { data } = await supabase
+          .from("bookings")
+          .select(
+            "*, evaluation_slots(slot_date, start_time, end_time), students(registration_no, profiles(full_name, email))"
+          )
+          .eq("evaluation_period_id", period.id)
+          .eq("slot_id", expandedSlot)
+          .order("created_at", { ascending: false });
+        setSlotBookings((data ?? []) as Booking[]);
+      }
     }
+    load();
+  }
+
+  async function toggleSlot(slot: SlotWithBookings) {
+    setMenuOpen(null);
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("evaluation_slots")
+      .update({ is_open: !slot.is_open })
+      .eq("id", slot.slot_id);
+    if (err) return error(err.message);
+    success(slot.is_open ? "Slot closed." : "Slot opened.");
     load();
   }
 
@@ -170,17 +226,13 @@ const load = useCallback(async () => {
       end_time: HTMLInputElement;
       capacity: HTMLInputElement;
     };
-    const slotDate = el.slot_date.value;
-    const startTime = el.start_time.value;
-    const endTime = el.end_time.value;
     const capacity = Number(el.capacity.value || 1);
-
     const supabase = createClient();
     const { error: err } = await supabase.from("evaluation_slots").insert({
       evaluation_period_id: slotFor.id,
-      slot_date: slotDate,
-      start_time: startTime,
-      end_time: endTime,
+      slot_date: el.slot_date.value,
+      start_time: el.start_time.value,
+      end_time: el.end_time.value,
       capacity,
     });
     if (err) return error(err.message);
@@ -210,7 +262,7 @@ const load = useCallback(async () => {
       .map((cb) => Number(cb.value));
     if (weekdays.length === 0) return error("Pick at least one weekday.");
 
-const dates: string[] = [];
+    const dates: string[] = [];
     const cur = new Date(from + "T00:00:00");
     const end = new Date(to + "T00:00:00");
     const isoDate = (d: Date) =>
@@ -238,17 +290,6 @@ const dates: string[] = [];
     if (err) return error(err.message);
     success(`Generated ${dates.length} potential slots (${data ?? 0} rows). Duplicates were skipped.`);
     setGenFor(null);
-    load();
-  }
-
-  async function toggleSlot(slot: SlotWithBookings) {
-    const supabase = createClient();
-    const { error: err } = await supabase
-      .from("evaluation_slots")
-      .update({ is_open: !slot.is_open })
-      .eq("id", slot.slot_id);
-    if (err) return error(err.message);
-    success(slot.is_open ? "Slot closed." : "Slot opened.");
     load();
   }
 
@@ -286,9 +327,7 @@ const dates: string[] = [];
       .delete({ count: "exact" })
       .eq("evaluation_period_id", toDeleteAllSlots.id);
     if (err) return error(err.message);
-    success(
-      `Deleted ${count ?? 0} slot${(count ?? 0) === 1 ? "" : "s"} (and any bookings on them).`
-    );
+    success(`Deleted ${count ?? 0} slot${(count ?? 0) === 1 ? "" : "s"} (and any bookings on them).`);
     setToDeleteAllSlots(null);
     load();
   }
@@ -325,7 +364,7 @@ const dates: string[] = [];
     <div>
       <PageHeader
         title="Evaluation Periods"
-        subtitle="Create periods, add time slots, and let students book."
+        subtitle="Manage evaluation periods, slots and student evaluations"
         icon={CalendarClock}
         actions={
           <button className="btn-primary" onClick={() => setModal(true)}>
@@ -334,38 +373,18 @@ const dates: string[] = [];
         }
       />
 
-      <div className="mb-4 flex items-center gap-2">
-        <span className="text-sm text-ink/60">Time format:</span>
-        <button
-          onClick={() => setUse24h(true)}
-          className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
-            use24h ? "bg-ink text-white" : "bg-ink/10 text-ink/60 hover:bg-ink/20"
-          }`}
-        >
-          24-hour
-        </button>
-        <button
-          onClick={() => setUse24h(false)}
-          className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
-            !use24h ? "bg-ink text-white" : "bg-ink/10 text-ink/60 hover:bg-ink/20"
-          }`}
-        >
-          12-hour
-        </button>
-      </div>
-
       {periods.length === 0 ? (
         <div className="card">
           <EmptyState
             title="No evaluation periods"
-            description='Create one, e.g. "Assignment 1 Evaluation, May 21 to 23", then add slots.'
+            description="Create one to get started, then add time slots for students to book."
           />
         </div>
       ) : (
         <div className="space-y-6">
           {periods.map((period) => {
             const totalBooked = period.slots.reduce((s, sl) => s + sl.booked, 0);
-            // Group slots by date
+            const sec = one(period.section);
             const groups: { date: string; slots: SlotWithBookings[] }[] = [];
             for (const slot of period.slots) {
               const last = groups[groups.length - 1];
@@ -375,35 +394,41 @@ const dates: string[] = [];
                 groups.push({ date: slot.slot_date, slots: [slot] });
               }
             }
+
             return (
               <section
                 key={period.id}
-                className={`card overflow-hidden ${period.is_closed ? "opacity-80" : ""}`}
+                className={`card overflow-hidden ${period.is_closed ? "opacity-75" : ""}`}
               >
+                {/* Period Header */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] px-5 py-4">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="font-bold text-ink">{period.title}</h2>
-                      <Badge tone={period.is_closed ? "neutral" : "gold"}>
-                        {period.is_closed ? "Closed" : "Open"}
-                      </Badge>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold-deep">
+                      <CalendarClock className="h-5 w-5" />
                     </div>
-                    <p className="mt-1 text-sm text-ink/55">
-                      {(() => {
-                        const sec = one(period.section);
-                        return sec ? (
-                          <>
-                            {sec.course?.code} → {sec.section_code}
-                          </>
-                        ) : (
-                          "Unknown section"
-                        );
-                      })()}{" "}
-                      · {formatDate(period.starts_on)} to {formatDate(period.ends_on)} ·{" "}
-                      {period.slots.length} slots · {totalBooked} bookings
-                    </p>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="font-bold text-ink">{period.title}</h2>
+                        <Badge tone={period.is_closed ? "neutral" : "gold"}>
+                          {period.is_closed ? "Closed" : "Open"}
+                        </Badge>
+                      </div>
+                      <p className="mt-0.5 text-sm text-ink/50">
+                        {sec ? `${sec.course?.code} · ${sec.section_code}` : "Section"}{" "}
+                        · {formatCompactPeriodDate(period.starts_on, period.ends_on)}{" "}
+                        · {period.slots.length} slots · {totalBooked} bookings
+                      </p>
+                    </div>
                   </div>
-<div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {!period.is_closed && (
+                      <button
+                        className="btn-primary px-3 py-1.5 text-xs"
+                        onClick={() => setSlotFor(period)}
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add slot
+                      </button>
+                    )}
                     {!period.is_closed && (
                       <button
                         className="btn-outline px-3 py-1.5 text-xs"
@@ -412,53 +437,38 @@ const dates: string[] = [];
                         <Wand2 className="h-3.5 w-3.5" /> Auto-generate
                       </button>
                     )}
-                    {!period.is_closed && (
-                      <button
-                        className="btn-outline px-3 py-1.5 text-xs"
-                        onClick={() => setSlotFor(period)}
-                      >
-                        <Clock className="h-3.5 w-3.5" /> Add slot
-                      </button>
-                    )}
                     {period.slots.length > 0 && (
                       <button
                         className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
                         onClick={() => setToDeleteAllSlots(period)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" /> Delete all slots
+                        <Trash2 className="h-3.5 w-3.5" /> Delete all
                       </button>
                     )}
                     {period.is_closed ? (
-                      <>
-                        <button
-                          className="btn-outline px-3 py-1.5 text-xs"
-                          onClick={() => setToReopen(period)}
-                        >
-                          <Power className="h-3.5 w-3.5" /> Reopen
-                        </button>
-                        <button
-                          className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
-                          onClick={() => setToDeletePeriod(period)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" /> Delete period
-                        </button>
-                      </>
+                      <button
+                        className="btn-outline px-3 py-1.5 text-xs"
+                        onClick={() => setToReopen(period)}
+                      >
+                        <Power className="h-3.5 w-3.5" /> Reopen
+                      </button>
                     ) : (
                       <button
                         className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
                         onClick={() => setToClose(period)}
                       >
-                        <Power className="h-3.5 w-3.5" /> Close period
+                        <Power className="h-3.5 w-3.5" /> Close
                       </button>
                     )}
                   </div>
                 </div>
 
+                {/* Slots */}
                 {period.slots.length === 0 ? (
                   <div className="px-5 py-8">
                     <EmptyState
                       title="No slots yet"
-                      description="Add date/time slots so students can book."
+                      description="Add time slots so students can book."
                     />
                   </div>
                 ) : (
@@ -469,79 +479,152 @@ const dates: string[] = [];
                       const dateLabel = formatDate(group.date);
                       return (
                         <div key={group.date} className={gi > 0 ? "mt-5 border-t border-black/[0.06] pt-5" : ""}>
-                          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-ink/50">{dayName}</p>
+                          <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-ink/40">{dayName}</p>
                           <p className="mb-3 text-sm font-semibold text-ink">{dateLabel}</p>
                           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                             {group.slots.map((slot) => {
                               const full = slot.booked >= slot.capacity;
                               const closed = !slot.is_open;
+                              const expanded = expandedSlot === slot.slot_id;
                               return (
-                                <div
-                                  key={slot.slot_id}
-                                  className={`rounded-xl border p-4 transition-all ${
-                                    closed
-                                      ? "border-black/[0.05] bg-paper/80 opacity-70"
-                                      : full
-                                        ? "border-red-200 bg-red-50/30"
-                                        : "border-black/[0.08] bg-white hover:border-gold hover:shadow-lift"
-                                  }`}
-                                >
-                                  <div className="mb-3 flex items-center justify-between">
-                                    <span className="inline-flex items-center gap-1.5 font-bold text-ink">
-                                      <Clock className="h-4 w-4 text-gold-deep" />
-                                      {formatSlotTime(slot.start_time, use24h)}
-                                    </span>
-                                    <span className="text-xs text-ink/40">to</span>
-                                    <span className="font-bold text-ink">
-                                      {formatSlotTime(slot.end_time, use24h)}
-                                    </span>
-                                  </div>
-
-                                  <div className="mb-4 text-center">
-                                    <p className={`text-2xl font-extrabold ${
-                                      closed ? "text-ink/40" : full ? "text-red-600" : "text-ink"
-                                    }`}>
-                                      {slot.booked}<span className="text-ink/30"> / {slot.capacity}</span>
-                                    </p>
-                                    <Badge
-                                      tone={
-                                        closed
-                                          ? "neutral"
-                                          : full
-                                            ? "red"
-                                            : "green"
-                                      }
-                                      className="mt-1"
-                                    >
-                                      {closed ? "Closed" : full ? "FULL" : "Available"}
-                                    </Badge>
-                                  </div>
-
-                                  <div className="space-y-2">
-                                    <button
-                                      onClick={() => openBookingsForSlot(period, slot)}
-                                      className="btn-outline w-full py-1.5 text-xs"
-                                    >
-                                      <CalendarCheck2 className="h-3.5 w-3.5" /> See Bookings
-                                    </button>
-                                    <div className="flex gap-2">
-                                      <button
-                                        onClick={() => toggleSlot(slot)}
-                                        className="btn-outline flex-1 py-1.5 text-xs"
-                                      >
-                                        <Power className="h-3.5 w-3.5" />
-                                        {slot.is_open ? "Close" : "Reopen"}
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          setToDeleteSlot({ period, slotId: slot.slot_id })
-                                        }
-                                        className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
+                                <div key={slot.slot_id} className="flex flex-col">
+                                  {/* Slot Card */}
+                                  <div
+                                    className={`relative rounded-xl border p-4 transition-all ${
+                                      closed
+                                        ? "border-black/[0.06] bg-paper/60 opacity-70"
+                                        : full
+                                          ? "border-gold/40 bg-white shadow-card"
+                                          : "border-gold/30 bg-white shadow-card hover:shadow-lift"
+                                    }`}
+                                  >
+                                    {/* Time + Menu */}
+                                    <div className="mb-3 flex items-center justify-between">
+                                      <span className="inline-flex items-center gap-1.5 text-sm font-bold text-ink">
+                                        <Clock className="h-3.5 w-3.5 text-gold-deep" />
+                                        {formatSlotRange(slot.start_time, slot.end_time)}
+                                      </span>
+                                      <div className="relative" ref={menuOpen === slot.slot_id ? menuRef : undefined}>
+                                        <button
+                                          onClick={() => setMenuOpen(menuOpen === slot.slot_id ? null : slot.slot_id)}
+                                          className="rounded-md p-1 text-ink/30 transition-colors hover:bg-black/5 hover:text-ink/60"
+                                        >
+                                          <MoreVertical className="h-4 w-4" />
+                                        </button>
+                                        {menuOpen === slot.slot_id && (
+                                          <div className="absolute right-0 top-full z-10 mt-1 w-40 rounded-lg border border-black/[0.08] bg-white py-1 shadow-lift">
+                                            <button
+                                              onClick={() => toggleSlot(slot)}
+                                              className="flex w-full items-center gap-2 px-3 py-2 text-xs text-ink/70 hover:bg-black/5"
+                                            >
+                                              <Power className="h-3.5 w-3.5" />
+                                              {slot.is_open ? "Close slot" : "Open slot"}
+                                            </button>
+                                            <button
+                                              onClick={() => {
+                                                setMenuOpen(null);
+                                                setToDeleteSlot({ period, slotId: slot.slot_id });
+                                              }}
+                                              className="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+                                            >
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                              Delete slot
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
+
+                                    {/* Booking Count */}
+                                    <div className="mb-3 text-center">
+                                      <p className={`text-2xl font-extrabold ${
+                                        closed ? "text-ink/30" : full ? "text-red-500" : "text-ink"
+                                      }`}>
+                                        {slot.booked}
+                                        <span className="text-base font-semibold text-ink/25"> / {slot.capacity}</span>
+                                      </p>
+                                      <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                        closed
+                                          ? "bg-black/5 text-ink/40"
+                                          : full
+                                            ? "bg-red-50 text-red-500"
+                                            : "bg-green-50 text-green-600"
+                                      }`}>
+                                        {closed ? "Closed" : full ? "Full" : "Available"}
+                                      </span>
+                                    </div>
+
+                                    {/* View Bookings */}
+                                    <button
+                                      onClick={() => toggleBookings(period, slot)}
+                                      className="flex w-full items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-medium text-gold-deep transition-colors hover:bg-gold/10"
+                                    >
+                                      {expanded ? (
+                                        <>Hide bookings <ChevronUp className="h-3.5 w-3.5" /></>
+                                      ) : (
+                                        <>View bookings <ChevronRight className="h-3.5 w-3.5" /></>
+                                      )}
+                                    </button>
                                   </div>
+
+                                  {/* Expanded Bookings */}
+                                  {expanded && (
+                                    <div className="mt-1 rounded-xl border border-t-0 border-black/[0.06] bg-paper/50 px-4 py-3">
+                                      {slotBookingsLoading ? (
+                                        <p className="py-2 text-center text-xs text-ink/40">Loading...</p>
+                                      ) : slotBookings.length === 0 ? (
+                                        <p className="py-2 text-center text-xs text-ink/40">No bookings yet</p>
+                                      ) : (
+                                        <div className="space-y-2">
+                                          <p className="text-[11px] font-bold uppercase tracking-wider text-ink/40">
+                                            Bookings ({slotBookings.length})
+                                          </p>
+                                          {slotBookings.map((b) => {
+                                            const student = one(b.students);
+                                            const profile = one(student?.profiles);
+                                            const evalDone = b.evaluation_status === "done";
+                                            return (
+                                              <div
+                                                key={b.id}
+                                                className="flex items-center justify-between rounded-lg border border-black/[0.05] bg-white px-3 py-2"
+                                              >
+                                                <div className="min-w-0 flex-1">
+                                                  <p className="truncate text-sm font-semibold text-ink">
+                                                    {cleanName(profile?.full_name) || "Student"}
+                                                  </p>
+                                                  <p className="text-[11px] text-ink/45">
+                                                    {regNoDisplay(student?.registration_no, student?.profiles?.email)}
+                                                  </p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                  {evalDone ? (
+                                                    <div className="flex items-center gap-1 text-xs text-green-600">
+                                                      <CheckCircle2 className="h-3.5 w-3.5" />
+                                                      <span className="font-medium">Done</span>
+                                                      {b.evaluation_completed_at && (
+                                                        <span className="text-ink/35">
+                                                          {formatDate(b.evaluation_completed_at)}
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  ) : (
+                                                    <button
+                                                      onClick={() => markDone(b.id)}
+                                                      disabled={markingEval === b.id}
+                                                      className="inline-flex items-center gap-1 rounded-md bg-gold/15 px-2 py-1 text-[11px] font-semibold text-gold-deep transition-colors hover:bg-gold/25 disabled:opacity-50"
+                                                    >
+                                                      <CircleDot className="h-3 w-3" />
+                                                      {markingEval === b.id ? "..." : "Mark Done"}
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
@@ -563,9 +646,7 @@ const dates: string[] = [];
           <div>
             <label className="label">Section</label>
             <select name="section_id" className="input" required defaultValue="">
-              <option value="" disabled>
-                Select a section
-              </option>
+              <option value="" disabled>Select a section</option>
               {sections.map((s) => {
                 const course = one(s.course);
                 return (
@@ -578,12 +659,7 @@ const dates: string[] = [];
           </div>
           <div>
             <label className="label">Title</label>
-            <input
-              name="title"
-              className="input"
-              placeholder="e.g. Assignment 1 Evaluation"
-              required
-            />
+            <input name="title" className="input" placeholder="e.g. Assignment 1 Evaluation" required />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -596,20 +672,14 @@ const dates: string[] = [];
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" className="btn-outline" onClick={() => setModal(false)}>
-              Cancel
-            </button>
+            <button type="button" className="btn-outline" onClick={() => setModal(false)}>Cancel</button>
             <button className="btn-primary">Create period</button>
           </div>
         </form>
       </Modal>
 
       {/* Add slot modal */}
-      <Modal
-        open={!!slotFor}
-        onClose={() => setSlotFor(null)}
-        title={`Add slot · ${slotFor?.title ?? ""}`}
-      >
+      <Modal open={!!slotFor} onClose={() => setSlotFor(null)} title={`Add slot · ${slotFor?.title ?? ""}`}>
         <form onSubmit={addSlot} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -628,35 +698,19 @@ const dates: string[] = [];
             </div>
             <div>
               <label className="label">Capacity</label>
-            <input
-              name="capacity"
-              type="number"
-              min={1}
-              defaultValue={1}
-              className="input"
-              required
-            />
-            <p className="mt-1 text-xs text-ink/45">
-              Number of students who can book this slot. The database refuses
-              overbooking.
-            </p>
-          </div>
+              <input name="capacity" type="number" min={1} defaultValue={1} className="input" required />
+              <p className="mt-1 text-[11px] text-ink/40">Max students per slot</p>
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" className="btn-outline" onClick={() => setSlotFor(null)}>
-              Cancel
-            </button>
+            <button type="button" className="btn-outline" onClick={() => setSlotFor(null)}>Cancel</button>
             <button className="btn-primary">Add slot</button>
           </div>
         </form>
       </Modal>
 
-      {/* Auto-generate slots modal */}
-      <Modal
-        open={!!genFor}
-        onClose={() => setGenFor(null)}
-        title={`Auto-generate slots · ${genFor?.title ?? ""}`}
-      >
+      {/* Auto-generate modal */}
+      <Modal open={!!genFor} onClose={() => setGenFor(null)} title={`Auto-generate · ${genFor?.title ?? ""}`}>
         <form onSubmit={generateSlots} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -705,18 +759,14 @@ const dates: string[] = [];
               <input name="capacity" type="number" min={1} defaultValue={1} className="input" required />
             </div>
           </div>
-          <div className="rounded-xl bg-gold/10 p-4 text-xs leading-relaxed text-ink/60">
+          <div className="rounded-xl bg-gold/10 p-3 text-xs leading-relaxed text-ink/55">
             <p className="font-semibold text-gold-deep">How it works</p>
-            One slot is created for every {`"slot length"`} step on each selected
-            day, between the start and end times. Running this again skips
-            duplicates — existing bookings are never touched.
+            One slot per time step on each selected day. Duplicates are skipped automatically.
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" className="btn-outline" onClick={() => setGenFor(null)}>
-              Cancel
-            </button>
+            <button type="button" className="btn-outline" onClick={() => setGenFor(null)}>Cancel</button>
             <button className="btn-primary" disabled={genBusy}>
-              <Wand2 className="h-4 w-4" /> {genBusy ? "Generating..." : "Generate slots"}
+              <Wand2 className="h-4 w-4" /> {genBusy ? "Generating..." : "Generate"}
             </button>
           </div>
         </form>
@@ -727,145 +777,41 @@ const dates: string[] = [];
         onClose={() => setToClose(null)}
         onConfirm={closePeriod}
         title={`Close "${toClose?.title}"?`}
-        message="Students will no longer be able to book or cancel slots for this period. Existing bookings stay confirmed."
+        message="Students will no longer be able to book or cancel slots for this period."
         confirmLabel="Close period"
       />
-
       <ConfirmDialog
         open={!!toReopen}
         onClose={() => setToReopen(null)}
         onConfirm={reopenPeriod}
         title={`Reopen "${toReopen?.title}"?`}
-        message="Students will be able to book and switch slots for this period again."
+        message="Students will be able to book and switch slots again."
         confirmLabel="Reopen period"
       />
-
       <ConfirmDialog
         open={!!toDeleteAllSlots}
         onClose={() => setToDeleteAllSlots(null)}
         onConfirm={deleteAllSlots}
         title={`Delete all slots of "${toDeleteAllSlots?.title}"?`}
-        message={`All ${toDeleteAllSlots?.slots.length ?? 0} slots will be removed, along with any bookings on them. Affected students will need to book again. This cannot be undone.`}
+        message={`All ${toDeleteAllSlots?.slots.length ?? 0} slots and their bookings will be removed. This cannot be undone.`}
         confirmLabel="Delete all slots"
       />
-
       <ConfirmDialog
         open={!!toDeletePeriod}
         onClose={() => setToDeletePeriod(null)}
         onConfirm={deletePeriod}
         title={`Delete "${toDeletePeriod?.title}"?`}
-        message="The period, all its slots and all bookings on it will be permanently removed. This cannot be undone."
+        message="The period, all slots and all bookings will be permanently removed."
         confirmLabel="Delete period"
       />
-
-<ConfirmDialog
+      <ConfirmDialog
         open={!!toDeleteSlot}
         onClose={() => setToDeleteSlot(null)}
         onConfirm={deleteSlot}
         title="Delete this slot?"
-        message="The slot and any bookings on it will be removed. Students with bookings on this slot will need to book again."
+        message="The slot and its bookings will be removed."
         confirmLabel="Delete slot"
       />
-
-      {/* Slot Bookings modal */}
-      <Modal
-        open={!!bookingsSlot}
-        onClose={() => setBookingsSlot(null)}
-        title={`Bookings — ${bookingsSlot ? `${formatSlotTime(bookingsSlot.slot.start_time, use24h)} – ${formatSlotTime(bookingsSlot.slot.end_time, use24h)}` : ""}`}
-        wide
-      >
-        {bookingsLoading ? (
-          <Spinner label="Loading bookings..." />
-        ) : bookings.length === 0 ? (
-          <EmptyState title="No bookings for this slot" />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px]">
-              <thead className="bg-paper">
-                <tr>
-                  <th className="th">Student</th>
-                  <th className="th">Roll No.</th>
-                  <th className="th">Status</th>
-                  <th className="th">Evaluation</th>
-                  <th className="th text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bookings.map((b) => {
-                  const student = one(b.students);
-                  const profile = one(student?.profiles);
-                  const evalDone = b.evaluation_status === "done";
-                  return (
-                    <tr key={b.id} className="bg-white">
-                      <td className="td">
-                        <p className="font-semibold text-ink">
-                          {cleanName(profile?.full_name) || "Student"}
-                        </p>
-                        <p className="text-xs text-ink/50">{profile?.email}</p>
-                      </td>
-                      <td className="td font-mono text-xs text-ink/70">
-                        {regNoDisplay(student?.registration_no, student?.profiles?.email)}
-                      </td>
-                      <td className="td">
-                        <Badge
-                          tone={
-                            b.status === "confirmed"
-                              ? "green"
-                              : b.status === "pending"
-                                ? "gold"
-                                : "red"
-                          }
-                        >
-                          {b.status}
-                        </Badge>
-                      </td>
-                      <td className="td">
-                        {evalDone ? (
-                          <div className="flex items-center gap-1.5">
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            <div>
-                              <p className="text-sm font-semibold text-green-700">Done</p>
-                              <p className="text-[11px] text-ink/45">
-                                {b.evaluation_completed_at
-                                  ? formatDate(b.evaluation_completed_at, true)
-                                  : ""}
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-ink/50">Pending</span>
-                        )}
-                      </td>
-                      <td className="td">
-                        <div className="flex justify-end">
-                          {!evalDone && b.status === "confirmed" && (
-                            <button
-                              onClick={() => markDone(b.id)}
-                              disabled={markingEval === b.id}
-                              className="btn-primary px-3 py-1.5 text-xs"
-                            >
-                              {markingEval === b.id ? (
-                                "Saving..."
-                              ) : (
-                                <>
-                                  <CheckCircle2 className="h-3.5 w-3.5" /> Mark Done
-                                </>
-                              )}
-                            </button>
-                          )}
-                          {evalDone && (
-                            <span className="text-xs text-green-600 font-medium">Completed</span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 }

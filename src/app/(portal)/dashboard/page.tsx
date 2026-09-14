@@ -19,7 +19,7 @@ import type {
   Booking,
   EvaluationPeriod,
 } from "@/lib/types";
-import { cn, cleanName, formatDate, one, weightedOverallPct } from "@/lib/utils";
+import { cn, cleanName, formatDate, formatSlotRange, one, weightedOverallPct } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
@@ -404,7 +404,7 @@ export default function StudentDashboard() {
                           <Badge tone="green" className="w-full justify-center">
                             Booked ·{" "}
                             {p.booking.evaluation_slots
-                              ? `${formatDate(p.booking.evaluation_slots.slot_date)}, ${p.booking.evaluation_slots.start_time}–${p.booking.evaluation_slots.end_time}`
+                              ? `${formatDate(p.booking.evaluation_slots.slot_date)}, ${formatSlotRange(p.booking.evaluation_slots.start_time, p.booking.evaluation_slots.end_time)}`
                               : "see details"}
                           </Badge>
                           <div className="flex items-center justify-center gap-1.5 text-xs">

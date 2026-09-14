@@ -38,6 +38,63 @@ export function formatSlotTime(time: string, use24h: boolean): string {
   });
 }
 
+/** Always returns 12-hour format: "1:10 PM" */
+export function formatTime12(time: string): string {
+  const cleaned = time.replace(/:\d{2}$/, "");
+  const [h, m] = cleaned.split(":").map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/**
+ * Compact time range in 12-hour format.
+ * Same period: "1:10 – 1:15 PM"
+ * Cross-period: "11:55 AM – 12:05 PM"
+ */
+export function formatSlotRange(start: string, end: string): string {
+  const s = start.replace(/:\d{2}$/, "").split(":").map(Number);
+  const e = end.replace(/:\d{2}$/, "").split(":").map(Number);
+  const sPeriod = s[0] >= 12 ? "PM" : "AM";
+  const ePeriod = e[0] >= 12 ? "PM" : "AM";
+  const sH12 = s[0] === 0 ? 12 : s[0] > 12 ? s[0] - 12 : s[0];
+  const eH12 = e[0] === 0 ? 12 : e[0] > 12 ? e[0] - 12 : e[0];
+  if (sPeriod === ePeriod) {
+    return `${sH12}:${String(s[1]).padStart(2, "0")} – ${eH12}:${String(e[1]).padStart(2, "0")} ${sPeriod}`;
+  }
+  return `${sH12}:${String(s[1]).padStart(2, "0")} ${sPeriod} – ${eH12}:${String(e[1]).padStart(2, "0")} ${ePeriod}`;
+}
+
+/**
+ * Compact period date range.
+ * Same day: "16 Sep 2026"
+ * Multi-day: "16–18 Sep 2026"
+ * Cross-month: "28 Sep – 3 Oct 2026"
+ */
+export function formatCompactPeriodDate(startsOn: string, endsOn: string): string {
+  const s = new Date(startsOn + "T00:00:00");
+  const e = new Date(endsOn + "T00:00:00");
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const sMonth = months[s.getMonth()];
+  const eMonth = months[e.getMonth()];
+  const sYear = s.getFullYear();
+  const eYear = e.getFullYear();
+
+  if (startsOn === endsOn) {
+    return `${s.getDate()} ${sMonth} ${sYear}`;
+  }
+  if (sYear !== eYear) {
+    return `${s.getDate()} ${sMonth} ${sYear} – ${e.getDate()} ${eMonth} ${eYear}`;
+  }
+  if (sMonth !== eMonth) {
+    return `${s.getDate()} ${sMonth} – ${e.getDate()} ${eMonth} ${sYear}`;
+  }
+  return `${s.getDate()}–${e.getDate()} ${sMonth} ${sYear}`;
+}
+
 export function percent(obtained: number, total: number): number {
   if (!total) return 0;
   return (obtained / total) * 100;

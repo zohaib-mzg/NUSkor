@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CalendarClock,
   Plus,
@@ -8,11 +8,12 @@ import {
   Power,
   Trash2,
   Wand2,
+  MoreVertical,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { notifyAll } from "@/lib/push";
 import type { CourseSection, EvaluationPeriod, SlotWithBookings } from "@/lib/types";
-import { formatDate, formatSlotTime, one } from "@/lib/utils";
+import { formatDate, formatSlotRange, formatCompactPeriodDate, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -39,7 +40,18 @@ export default function EvaluationPeriodsPage() {
     period: PeriodAdmin;
     slotId: string;
   } | null>(null);
-  const [use24h, setUse24h] = useState(true);
+  const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -114,17 +126,13 @@ export default function EvaluationPeriodsPage() {
       end_time: HTMLInputElement;
       capacity: HTMLInputElement;
     };
-    const slotDate = el.slot_date.value;
-    const startTime = el.start_time.value;
-    const endTime = el.end_time.value;
     const capacity = Number(el.capacity.value || 1);
-
     const supabase = createClient();
     const { error: err } = await supabase.from("evaluation_slots").insert({
       evaluation_period_id: slotFor.id,
-      slot_date: slotDate,
-      start_time: startTime,
-      end_time: endTime,
+      slot_date: el.slot_date.value,
+      start_time: el.start_time.value,
+      end_time: el.end_time.value,
       capacity,
     });
     if (err) return error(err.message);
@@ -186,6 +194,7 @@ export default function EvaluationPeriodsPage() {
   }
 
   async function toggleSlot(slot: SlotWithBookings) {
+    setMenuOpen(null);
     const supabase = createClient();
     const { error: err } = await supabase
       .from("evaluation_slots")
@@ -228,7 +237,7 @@ export default function EvaluationPeriodsPage() {
     <div>
       <PageHeader
         title="Evaluation Periods"
-        subtitle="Create periods, add time slots, and let students book."
+        subtitle="Manage evaluation periods, slots and student evaluations"
         icon={CalendarClock}
         actions={
           <button className="btn-primary" onClick={() => setModal(true)}>
@@ -237,66 +246,62 @@ export default function EvaluationPeriodsPage() {
         }
       />
 
-      <div className="mb-4 flex items-center gap-2">
-        <span className="text-sm text-ink/60">Time format:</span>
-        <button
-          onClick={() => setUse24h(true)}
-          className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
-            use24h ? "bg-ink text-white" : "bg-ink/10 text-ink/60 hover:bg-ink/20"
-          }`}
-        >
-          24-hour
-        </button>
-        <button
-          onClick={() => setUse24h(false)}
-          className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
-            !use24h ? "bg-ink text-white" : "bg-ink/10 text-ink/60 hover:bg-ink/20"
-          }`}
-        >
-          12-hour
-        </button>
-      </div>
-
       {periods.length === 0 ? (
         <div className="card">
           <EmptyState
             title="No evaluation periods"
-            description='Create one, e.g. "Assignment 1 Evaluation, May 21 to 23", then add slots.'
+            description="Create one to get started, then add time slots for students to book."
           />
         </div>
       ) : (
         <div className="space-y-6">
           {periods.map((period) => {
             const totalBooked = period.slots.reduce((s, sl) => s + sl.booked, 0);
+            const sec = one(period.section);
+            const groups: { date: string; slots: SlotWithBookings[] }[] = [];
+            for (const slot of period.slots) {
+              const last = groups[groups.length - 1];
+              if (last && last.date === slot.slot_date) {
+                last.slots.push(slot);
+              } else {
+                groups.push({ date: slot.slot_date, slots: [slot] });
+              }
+            }
+
             return (
               <section
                 key={period.id}
-                className={`card overflow-hidden ${period.is_closed ? "opacity-80" : ""}`}
+                className={`card overflow-hidden ${period.is_closed ? "opacity-75" : ""}`}
               >
+                {/* Period Header */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] px-5 py-4">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="font-bold text-ink">{period.title}</h2>
-                      <Badge tone={period.is_closed ? "neutral" : "gold"}>
-                        {period.is_closed ? "Closed" : "Open"}
-                      </Badge>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold-deep">
+                      <CalendarClock className="h-5 w-5" />
                     </div>
-                    <p className="mt-1 text-sm text-ink/55">
-                      {(() => {
-                        const sec = one(period.section);
-                        return sec ? (
-                          <>
-                            {sec.course?.code} → {sec.section_code}
-                          </>
-                        ) : (
-                          "Unknown section"
-                        );
-                      })()}{" "}
-                      · {formatDate(period.starts_on)} to {formatDate(period.ends_on)} ·{" "}
-                      {period.slots.length} slots · {totalBooked} bookings
-                    </p>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="font-bold text-ink">{period.title}</h2>
+                        <Badge tone={period.is_closed ? "neutral" : "gold"}>
+                          {period.is_closed ? "Closed" : "Open"}
+                        </Badge>
+                      </div>
+                      <p className="mt-0.5 text-sm text-ink/50">
+                        {sec ? `${sec.course?.code} · ${sec.section_code}` : "Section"}{" "}
+                        · {formatCompactPeriodDate(period.starts_on, period.ends_on)}{" "}
+                        · {period.slots.length} slots · {totalBooked} bookings
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {!period.is_closed && (
+                      <button
+                        className="btn-primary px-3 py-1.5 text-xs"
+                        onClick={() => setSlotFor(period)}
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add slot
+                      </button>
+                    )}
                     {!period.is_closed && (
                       <button
                         className="btn-outline px-3 py-1.5 text-xs"
@@ -307,121 +312,105 @@ export default function EvaluationPeriodsPage() {
                     )}
                     {!period.is_closed && (
                       <button
-                        className="btn-outline px-3 py-1.5 text-xs"
-                        onClick={() => setSlotFor(period)}
-                      >
-                        <Clock className="h-3.5 w-3.5" /> Add slot
-                      </button>
-                    )}
-                    {!period.is_closed && (
-                      <button
                         className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
                         onClick={() => setToClose(period)}
                       >
-                        <Power className="h-3.5 w-3.5" /> Close period
+                        <Power className="h-3.5 w-3.5" /> Close
                       </button>
                     )}
                   </div>
                 </div>
 
+                {/* Slots */}
                 {period.slots.length === 0 ? (
                   <div className="px-5 py-8">
-                    <EmptyState
-                      title="No slots yet"
-                      description="Add date/time slots so students can book."
-                    />
+                    <EmptyState title="No slots yet" description="Add time slots so students can book." />
                   </div>
                 ) : (
                   <div className="px-5 py-5">
-                    {(() => {
-                      const groups: { date: string; slots: SlotWithBookings[] }[] = [];
-                      for (const slot of period.slots) {
-                        const last = groups[groups.length - 1];
-                        if (last && last.date === slot.slot_date) {
-                          last.slots.push(slot);
-                        } else {
-                          groups.push({ date: slot.slot_date, slots: [slot] });
-                        }
-                      }
-                      return groups.map((group, gi) => {
-                        const d = new Date(group.date + "T00:00:00");
-                        const dayName = d.toLocaleDateString("en-GB", { weekday: "long" });
-                        const dateLabel = formatDate(group.date);
-                        return (
-                          <div key={group.date} className={gi > 0 ? "mt-5 border-t border-black/[0.06] pt-5" : ""}>
-                            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-ink/50">{dayName}</p>
-                            <p className="mb-3 text-sm font-semibold text-ink">{dateLabel}</p>
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                              {group.slots.map((slot) => {
-                                const full = slot.booked >= slot.capacity;
-                                const closed = !slot.is_open;
-                                return (
-                                  <div
-                                    key={slot.slot_id}
-                                    className={`rounded-xl border p-4 transition-all ${
-                                      closed
-                                        ? "border-black/[0.05] bg-paper/80 opacity-70"
-                                        : full
-                                          ? "border-red-200 bg-red-50/30"
-                                          : "border-black/[0.08] bg-white hover:border-gold hover:shadow-lift"
-                                    }`}
-                                  >
-                                    <div className="mb-3 flex items-center justify-between">
-                                      <span className="inline-flex items-center gap-1.5 font-bold text-ink">
-                                        <Clock className="h-4 w-4 text-gold-deep" />
-                                        {formatSlotTime(slot.start_time, use24h)}
-                                      </span>
-                                      <span className="text-xs text-ink/40">to</span>
-                                      <span className="font-bold text-ink">
-                                        {formatSlotTime(slot.end_time, use24h)}
-                                      </span>
-                                    </div>
-
-                                    <div className="mb-4 text-center">
-                                      <p className={`text-2xl font-extrabold ${
-                                        closed ? "text-ink/40" : full ? "text-red-600" : "text-ink"
-                                      }`}>
-                                        {slot.booked}<span className="text-ink/30"> / {slot.capacity}</span>
-                                      </p>
-                                      <Badge
-                                        tone={
-                                          closed
-                                            ? "neutral"
-                                            : full
-                                              ? "red"
-                                              : "green"
-                                        }
-                                        className="mt-1"
-                                      >
-                                        {closed ? "Closed" : full ? "FULL" : "Available"}
-                                      </Badge>
-                                    </div>
-
-                                    <div className="flex gap-2">
+                    {groups.map((group, gi) => {
+                      const d = new Date(group.date + "T00:00:00");
+                      const dayName = d.toLocaleDateString("en-GB", { weekday: "long" });
+                      const dateLabel = formatDate(group.date);
+                      return (
+                        <div key={group.date} className={gi > 0 ? "mt-5 border-t border-black/[0.06] pt-5" : ""}>
+                          <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-ink/40">{dayName}</p>
+                          <p className="mb-3 text-sm font-semibold text-ink">{dateLabel}</p>
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {group.slots.map((slot) => {
+                              const full = slot.booked >= slot.capacity;
+                              const closed = !slot.is_open;
+                              return (
+                                <div
+                                  key={slot.slot_id}
+                                  className={`relative rounded-xl border p-4 transition-all ${
+                                    closed
+                                      ? "border-black/[0.06] bg-paper/60 opacity-70"
+                                      : full
+                                        ? "border-gold/40 bg-white shadow-card"
+                                        : "border-gold/30 bg-white shadow-card hover:shadow-lift"
+                                  }`}
+                                >
+                                  <div className="mb-3 flex items-center justify-between">
+                                    <span className="inline-flex items-center gap-1.5 text-sm font-bold text-ink">
+                                      <Clock className="h-3.5 w-3.5 text-gold-deep" />
+                                      {formatSlotRange(slot.start_time, slot.end_time)}
+                                    </span>
+                                    <div className="relative" ref={menuOpen === slot.slot_id ? menuRef : undefined}>
                                       <button
-                                        onClick={() => toggleSlot(slot)}
-                                        className="btn-outline flex-1 py-1.5 text-xs"
+                                        onClick={() => setMenuOpen(menuOpen === slot.slot_id ? null : slot.slot_id)}
+                                        className="rounded-md p-1 text-ink/30 transition-colors hover:bg-black/5 hover:text-ink/60"
                                       >
-                                        <Power className="h-3.5 w-3.5" />
-                                        {slot.is_open ? "Close" : "Reopen"}
+                                        <MoreVertical className="h-4 w-4" />
                                       </button>
-                                      <button
-                                        onClick={() =>
-                                          setToDeleteSlot({ period, slotId: slot.slot_id })
-                                        }
-                                        className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
+                                      {menuOpen === slot.slot_id && (
+                                        <div className="absolute right-0 top-full z-10 mt-1 w-40 rounded-lg border border-black/[0.08] bg-white py-1 shadow-lift">
+                                          <button
+                                            onClick={() => toggleSlot(slot)}
+                                            className="flex w-full items-center gap-2 px-3 py-2 text-xs text-ink/70 hover:bg-black/5"
+                                          >
+                                            <Power className="h-3.5 w-3.5" />
+                                            {slot.is_open ? "Close slot" : "Open slot"}
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              setMenuOpen(null);
+                                              setToDeleteSlot({ period, slotId: slot.slot_id });
+                                            }}
+                                            className="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                            Delete slot
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
-                                );
-                              })}
-                            </div>
+
+                                  <div className="mb-3 text-center">
+                                    <p className={`text-2xl font-extrabold ${
+                                      closed ? "text-ink/30" : full ? "text-red-500" : "text-ink"
+                                    }`}>
+                                      {slot.booked}
+                                      <span className="text-base font-semibold text-ink/25"> / {slot.capacity}</span>
+                                    </p>
+                                    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                      closed
+                                        ? "bg-black/5 text-ink/40"
+                                        : full
+                                          ? "bg-red-50 text-red-500"
+                                          : "bg-green-50 text-green-600"
+                                    }`}>
+                                      {closed ? "Closed" : full ? "Full" : "Available"}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      });
-                    })()}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </section>
@@ -436,9 +425,7 @@ export default function EvaluationPeriodsPage() {
           <div>
             <label className="label">Section</label>
             <select name="section_id" className="input" required defaultValue="">
-              <option value="" disabled>
-                Select a section
-              </option>
+              <option value="" disabled>Select a section</option>
               {sections.map((s) => {
                 const course = one(s.course);
                 return (
@@ -451,12 +438,7 @@ export default function EvaluationPeriodsPage() {
           </div>
           <div>
             <label className="label">Title</label>
-            <input
-              name="title"
-              className="input"
-              placeholder="e.g. Assignment 1 Evaluation"
-              required
-            />
+            <input name="title" className="input" placeholder="e.g. Assignment 1 Evaluation" required />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -469,20 +451,14 @@ export default function EvaluationPeriodsPage() {
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" className="btn-outline" onClick={() => setModal(false)}>
-              Cancel
-            </button>
+            <button type="button" className="btn-outline" onClick={() => setModal(false)}>Cancel</button>
             <button className="btn-primary">Create period</button>
           </div>
         </form>
       </Modal>
 
       {/* Add slot modal */}
-      <Modal
-        open={!!slotFor}
-        onClose={() => setSlotFor(null)}
-        title={`Add slot · ${slotFor?.title ?? ""}`}
-      >
+      <Modal open={!!slotFor} onClose={() => setSlotFor(null)} title={`Add slot · ${slotFor?.title ?? ""}`}>
         <form onSubmit={addSlot} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -501,35 +477,19 @@ export default function EvaluationPeriodsPage() {
             </div>
             <div>
               <label className="label">Capacity</label>
-            <input
-              name="capacity"
-              type="number"
-              min={1}
-              defaultValue={1}
-              className="input"
-              required
-            />
-            <p className="mt-1 text-xs text-ink/45">
-              Number of students who can book this slot. The database refuses
-              overbooking.
-            </p>
-          </div>
+              <input name="capacity" type="number" min={1} defaultValue={1} className="input" required />
+              <p className="mt-1 text-[11px] text-ink/40">Max students per slot</p>
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" className="btn-outline" onClick={() => setSlotFor(null)}>
-              Cancel
-            </button>
+            <button type="button" className="btn-outline" onClick={() => setSlotFor(null)}>Cancel</button>
             <button className="btn-primary">Add slot</button>
           </div>
         </form>
       </Modal>
 
-      {/* Auto-generate slots modal */}
-      <Modal
-        open={!!genFor}
-        onClose={() => setGenFor(null)}
-        title={`Auto-generate slots · ${genFor?.title ?? ""}`}
-      >
+      {/* Auto-generate modal */}
+      <Modal open={!!genFor} onClose={() => setGenFor(null)} title={`Auto-generate · ${genFor?.title ?? ""}`}>
         <form onSubmit={generateSlots} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -578,18 +538,14 @@ export default function EvaluationPeriodsPage() {
               <input name="capacity" type="number" min={1} defaultValue={1} className="input" required />
             </div>
           </div>
-          <div className="rounded-xl bg-gold/10 p-4 text-xs leading-relaxed text-ink/60">
+          <div className="rounded-xl bg-gold/10 p-3 text-xs leading-relaxed text-ink/55">
             <p className="font-semibold text-gold-deep">How it works</p>
-            One slot is created for every {`"slot length"`} step on each selected
-            day, between the start and end times. Running this again skips
-            duplicates — existing bookings are never touched.
+            One slot per time step on each selected day. Duplicates are skipped automatically.
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" className="btn-outline" onClick={() => setGenFor(null)}>
-              Cancel
-            </button>
+            <button type="button" className="btn-outline" onClick={() => setGenFor(null)}>Cancel</button>
             <button className="btn-primary" disabled={genBusy}>
-              <Wand2 className="h-4 w-4" /> {genBusy ? "Generating..." : "Generate slots"}
+              <Wand2 className="h-4 w-4" /> {genBusy ? "Generating..." : "Generate"}
             </button>
           </div>
         </form>
@@ -600,16 +556,15 @@ export default function EvaluationPeriodsPage() {
         onClose={() => setToClose(null)}
         onConfirm={closePeriod}
         title={`Close "${toClose?.title}"?`}
-        message="Students will no longer be able to book or cancel slots for this period. Existing bookings stay confirmed."
+        message="Students will no longer be able to book or cancel slots for this period."
         confirmLabel="Close period"
       />
-
       <ConfirmDialog
         open={!!toDeleteSlot}
         onClose={() => setToDeleteSlot(null)}
         onConfirm={deleteSlot}
         title="Delete this slot?"
-        message="The slot and any bookings on it will be removed. Students with bookings on this slot will need to book again."
+        message="The slot and its bookings will be removed."
         confirmLabel="Delete slot"
       />
     </div>

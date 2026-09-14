@@ -71,7 +71,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(redirectTo);
       }
     }
-    if (error?.message.toLowerCase().includes("email")) {
+    const msg = error?.message.toLowerCase() ?? "";
+    if (msg.includes("email") || msg.includes("nu.edu.pk") || msg.includes("not allowed")) {
       return NextResponse.redirect(`${origin}/access-denied`);
     }
   }

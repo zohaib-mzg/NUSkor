@@ -126,6 +126,7 @@ export interface SlotWithBookings {
 }
 
 export type BookingStatus = "confirmed" | "pending" | "cancelled";
+export type EvaluationStatus = "pending" | "done";
 
 export interface Booking {
   id: string;
@@ -133,6 +134,8 @@ export interface Booking {
   evaluation_period_id: string;
   slot_id: string;
   status: BookingStatus;
+  evaluation_status: EvaluationStatus;
+  evaluation_completed_at: string | null;
   created_at: string;
   evaluation_slots?: EvaluationSlot | null;
   evaluation_periods?: EvaluationPeriod | null;

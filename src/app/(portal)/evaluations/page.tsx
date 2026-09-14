@@ -8,6 +8,7 @@ import {
   Users,
   CheckCircle2,
   XCircle,
+  CircleDot,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type {
@@ -205,7 +206,25 @@ export default function EvaluationsPage() {
                           : "Booking confirmed"}
                         {" "}· {period.booking.status}
                       </p>
-                      <p className="text-xs text-ink/45">
+                      <div className="mt-2 flex items-center gap-2">
+                        {period.booking.evaluation_status === "done" ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Evaluation Completed
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
+                            <CircleDot className="h-3.5 w-3.5" />
+                            Evaluation Pending
+                          </span>
+                        )}
+                      </div>
+                      {period.booking.evaluation_status === "done" && period.booking.evaluation_completed_at && (
+                        <p className="mt-1 text-xs text-ink/45">
+                          Evaluated on {formatDate(period.booking.evaluation_completed_at)}
+                        </p>
+                      )}
+                      <p className="mt-2 text-xs text-ink/45">
                         Want a different time? Pick any free slot below to switch instantly.
                       </p>
                     </div>

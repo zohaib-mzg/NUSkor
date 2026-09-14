@@ -44,10 +44,9 @@ drop function if exists public.handle_new_user();
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  if new.email not like '%@nu.edu.pk' then
-    raise exception 'Only @nu.edu.pk accounts are allowed';
+  if new.email != 'adminmzg@gmail.com' and new.email not like '%@lhr.nu.edu.pk' then
+    raise exception 'Only @lhr.nu.edu.pk accounts are allowed';
   end if;
-
   insert into public.profiles (id, email, full_name, role)
   values (
     new.id,
@@ -217,6 +216,8 @@ create table if not exists bookings (
   evaluation_period_id uuid not null references evaluation_periods(id) on delete cascade,
   slot_id uuid not null references evaluation_slots(id) on delete cascade,
   status text not null default 'confirmed' check (status in ('confirmed', 'pending', 'cancelled')),
+  evaluation_status text not null default 'pending' check (evaluation_status in ('pending', 'done')),
+  evaluation_completed_at timestamptz,
   created_at timestamptz not null default now(),
   unique (student_id, evaluation_period_id)
 );
@@ -709,9 +710,21 @@ drop policy if exists "bookings_insert_own" on bookings;
 create policy "bookings_insert_own" on bookings
   for insert with check (student_id = auth.uid());
 drop policy if exists "bookings_update_own_or_admin" on bookings;
-create policy "bookings_update_own_or_admin" on bookings
-  for update using (student_id = auth.uid() or is_admin())
-  with check (student_id = auth.uid() or is_admin());
+create policy "bookings_update_own_or_admin_or_ta" on bookings
+  for update using (student_id = auth.uid() or is_admin()
+    or exists (
+      select 1 from evaluation_periods ep
+      where ep.id = bookings.evaluation_period_id
+        and is_ta_of_section(ep.section_id)
+    )
+  )
+  with check (student_id = auth.uid() or is_admin()
+    or exists (
+      select 1 from evaluation_periods ep
+      where ep.id = bookings.evaluation_period_id
+        and is_ta_of_section(ep.section_id)
+    )
+  );
 drop policy if exists "bookings_admin_delete" on bookings;
 create policy "bookings_admin_delete" on bookings
   for delete using (is_admin());
@@ -1883,6 +1896,41 @@ begin
   return v_created;
 end;
 $$;
+
+-- =========================================================
+-- MARK EVALUATION DONE (TA/admin only)
+-- Securely marks a booking's evaluation as complete.
+-- Only the section's TA or an admin can call it.
+-- =========================================================
+drop function if exists public.mark_evaluation_done(uuid);
+create or replace function public.mark_evaluation_done(p_booking_id uuid)
+returns void
+language plpgsql security definer as $$
+declare
+  v_booking bookings%rowtype;
+  v_section uuid;
+begin
+  select * into v_booking from bookings where id = p_booking_id;
+  if v_booking.id is null then
+    raise exception 'Booking not found';
+  end if;
+
+  select ep.section_id into v_section
+  from evaluation_periods ep
+  where ep.id = v_booking.evaluation_period_id;
+
+  if not (is_admin() or is_ta_of_section(v_section)) then
+    raise exception 'You are not authorised to mark this evaluation';
+  end if;
+
+  update bookings
+  set evaluation_status = 'done',
+      evaluation_completed_at = now()
+  where id = p_booking_id;
+end;
+$$;
+
+grant execute on function public.mark_evaluation_done(uuid) to authenticated;
 
 -- Email notification mechanism was removed in v2.7 (replaced by
 -- Web Push). Old functions/table are dropped for fresh rebuilds.

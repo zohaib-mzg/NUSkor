@@ -14,7 +14,7 @@ export default function AccessDeniedPage() {
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-ink/55">
           nuSkor is restricted to institutional accounts. If you signed in with
-          a different email, sign out and try again with your @nu.edu.pk
+          a different email, sign out and try again with your @lhr.nu.edu.pk
           account.
         </p>
         <div className="mt-6 flex justify-center">

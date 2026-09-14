@@ -495,12 +495,12 @@ async function copyLink(token: string) {
               name="email"
               type="email"
               className="input"
-              placeholder="l24xxxx@nu.edu.pk"
+              placeholder="l24xxxx@lhr.nu.edu.pk"
               required
             />
 <p className="mt-1 text-xs text-ink/45">
               The student must already have a nuSkor account on the
-              @nu.edu.pk domain (e.g. they joined via an invitation link).
+              @lhr.nu.edu.pk domain (e.g. they joined via an invitation link).
             </p>
           </div>
           <div className="flex justify-end gap-3 pt-2">

@@ -9,6 +9,8 @@ import {
   Megaphone,
   ArrowRight,
   Shield,
+  CheckCircle2,
+  CircleDot,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getPushSubscription, listDeviceSubscriptions } from "@/lib/push";
@@ -398,12 +400,25 @@ export default function StudentDashboard() {
                     </p>
                     <div className="mt-3">
                       {p.booking ? (
-                        <Badge tone="green" className="w-full justify-center">
-                          Booked ·{" "}
-                          {p.booking.evaluation_slots
-                            ? `${formatDate(p.booking.evaluation_slots.slot_date)}, ${p.booking.evaluation_slots.start_time}–${p.booking.evaluation_slots.end_time}`
-                            : "see details"}
-                        </Badge>
+                        <div className="space-y-2">
+                          <Badge tone="green" className="w-full justify-center">
+                            Booked ·{" "}
+                            {p.booking.evaluation_slots
+                              ? `${formatDate(p.booking.evaluation_slots.slot_date)}, ${p.booking.evaluation_slots.start_time}–${p.booking.evaluation_slots.end_time}`
+                              : "see details"}
+                          </Badge>
+                          <div className="flex items-center justify-center gap-1.5 text-xs">
+                            {p.booking.evaluation_status === "done" ? (
+                              <span className="inline-flex items-center gap-1 text-green-600 font-semibold">
+                                <CheckCircle2 className="h-3.5 w-3.5" /> Evaluated
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-orange-500 font-medium">
+                                <CircleDot className="h-3.5 w-3.5" /> Eval pending
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       ) : (
                         <Badge tone="neutral" className="w-full justify-center">
                           No slot booked yet

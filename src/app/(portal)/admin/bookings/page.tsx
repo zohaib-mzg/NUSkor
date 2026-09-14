@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarDays, Search, CheckCircle2, XCircle } from "lucide-react";
+import { CalendarDays, Search, CheckCircle2, XCircle, CircleDot } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Booking } from "@/lib/types";
 import { cleanName, formatDate, one, regNoDisplay } from "@/lib/utils";
@@ -124,6 +124,7 @@ export default function BookingsPage() {
                   <th className="th">Evaluation</th>
                   <th className="th">Slot</th>
                   <th className="th">Status</th>
+                  <th className="th">Evaluation</th>
                   <th className="th text-right">Actions</th>
                 </tr>
               </thead>
@@ -162,6 +163,25 @@ export default function BookingsPage() {
                     </td>
                     <td className="td">
                       <Badge tone={(statusTone(b.status) as "green" | "gold" | "red")}>{b.status}</Badge>
+                    </td>
+                    <td className="td">
+                      {b.evaluation_status === "done" ? (
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <div>
+                            <p className="text-sm font-semibold text-green-700">Done</p>
+                            {b.evaluation_completed_at && (
+                              <p className="text-[11px] text-ink/45">
+                                {formatDate(b.evaluation_completed_at, true)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-sm text-orange-500">
+                          <CircleDot className="h-3.5 w-3.5" /> Pending
+                        </span>
+                      )}
                     </td>
                     <td className="td">
                       <div className="flex justify-end gap-2">

@@ -47,9 +47,9 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Application-level domain enforcement (Google auth is NOT authorization).
-  // Admin email is exempt from domain check.
+  // Admin email is exempt from domain check. Only @lhr.nu.edu.pk is allowed.
   const emailDomain = user.email?.toLowerCase().split("@")[1] ?? "";
-  if (user.email?.toLowerCase() !== ADMIN_EMAIL && !emailDomain.endsWith("nu.edu.pk")) {
+  if (user.email?.toLowerCase() !== ADMIN_EMAIL && emailDomain !== "lhr.nu.edu.pk") {
     await supabase.auth.signOut();
     const url = request.nextUrl.clone();
     url.pathname = "/access-denied";

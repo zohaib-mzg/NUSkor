@@ -9,6 +9,8 @@ import {
   Trash2,
   Wand2,
   CalendarCheck2,
+  Users,
+  CheckCircle2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { notifyAll } from "@/lib/push";
@@ -38,9 +40,12 @@ export default function TaEvaluationPeriodsPage() {
   const [periods, setPeriods] = useState<PeriodAdmin[]>([]);
   const [modal, setModal] = useState(false);
   const [slotFor, setSlotFor] = useState<PeriodAdmin | null>(null);
-const [genFor, setGenFor] = useState<PeriodAdmin | null>(null);
+  const [genFor, setGenFor] = useState<PeriodAdmin | null>(null);
   const [genBusy, setGenBusy] = useState(false);
-  const [bookingsFor, setBookingsFor] = useState<PeriodAdmin | null>(null);
+  const [bookingsSlot, setBookingsSlot] = useState<{
+    period: PeriodAdmin;
+    slot: SlotWithBookings;
+  } | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [toClose, setToClose] = useState<PeriodAdmin | null>(null);
@@ -52,6 +57,7 @@ const [genFor, setGenFor] = useState<PeriodAdmin | null>(null);
     slotId: string;
   } | null>(null);
   const [use24h, setUse24h] = useState(true);
+  const [markingEval, setMarkingEval] = useState<string | null>(null);
 
 const load = useCallback(async () => {
     const supabase = createClient();
@@ -94,8 +100,8 @@ const load = useCallback(async () => {
     load();
   }, [load]);
 
-  async function openBookings(period: PeriodAdmin) {
-    setBookingsFor(period);
+  async function openBookingsForSlot(period: PeriodAdmin, slot: SlotWithBookings) {
+    setBookingsSlot({ period, slot });
     setBookingsLoading(true);
     const supabase = createClient();
     const { data } = await supabase
@@ -104,9 +110,25 @@ const load = useCallback(async () => {
         "*, evaluation_slots(slot_date, start_time, end_time), students(registration_no, profiles(full_name, email))"
       )
       .eq("evaluation_period_id", period.id)
+      .eq("slot_id", slot.slot_id)
       .order("created_at", { ascending: false });
     setBookings((data ?? []) as Booking[]);
     setBookingsLoading(false);
+  }
+
+  async function markDone(bookingId: string) {
+    setMarkingEval(bookingId);
+    const supabase = createClient();
+    const { error: err } = await supabase.rpc("mark_evaluation_done", {
+      p_booking_id: bookingId,
+    });
+    setMarkingEval(null);
+    if (err) return error(err.message);
+    success("Evaluation marked as done.");
+    if (bookingsSlot) {
+      await openBookingsForSlot(bookingsSlot.period, bookingsSlot.slot);
+    }
+    load();
   }
 
   async function createPeriod(e: React.FormEvent<HTMLFormElement>) {
@@ -344,6 +366,16 @@ const dates: string[] = [];
         <div className="space-y-6">
           {periods.map((period) => {
             const totalBooked = period.slots.reduce((s, sl) => s + sl.booked, 0);
+            // Group slots by date
+            const groups: { date: string; slots: SlotWithBookings[] }[] = [];
+            for (const slot of period.slots) {
+              const last = groups[groups.length - 1];
+              if (last && last.date === slot.slot_date) {
+                last.slots.push(slot);
+              } else {
+                groups.push({ date: slot.slot_date, slots: [slot] });
+              }
+            }
             return (
               <section
                 key={period.id}
@@ -373,14 +405,6 @@ const dates: string[] = [];
                     </p>
                   </div>
 <div className="flex flex-wrap gap-2">
-                    {totalBooked > 0 && (
-                      <button
-                        className="btn-outline px-3 py-1.5 text-xs"
-                        onClick={() => openBookings(period)}
-                      >
-                        <CalendarCheck2 className="h-3.5 w-3.5" /> Bookings ({totalBooked})
-                      </button>
-                    )}
                     {!period.is_closed && (
                       <button
                         className="btn-outline px-3 py-1.5 text-xs"
@@ -439,86 +463,93 @@ const dates: string[] = [];
                     />
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    {(() => {
-                      // Group slots by date (data is pre-sorted by slot_date, start_time)
-                      const groups: { date: string; slots: SlotWithBookings[] }[] = [];
-                      for (const slot of period.slots) {
-                        const last = groups[groups.length - 1];
-                        if (last && last.date === slot.slot_date) {
-                          last.slots.push(slot);
-                        } else {
-                          groups.push({ date: slot.slot_date, slots: [slot] });
-                        }
-                      }
-                      return groups.map((group, gi) => {
-                        const d = new Date(group.date + "T00:00:00");
-                        const dayName = d.toLocaleDateString("en-GB", { weekday: "long" });
-                        const dateLabel = formatDate(group.date);
-                        return (
-                          <div key={group.date} className={gi > 0 ? "border-t border-black/[0.06]" : ""}>
-                            <div className="bg-paper/60 px-5 py-2.5">
-                              <p className="text-xs font-bold uppercase tracking-wider text-ink/50">{dayName}</p>
-                              <p className="text-sm font-semibold text-ink">{dateLabel}</p>
-                            </div>
-                            <table className="w-full min-w-[560px]">
-                              <thead className="bg-paper/30">
-                                <tr>
-                                  <th className="th">Time</th>
-                                  <th className="th">Booked</th>
-                                  <th className="th text-right">Actions</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {group.slots.map((slot) => {
-                                  const full = slot.booked >= slot.capacity;
-                                  return (
-                                    <tr key={slot.slot_id} className="bg-white">
-                                      <td className="td font-semibold text-ink">
-                                        {formatSlotTime(slot.start_time, use24h)}–{formatSlotTime(slot.end_time, use24h)}
-                                      </td>
-                                      <td className="td">
-                                        <Badge
-                                          tone={
-                                            !slot.is_open
-                                              ? "neutral"
-                                              : full
-                                                ? "red"
-                                                : "green"
-                                          }
-                                        >
-                                          {slot.booked}/{slot.capacity}{" "}
-                                          {!slot.is_open ? "· closed" : full ? "· full" : ""}
-                                        </Badge>
-                                      </td>
-                                      <td className="td">
-                                        <div className="flex justify-end gap-2">
-                                          <button
-                                            onClick={() => toggleSlot(slot)}
-                                            className="btn-outline px-3 py-1.5 text-xs"
-                                          >
-                                            <Power className="h-3.5 w-3.5" />
-                                            {slot.is_open ? "Close" : "Reopen"}
-                                          </button>
-                                          <button
-                                            onClick={() =>
-                                              setToDeleteSlot({ period, slotId: slot.slot_id })
-                                            }
-                                            className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
-                                          >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                          </button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
+                  <div className="px-5 py-5">
+                    {groups.map((group, gi) => {
+                      const d = new Date(group.date + "T00:00:00");
+                      const dayName = d.toLocaleDateString("en-GB", { weekday: "long" });
+                      const dateLabel = formatDate(group.date);
+                      return (
+                        <div key={group.date} className={gi > 0 ? "mt-5 border-t border-black/[0.06] pt-5" : ""}>
+                          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-ink/50">{dayName}</p>
+                          <p className="mb-3 text-sm font-semibold text-ink">{dateLabel}</p>
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {group.slots.map((slot) => {
+                              const full = slot.booked >= slot.capacity;
+                              const closed = !slot.is_open;
+                              return (
+                                <div
+                                  key={slot.slot_id}
+                                  className={`rounded-xl border p-4 transition-all ${
+                                    closed
+                                      ? "border-black/[0.05] bg-paper/80 opacity-70"
+                                      : full
+                                        ? "border-red-200 bg-red-50/30"
+                                        : "border-black/[0.08] bg-white hover:border-gold hover:shadow-lift"
+                                  }`}
+                                >
+                                  <div className="mb-3 flex items-center justify-between">
+                                    <span className="inline-flex items-center gap-1.5 font-bold text-ink">
+                                      <Clock className="h-4 w-4 text-gold-deep" />
+                                      {formatSlotTime(slot.start_time, use24h)}
+                                    </span>
+                                    <span className="text-xs text-ink/40">to</span>
+                                    <span className="font-bold text-ink">
+                                      {formatSlotTime(slot.end_time, use24h)}
+                                    </span>
+                                  </div>
+
+                                  <div className="mb-4 text-center">
+                                    <p className={`text-2xl font-extrabold ${
+                                      closed ? "text-ink/40" : full ? "text-red-600" : "text-ink"
+                                    }`}>
+                                      {slot.booked}<span className="text-ink/30"> / {slot.capacity}</span>
+                                    </p>
+                                    <Badge
+                                      tone={
+                                        closed
+                                          ? "neutral"
+                                          : full
+                                            ? "red"
+                                            : "green"
+                                      }
+                                      className="mt-1"
+                                    >
+                                      {closed ? "Closed" : full ? "FULL" : "Available"}
+                                    </Badge>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <button
+                                      onClick={() => openBookingsForSlot(period, slot)}
+                                      className="btn-outline w-full py-1.5 text-xs"
+                                    >
+                                      <CalendarCheck2 className="h-3.5 w-3.5" /> See Bookings
+                                    </button>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => toggleSlot(slot)}
+                                        className="btn-outline flex-1 py-1.5 text-xs"
+                                      >
+                                        <Power className="h-3.5 w-3.5" />
+                                        {slot.is_open ? "Close" : "Reopen"}
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          setToDeleteSlot({ period, slotId: slot.slot_id })
+                                        }
+                                        className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      });
-                    })()}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </section>
@@ -737,54 +768,44 @@ const dates: string[] = [];
         confirmLabel="Delete slot"
       />
 
-      {/* Bookings list */}
+      {/* Slot Bookings modal */}
       <Modal
-        open={!!bookingsFor}
-        onClose={() => setBookingsFor(null)}
-        title={`Bookings · ${bookingsFor?.title ?? ""}`}
+        open={!!bookingsSlot}
+        onClose={() => setBookingsSlot(null)}
+        title={`Bookings — ${bookingsSlot ? `${formatSlotTime(bookingsSlot.slot.start_time, use24h)} – ${formatSlotTime(bookingsSlot.slot.end_time, use24h)}` : ""}`}
         wide
       >
         {bookingsLoading ? (
           <Spinner label="Loading bookings..." />
         ) : bookings.length === 0 ? (
-          <EmptyState title="No bookings yet" />
+          <EmptyState title="No bookings for this slot" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px]">
+            <table className="w-full min-w-[560px]">
               <thead className="bg-paper">
                 <tr>
-                  <th className="th">Reg. No.</th>
                   <th className="th">Student</th>
-                  <th className="th">Section</th>
-                  <th className="th">Slot</th>
+                  <th className="th">Roll No.</th>
                   <th className="th">Status</th>
+                  <th className="th">Evaluation</th>
+                  <th className="th text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {bookings.map((b) => {
                   const student = one(b.students);
                   const profile = one(student?.profiles);
-                  const sec = one(bookingsFor?.section);
+                  const evalDone = b.evaluation_status === "done";
                   return (
                     <tr key={b.id} className="bg-white">
-                      <td className="td font-mono text-xs text-ink/70">
-                        {regNoDisplay(student?.registration_no, student?.profiles?.email)}
-                      </td>
                       <td className="td">
                         <p className="font-semibold text-ink">
                           {cleanName(profile?.full_name) || "Student"}
                         </p>
                         <p className="text-xs text-ink/50">{profile?.email}</p>
                       </td>
-                      <td className="td">
-                        {sec
-                          ? `${sec.course?.code ?? "Course"} → ${sec.section_code}`
-                          : "—"}
-                      </td>
-                      <td className="td text-ink/70">
-                        {b.evaluation_slots
-                          ? `${formatDate(b.evaluation_slots.slot_date)}, ${formatSlotTime(b.evaluation_slots.start_time, use24h)}–${formatSlotTime(b.evaluation_slots.end_time, use24h)}`
-                          : "N/A"}
+                      <td className="td font-mono text-xs text-ink/70">
+                        {regNoDisplay(student?.registration_no, student?.profiles?.email)}
                       </td>
                       <td className="td">
                         <Badge
@@ -798,6 +819,45 @@ const dates: string[] = [];
                         >
                           {b.status}
                         </Badge>
+                      </td>
+                      <td className="td">
+                        {evalDone ? (
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            <div>
+                              <p className="text-sm font-semibold text-green-700">Done</p>
+                              <p className="text-[11px] text-ink/45">
+                                {b.evaluation_completed_at
+                                  ? formatDate(b.evaluation_completed_at, true)
+                                  : ""}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-ink/50">Pending</span>
+                        )}
+                      </td>
+                      <td className="td">
+                        <div className="flex justify-end">
+                          {!evalDone && b.status === "confirmed" && (
+                            <button
+                              onClick={() => markDone(b.id)}
+                              disabled={markingEval === b.id}
+                              className="btn-primary px-3 py-1.5 text-xs"
+                            >
+                              {markingEval === b.id ? (
+                                "Saving..."
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> Mark Done
+                                </>
+                              )}
+                            </button>
+                          )}
+                          {evalDone && (
+                            <span className="text-xs text-green-600 font-medium">Completed</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

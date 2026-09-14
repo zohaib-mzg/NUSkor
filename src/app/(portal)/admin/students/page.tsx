@@ -231,7 +231,7 @@ export default function StudentsPage() {
         <div className="card">
           <EmptyState
             title="No students yet"
-            description="When students sign in with their @nu.edu.pk Google account, their profile appears here automatically."
+            description="When students sign in with their @lhr.nu.edu.pk Google account, their profile appears here automatically."
           />
         </div>
       ) : (

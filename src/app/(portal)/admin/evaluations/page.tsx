@@ -8,11 +8,12 @@ import {
   Power,
   Trash2,
   Wand2,
+  CalendarCheck2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { notifyAll } from "@/lib/push";
 import type { CourseSection, EvaluationPeriod, SlotWithBookings } from "@/lib/types";
-import { formatDate, one } from "@/lib/utils";
+import { formatDate, formatSlotTime, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -39,6 +40,7 @@ export default function EvaluationPeriodsPage() {
     period: PeriodAdmin;
     slotId: string;
   } | null>(null);
+  const [use24h, setUse24h] = useState(true);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -236,6 +238,26 @@ export default function EvaluationPeriodsPage() {
         }
       />
 
+      <div className="mb-4 flex items-center gap-2">
+        <span className="text-sm text-ink/60">Time format:</span>
+        <button
+          onClick={() => setUse24h(true)}
+          className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+            use24h ? "bg-ink text-white" : "bg-ink/10 text-ink/60 hover:bg-ink/20"
+          }`}
+        >
+          24-hour
+        </button>
+        <button
+          onClick={() => setUse24h(false)}
+          className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+            !use24h ? "bg-ink text-white" : "bg-ink/10 text-ink/60 hover:bg-ink/20"
+          }`}
+        >
+          12-hour
+        </button>
+      </div>
+
       {periods.length === 0 ? (
         <div className="card">
           <EmptyState
@@ -311,65 +333,96 @@ export default function EvaluationPeriodsPage() {
                     />
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[560px]">
-                      <thead className="bg-paper">
-                        <tr>
-                          <th className="th">Date</th>
-                          <th className="th">Time</th>
-                          <th className="th">Booked</th>
-                          <th className="th text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {period.slots.map((slot) => {
-                          const full = slot.booked >= slot.capacity;
-                          return (
-                            <tr key={slot.slot_id} className="bg-white">
-                              <td className="td font-semibold text-ink">
-                                {formatDate(slot.slot_date)}
-                              </td>
-                              <td className="td">
-                                {slot.start_time}–{slot.end_time}
-                              </td>
-                              <td className="td">
-                                <Badge
-                                  tone={
-                                    !slot.is_open
-                                      ? "neutral"
-                                      : full
-                                        ? "red"
-                                        : "green"
-                                  }
-                                >
-                                  {slot.booked}/{slot.capacity}{" "}
-                                  {!slot.is_open ? "· closed" : full ? "· full" : ""}
-                                </Badge>
-                              </td>
-                              <td className="td">
-                                <div className="flex justify-end gap-2">
-                                  <button
-                                    onClick={() => toggleSlot(slot)}
-                                    className="btn-outline px-3 py-1.5 text-xs"
+                  <div className="px-5 py-5">
+                    {(() => {
+                      const groups: { date: string; slots: SlotWithBookings[] }[] = [];
+                      for (const slot of period.slots) {
+                        const last = groups[groups.length - 1];
+                        if (last && last.date === slot.slot_date) {
+                          last.slots.push(slot);
+                        } else {
+                          groups.push({ date: slot.slot_date, slots: [slot] });
+                        }
+                      }
+                      return groups.map((group, gi) => {
+                        const d = new Date(group.date + "T00:00:00");
+                        const dayName = d.toLocaleDateString("en-GB", { weekday: "long" });
+                        const dateLabel = formatDate(group.date);
+                        return (
+                          <div key={group.date} className={gi > 0 ? "mt-5 border-t border-black/[0.06] pt-5" : ""}>
+                            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-ink/50">{dayName}</p>
+                            <p className="mb-3 text-sm font-semibold text-ink">{dateLabel}</p>
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                              {group.slots.map((slot) => {
+                                const full = slot.booked >= slot.capacity;
+                                const closed = !slot.is_open;
+                                return (
+                                  <div
+                                    key={slot.slot_id}
+                                    className={`rounded-xl border p-4 transition-all ${
+                                      closed
+                                        ? "border-black/[0.05] bg-paper/80 opacity-70"
+                                        : full
+                                          ? "border-red-200 bg-red-50/30"
+                                          : "border-black/[0.08] bg-white hover:border-gold hover:shadow-lift"
+                                    }`}
                                   >
-                                    <Power className="h-3.5 w-3.5" />
-                                    {slot.is_open ? "Close" : "Reopen"}
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      setToDeleteSlot({ period, slotId: slot.slot_id })
-                                    }
-                                    className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                                    <div className="mb-3 flex items-center justify-between">
+                                      <span className="inline-flex items-center gap-1.5 font-bold text-ink">
+                                        <Clock className="h-4 w-4 text-gold-deep" />
+                                        {formatSlotTime(slot.start_time, use24h)}
+                                      </span>
+                                      <span className="text-xs text-ink/40">to</span>
+                                      <span className="font-bold text-ink">
+                                        {formatSlotTime(slot.end_time, use24h)}
+                                      </span>
+                                    </div>
+
+                                    <div className="mb-4 text-center">
+                                      <p className={`text-2xl font-extrabold ${
+                                        closed ? "text-ink/40" : full ? "text-red-600" : "text-ink"
+                                      }`}>
+                                        {slot.booked}<span className="text-ink/30"> / {slot.capacity}</span>
+                                      </p>
+                                      <Badge
+                                        tone={
+                                          closed
+                                            ? "neutral"
+                                            : full
+                                              ? "red"
+                                              : "green"
+                                        }
+                                        className="mt-1"
+                                      >
+                                        {closed ? "Closed" : full ? "FULL" : "Available"}
+                                      </Badge>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => toggleSlot(slot)}
+                                        className="btn-outline flex-1 py-1.5 text-xs"
+                                      >
+                                        <Power className="h-3.5 w-3.5" />
+                                        {slot.is_open ? "Close" : "Reopen"}
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          setToDeleteSlot({ period, slotId: slot.slot_id })
+                                        }
+                                        className="btn-outline px-3 py-1.5 text-xs text-red-600 hover:border-red-300 hover:bg-red-50"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 )}
               </section>

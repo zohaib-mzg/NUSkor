@@ -147,7 +147,7 @@ function InviteInner({
       options: {
         redirectTo,
         queryParams: {
-          hd: "nu.edu.pk",
+          hd: "lhr.nu.edu.pk",
           prompt: "select_account",
         },
       },
@@ -256,7 +256,7 @@ function InviteInner({
                   : "Continue with University Google Account"}
               </button>
               <p className="mt-3 text-center text-xs leading-relaxed text-ink/45">
-                You must sign in with your <b>@nu.edu.pk</b> Google account
+                You must sign in with your <b>@lhr.nu.edu.pk</b> Google account
                 to join. This is your only sign-in step.
               </p>
             </div>

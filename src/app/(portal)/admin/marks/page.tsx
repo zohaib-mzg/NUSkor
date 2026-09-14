@@ -609,7 +609,7 @@ onClick={() => {
                   const lines =
                     templateEmails.length > 0
                       ? templateEmails.map((email) => `${email},`)
-                      : ["student@nu.edu.pk,"];
+                      : ["student@lhr.nu.edu.pk,"];
                   const blob = new Blob(
                     [["student_email,score", ...lines].join("\n")],
                     { type: "text/csv" }

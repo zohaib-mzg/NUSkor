@@ -82,6 +82,40 @@ $$;
 GRANT EXECUTE ON FUNCTION public.mark_evaluation_done(uuid) TO authenticated;
 
 -- =========================================================
+-- 3b. Secure RPC: unmark_evaluation_done
+--     Reverses mark_evaluation_done: sets status back to pending.
+-- =========================================================
+DROP FUNCTION IF EXISTS public.unmark_evaluation_done(uuid);
+CREATE OR REPLACE FUNCTION public.unmark_evaluation_done(p_booking_id uuid)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_booking bookings%rowtype;
+  v_section uuid;
+BEGIN
+  SELECT * INTO v_booking FROM bookings WHERE id = p_booking_id;
+  IF v_booking.id IS NULL THEN
+    RAISE EXCEPTION 'Booking not found';
+  END IF;
+
+  SELECT ep.section_id INTO v_section
+  FROM evaluation_periods ep
+  WHERE ep.id = v_booking.evaluation_period_id;
+
+  IF NOT (is_admin() OR is_ta_of_section(v_section)) THEN
+    RAISE EXCEPTION 'You are not authorised to unmark this evaluation';
+  END IF;
+
+  UPDATE bookings
+  SET evaluation_status = 'pending',
+      evaluation_completed_at = null
+  WHERE id = p_booking_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.unmark_evaluation_done(uuid) TO authenticated;
+
+-- =========================================================
 -- 4. Also allow TAs to insert bookings (for admin rebooking
 --    on behalf of students, matching admin full access).
 --    This keeps the existing student-only insert policy intact

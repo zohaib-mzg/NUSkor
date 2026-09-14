@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   CircleDot,
   ChevronUp,
+  XCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { notifyAll } from "@/lib/push";
@@ -166,12 +167,38 @@ export default function TaEvaluationPeriodsPage() {
             "*, evaluation_slots(slot_date, start_time, end_time), students(registration_no, profiles(full_name, email))"
           )
           .eq("evaluation_period_id", period.id)
-          .eq("slot_id", expandedSlot)
-          .order("created_at", { ascending: false });
+          .eq("slot_id", expandedSlot);
         setSlotBookings((data ?? []) as Booking[]);
       }
     }
-    load();
+  }
+
+  async function unmarkDone(bookingId: string) {
+    setMarkingEval(bookingId);
+    const supabase = createClient();
+    const { error: err } = await supabase.rpc("unmark_evaluation_done", {
+      p_booking_id: bookingId,
+    });
+    setMarkingEval(null);
+    if (err) return error(err.message);
+    success("Evaluation unmarked.");
+    // Refresh expanded bookings
+    if (expandedSlot) {
+      const supabase = createClient();
+      const period = periods.find((p) =>
+        p.slots.some((s) => s.slot_id === expandedSlot)
+      );
+      if (period) {
+        const { data } = await supabase
+          .from("bookings")
+          .select(
+            "*, evaluation_slots(slot_date, start_time, end_time), students(registration_no, profiles(full_name, email))"
+          )
+          .eq("evaluation_period_id", period.id)
+          .eq("slot_id", expandedSlot);
+        setSlotBookings((data ?? []) as Booking[]);
+      }
+    }
   }
 
   async function toggleSlot(slot: SlotWithBookings) {
@@ -598,14 +625,24 @@ export default function TaEvaluationPeriodsPage() {
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                   {evalDone ? (
-                                                    <div className="flex items-center gap-1 text-xs text-green-600">
-                                                      <CheckCircle2 className="h-3.5 w-3.5" />
-                                                      <span className="font-medium">Done</span>
-                                                      {b.evaluation_completed_at && (
-                                                        <span className="text-ink/35">
-                                                          {formatDate(b.evaluation_completed_at)}
-                                                        </span>
-                                                      )}
+                                                    <div className="flex items-center gap-1.5">
+                                                      <span className="flex items-center gap-1 text-xs text-green-600">
+                                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                                        <span className="font-medium">Done</span>
+                                                        {b.evaluation_completed_at && (
+                                                          <span className="text-ink/35">
+                                                            {formatDate(b.evaluation_completed_at)}
+                                                          </span>
+                                                        )}
+                                                      </span>
+                                                      <button
+                                                        onClick={() => unmarkDone(b.id)}
+                                                        disabled={markingEval === b.id}
+                                                        className="inline-flex items-center gap-1 rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-[11px] font-semibold text-orange-600 transition-colors hover:bg-orange-100 disabled:opacity-50"
+                                                      >
+                                                        <XCircle className="h-3 w-3" />
+                                                        {markingEval === b.id ? "..." : "Unmark"}
+                                                      </button>
                                                     </div>
                                                   ) : (
                                                     <button

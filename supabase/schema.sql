@@ -1932,6 +1932,40 @@ $$;
 
 grant execute on function public.mark_evaluation_done(uuid) to authenticated;
 
+-- =========================================================
+-- UNMARK EVALUATION DONE (TA/admin only)
+-- Reverses mark_evaluation_done: sets status back to pending.
+-- =========================================================
+drop function if exists public.unmark_evaluation_done(uuid);
+create or replace function public.unmark_evaluation_done(p_booking_id uuid)
+returns void
+language plpgsql security definer as $$
+declare
+  v_booking bookings%rowtype;
+  v_section uuid;
+begin
+  select * into v_booking from bookings where id = p_booking_id;
+  if v_booking.id is null then
+    raise exception 'Booking not found';
+  end if;
+
+  select ep.section_id into v_section
+  from evaluation_periods ep
+  where ep.id = v_booking.evaluation_period_id;
+
+  if not (is_admin() or is_ta_of_section(v_section)) then
+    raise exception 'You are not authorised to unmark this evaluation';
+  end if;
+
+  update bookings
+  set evaluation_status = 'pending',
+      evaluation_completed_at = null
+  where id = p_booking_id;
+end;
+$$;
+
+grant execute on function public.unmark_evaluation_done(uuid) to authenticated;
+
 -- Email notification mechanism was removed in v2.7 (replaced by
 -- Web Push). Old functions/table are dropped for fresh rebuilds.
 drop function if exists public.prepare_email_deliveries(uuid);

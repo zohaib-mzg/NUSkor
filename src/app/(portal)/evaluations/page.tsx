@@ -96,13 +96,26 @@ export default function EvaluationsPage() {
     if (completedSectionIds.size > 0) {
       const { data: taRows } = await supabase
         .from("section_tas")
-        .select("section_id, ta:profiles(full_name)")
+        .select("section_id, ta_id")
         .in("section_id", Array.from(completedSectionIds));
+      const taIds = [...new Set((taRows ?? []).map((r: { ta_id: string }) => r.ta_id))];
+      const taIdToSection = new Map(
+        (taRows ?? []).map((r: { section_id: string; ta_id: string }) => [r.ta_id, r.section_id])
+      );
       const nameMap = new Map<string, string>();
-      for (const row of taRows ?? []) {
-        const r = row as { section_id: string; ta?: { full_name?: string }[] | { full_name?: string } | null };
-        const ta = Array.isArray(r.ta) ? r.ta[0] : r.ta;
-        if (ta?.full_name) nameMap.set(r.section_id, cleanName(ta.full_name));
+      if (taIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", taIds);
+        for (const p of profiles ?? []) {
+          const r = p as { id: string; full_name?: string | null; email?: string };
+          const sectionId = taIdToSection.get(r.id);
+          if (sectionId) {
+            const name = cleanName(r.full_name) || r.email?.split("@")[0] || "";
+            if (name) nameMap.set(sectionId, name);
+          }
+        }
       }
       setTaNames(nameMap);
     }
@@ -202,7 +215,7 @@ export default function EvaluationsPage() {
                 const evalTime = completedAt
                   ? completedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
                   : null;
-                const taName = taNames.get(period.section_id) || "Your TA";
+                const taName = taNames.get(period.section_id) || "—";
                 return (
                   <div className="border-b border-green-200 bg-green-50/50 px-5 py-5">
                     <div className="flex items-start gap-3">

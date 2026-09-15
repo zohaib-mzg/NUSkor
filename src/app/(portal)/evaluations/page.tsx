@@ -59,7 +59,7 @@ export default function EvaluationsPage() {
         .order("starts_on", { ascending: true }),
       supabase
         .from("bookings")
-        .select("*, evaluation_slots(slot_date, start_time, end_time)")
+        .select("*, evaluation_slots(slot_date, start_time, end_time), evaluated_by")
         .eq("student_id", user.id),
     ]);
 
@@ -87,37 +87,32 @@ export default function EvaluationsPage() {
 
     setPeriods(withSlots);
 
-    // Fetch TA names for sections with completed evaluations
-    const completedSectionIds = new Set(
-      withSlots
-        .filter((p) => p.booking?.evaluation_status === "done")
-        .map((p) => p.section_id)
-    );
-    if (completedSectionIds.size > 0) {
-      const { data: taRows } = await supabase
-        .from("section_tas")
-        .select("section_id, ta_id")
-        .in("section_id", Array.from(completedSectionIds));
-      const taIds = [...new Set((taRows ?? []).map((r: { ta_id: string }) => r.ta_id))];
-      const taIdToSection = new Map(
-        (taRows ?? []).map((r: { section_id: string; ta_id: string }) => [r.ta_id, r.section_id])
-      );
+    // Fetch TA names for completed evaluations via evaluated_by
+    const evaluatorIds = [
+      ...new Set(
+        withSlots
+          .map((p) => p.booking?.evaluated_by)
+          .filter((id): id is string => !!id)
+      ),
+    ];
+    if (evaluatorIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", evaluatorIds);
       const nameMap = new Map<string, string>();
-      if (taIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, full_name, email")
-          .in("id", taIds);
-        for (const p of profiles ?? []) {
-          const r = p as { id: string; full_name?: string | null; email?: string };
-          const sectionId = taIdToSection.get(r.id);
-          if (sectionId) {
-            const name = cleanName(r.full_name) || r.email?.split("@")[0] || "";
-            if (name) nameMap.set(sectionId, name);
-          }
-        }
+      for (const p of profiles ?? []) {
+        const r = p as { id: string; full_name?: string | null; email?: string };
+        const name = cleanName(r.full_name) || r.email?.split("@")[0] || "";
+        if (name) nameMap.set(r.id, name);
       }
-      setTaNames(nameMap);
+      // Map evaluator_id -> display name, then attach to periods
+      const evaluatorNames = new Map<string, string>();
+      for (const id of evaluatorIds) {
+        const name = nameMap.get(id);
+        if (name) evaluatorNames.set(id, name);
+      }
+      setTaNames(evaluatorNames);
     }
   }
 
@@ -215,7 +210,7 @@ export default function EvaluationsPage() {
                 const evalTime = completedAt
                   ? completedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
                   : null;
-                const taName = taNames.get(period.section_id) || "—";
+                const taName = (period.booking?.evaluated_by && taNames.get(period.booking.evaluated_by)) || "—";
                 return (
                   <div className="border-b border-green-200 bg-green-50/50 px-5 py-5">
                     <div className="flex items-start gap-3">

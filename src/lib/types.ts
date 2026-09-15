@@ -136,6 +136,7 @@ export interface Booking {
   status: BookingStatus;
   evaluation_status: EvaluationStatus;
   evaluation_completed_at: string | null;
+  evaluated_by: string | null;
   created_at: string;
   evaluation_slots?: EvaluationSlot | null;
   evaluation_periods?: EvaluationPeriod | null;

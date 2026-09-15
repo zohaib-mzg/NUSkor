@@ -41,6 +41,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface PeriodAdmin extends EvaluationPeriod {
   slots: SlotWithBookings[];
+  completedCount: number;
 }
 
 export default function TaEvaluationPeriodsPage() {
@@ -115,8 +116,58 @@ export default function TaEvaluationPeriodsPage() {
         return { ...p, slots: (data ?? []) as SlotWithBookings[] };
       })
     );
-    setPeriods(withSlots);
+
+    // Fetch completed evaluation counts per period
+    const periodIds = withSlots.map((p) => p.id);
+    const completedMap = new Map<string, number>();
+    if (periodIds.length > 0) {
+      const { data: completedRows } = await supabase
+        .from("bookings")
+        .select("evaluation_period_id")
+        .in("evaluation_period_id", periodIds)
+        .eq("status", "confirmed")
+        .eq("evaluation_status", "done");
+      for (const row of completedRows ?? []) {
+        const r = row as { evaluation_period_id: string };
+        completedMap.set(r.evaluation_period_id, (completedMap.get(r.evaluation_period_id) ?? 0) + 1);
+      }
+    }
+
+    const withCompleted = withSlots.map((p) => ({
+      ...p,
+      completedCount: completedMap.get(p.id) ?? 0,
+    }));
+    setPeriods(withCompleted);
     setLoading(false);
+  }, []);
+
+  // Refresh only completed counts (lightweight, no full reload)
+  const refreshCompletedCounts = useCallback(async () => {
+    const supabase = createClient();
+    setPeriods((prev) => {
+      if (prev.length === 0) return prev;
+      const periodIds = prev.map((p) => p.id);
+      supabase
+        .from("bookings")
+        .select("evaluation_period_id")
+        .in("evaluation_period_id", periodIds)
+        .eq("status", "confirmed")
+        .eq("evaluation_status", "done")
+        .then(({ data }) => {
+          const completedMap = new Map<string, number>();
+          for (const row of data ?? []) {
+            const r = row as { evaluation_period_id: string };
+            completedMap.set(r.evaluation_period_id, (completedMap.get(r.evaluation_period_id) ?? 0) + 1);
+          }
+          setPeriods((curr) =>
+            curr.map((p) => ({
+              ...p,
+              completedCount: completedMap.get(p.id) ?? 0,
+            }))
+          );
+        });
+      return prev;
+    });
   }, []);
 
   useEffect(() => {
@@ -161,6 +212,8 @@ export default function TaEvaluationPeriodsPage() {
     } catch (pushErr) {
       console.error("evaluation completed notification failed", pushErr);
     }
+    // Refresh remaining counts
+    refreshCompletedCounts();
     // Refresh expanded bookings
     if (expandedSlot) {
       const supabase = createClient();
@@ -190,6 +243,8 @@ export default function TaEvaluationPeriodsPage() {
     setMarkingEval(null);
     if (err) return error(err.message);
     success("Evaluation unmarked.");
+    // Refresh remaining counts
+    refreshCompletedCounts();
     // Refresh expanded bookings
     if (expandedSlot) {
       const supabase = createClient();
@@ -420,6 +475,7 @@ export default function TaEvaluationPeriodsPage() {
         <div className="space-y-6">
           {periods.map((period) => {
             const totalBooked = period.slots.reduce((s, sl) => s + sl.booked, 0);
+            const remaining = totalBooked - period.completedCount;
             const sec = one(period.section);
             const groups: { date: string; slots: SlotWithBookings[] }[] = [];
             for (const slot of period.slots) {
@@ -453,6 +509,9 @@ export default function TaEvaluationPeriodsPage() {
                         {sec ? `${sec.course?.code} · ${sec.section_code}` : "Section"}{" "}
                         · {formatCompactPeriodDate(period.starts_on, period.ends_on)}{" "}
                         · {period.slots.length} slots · {totalBooked} bookings
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-gold-deep">
+                        Remaining Evaluations: {remaining}
                       </p>
                     </div>
                   </div>

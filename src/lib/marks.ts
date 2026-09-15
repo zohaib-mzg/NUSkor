@@ -27,18 +27,22 @@ function toNumber(value: unknown): number | null {
  * k = floor(0.10 × n)
  * Remove k lowest and k highest, then average the rest.
  * For small datasets where k = 0, returns simple mean.
+ * Result is rounded to 2 decimal places.
  */
 function trimmedMean(values: number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const n = sorted.length;
   const k = Math.floor(TRIM_PROPORTION * n);
+  let mean: number;
   if (k === 0) {
-    return sorted.reduce((s, v) => s + v, 0) / n;
+    mean = sorted.reduce((s, v) => s + v, 0) / n;
+  } else {
+    const trimmed = sorted.slice(k, n - k);
+    if (trimmed.length === 0) return null;
+    mean = trimmed.reduce((s, v) => s + v, 0) / trimmed.length;
   }
-  const trimmed = sorted.slice(k, n - k);
-  if (trimmed.length === 0) return null;
-  return trimmed.reduce((s, v) => s + v, 0) / trimmed.length;
+  return Math.round(mean * 100) / 100;
 }
 
 export interface AssessmentStatistics {
@@ -48,8 +52,8 @@ export interface AssessmentStatistics {
   markedPercentage: number;
   highest: number | null;
   lowest: number | null;
-  trimmedMean: number | null;
-  trimmedMeanPct: number | null;
+  avg: number | null;
+  avgPct: number | null;
   maxMarks: number;
 }
 
@@ -78,7 +82,7 @@ export function calculateAssessmentStats(
   const highest = markedCount > 0 ? Math.max(...validMarks) : null;
   const lowest = markedCount > 0 ? Math.min(...validMarks) : null;
   const mean = trimmedMean(validMarks);
-  const trimmedMeanPct = mean !== null && totalMarks > 0 ? (mean / totalMarks) * 100 : null;
+  const avgPct = mean !== null && totalMarks > 0 ? Math.round((mean / totalMarks) * 10000) / 100 : null;
 
   return {
     totalStudents: totalEnrolled,
@@ -87,8 +91,8 @@ export function calculateAssessmentStats(
     markedPercentage,
     highest,
     lowest,
-    trimmedMean: mean,
-    trimmedMeanPct,
+    avg: mean,
+    avgPct,
     maxMarks: totalMarks,
   };
 }

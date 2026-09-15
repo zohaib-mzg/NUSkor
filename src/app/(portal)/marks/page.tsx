@@ -373,7 +373,7 @@ function AssessmentCard({
 
         {hasAnyMarks && a.stats?.avg_marks != null && (
           <span>
-            Trimmed mean:{" "}
+            Average:{" "}
             <span className="font-semibold text-ink">
               {a.stats.avg_marks} / {a.total}
             </span>

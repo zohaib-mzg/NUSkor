@@ -332,12 +332,12 @@ async function exportSelectedAssessments(selectedIds: string[]) {
               <div className="mb-4 grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl bg-gold/10 p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-gold-deep/70">Class Average</p>
-                  {stats.trimmedMean !== null ? (
+                  {stats.avg !== null ? (
                     <>
                       <p className="mt-1 text-xl font-extrabold text-ink">
-                        {stats.trimmedMean.toFixed(1)} <span className="text-sm font-normal text-ink/30">/ {stats.maxMarks}</span>
+                        {stats.avg.toFixed(2)} <span className="text-sm font-normal text-ink/30">/ {stats.maxMarks}</span>
                       </p>
-                      <p className="text-xs font-semibold text-gold-deep">Trimmed mean · 10%</p>
+                      <p className="text-xs font-semibold text-gold-deep">Average</p>
                     </>
                   ) : (
                     <p className="mt-1 text-xl font-extrabold text-ink">N/A</p>

@@ -137,7 +137,7 @@ as $$
     where e.student_id = p_student_id
   ),
   section_assessments as (
-    select sa.section_id,
+    select ss.section_id,
            cs.section_code,
            c.code as course_code,
            c.title as course_title,

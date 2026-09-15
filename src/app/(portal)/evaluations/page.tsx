@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   XCircle,
   CircleDot,
+  Lock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type {
@@ -16,7 +17,7 @@ import type {
   EvaluationPeriod,
   SlotWithBookings,
 } from "@/lib/types";
-import { formatDate, formatSlotRange, one } from "@/lib/utils";
+import { cleanName, formatDate, formatSlotRange, one } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -33,6 +34,7 @@ export default function EvaluationsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
   const [periods, setPeriods] = useState<PeriodWithData[]>([]);
+  const [taNames, setTaNames] = useState<Map<string, string>>(new Map());
   const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
   const [acting, setActing] = useState<string | null>(null);
   async function load() {
@@ -84,6 +86,26 @@ export default function EvaluationsPage() {
     );
 
     setPeriods(withSlots);
+
+    // Fetch TA names for sections with completed evaluations
+    const completedSectionIds = new Set(
+      withSlots
+        .filter((p) => p.booking?.evaluation_status === "done")
+        .map((p) => p.section_id)
+    );
+    if (completedSectionIds.size > 0) {
+      const { data: taRows } = await supabase
+        .from("section_tas")
+        .select("section_id, ta:profiles(full_name)")
+        .in("section_id", Array.from(completedSectionIds));
+      const nameMap = new Map<string, string>();
+      for (const row of taRows ?? []) {
+        const r = row as { section_id: string; ta?: { full_name?: string }[] | { full_name?: string } | null };
+        const ta = Array.isArray(r.ta) ? r.ta[0] : r.ta;
+        if (ta?.full_name) nameMap.set(r.section_id, cleanName(ta.full_name));
+      }
+      setTaNames(nameMap);
+    }
   }
 
   useEffect(() => {
@@ -172,7 +194,65 @@ export default function EvaluationsPage() {
                 </div>
               </div>
 
-              {period.booking && (
+              {period.booking && period.booking.evaluation_status === "done" && (() => {
+                const completedAt = period.booking!.evaluation_completed_at
+                  ? new Date(period.booking!.evaluation_completed_at)
+                  : null;
+                const evalDate = completedAt ? formatDate(completedAt) : null;
+                const evalTime = completedAt
+                  ? completedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+                  : null;
+                const taName = taNames.get(period.section_id) || "Your TA";
+                return (
+                  <div className="border-b border-green-200 bg-green-50/50 px-5 py-5">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-100">
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-green-800">Evaluation Completed</p>
+                          <Lock className="h-3.5 w-3.5 text-green-600" />
+                        </div>
+                        <p className="mt-1 text-sm text-ink/60">
+                          Thank you for giving your evaluation! Your evaluation has been completed
+                          successfully. Please wait for the marks to be finalized.
+                        </p>
+                        <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 border-t border-green-200/60 pt-3 sm:grid-cols-3">
+                          {evalDate && (
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-ink/40">
+                                Evaluation Date
+                              </p>
+                              <p className="text-xs font-medium text-ink">{evalDate}</p>
+                            </div>
+                          )}
+                          {evalTime && (
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-ink/40">
+                                Evaluation Time
+                              </p>
+                              <p className="text-xs font-medium text-ink">{evalTime}</p>
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-ink/40">
+                              Evaluated By
+                            </p>
+                            <p className="text-xs font-medium text-ink">{taName}</p>
+                          </div>
+                        </div>
+                        <p className="mt-3 flex items-center gap-1.5 text-xs text-ink/40">
+                          <Lock className="h-3 w-3" />
+                          This evaluation is completed and cannot be changed or booked again.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {period.booking && period.booking.evaluation_status !== "done" && (
                 <div className="flex flex-wrap items-center justify-between gap-4 bg-green-50/70 px-5 py-5">
                   <div className="flex items-center gap-3">
                     <CheckCircle2 className="h-8 w-8 shrink-0 text-green-600" />
@@ -184,24 +264,12 @@ export default function EvaluationsPage() {
                           : "Booking confirmed"}
                         {" "}· {period.booking.status}
                       </p>
-                      <div className="mt-2 flex items-center gap-2">
-                        {period.booking.evaluation_status === "done" ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Evaluation Completed
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
-                            <CircleDot className="h-3.5 w-3.5" />
-                            Evaluation Pending
-                          </span>
-                        )}
+                      <div className="mt-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
+                          <CircleDot className="h-3.5 w-3.5" />
+                          Evaluation Pending
+                        </span>
                       </div>
-                      {period.booking.evaluation_status === "done" && period.booking.evaluation_completed_at && (
-                        <p className="mt-1 text-xs text-ink/45">
-                          Evaluated on {formatDate(period.booking.evaluation_completed_at)}
-                        </p>
-                      )}
                       <p className="mt-2 text-xs text-ink/45">
                         Want a different time? Pick any free slot below to switch instantly.
                       </p>
@@ -217,7 +285,8 @@ export default function EvaluationsPage() {
                 </div>
               )}
 
-              {period.slots.length === 0 ? (
+              {period.booking?.evaluation_status === "done" ? null : (
+                period.slots.length === 0 ? (
                 <div className="px-5 py-8">
                   <EmptyState
                     title="No slots published yet"
@@ -315,7 +384,7 @@ export default function EvaluationsPage() {
                     });
                   })()}
                 </div>
-              )}
+              ))}
             </section>
           ))}
         </div>

@@ -1785,7 +1785,7 @@ as $$
            case when a.total_marks > 0
              then round((m.obtained / a.total_marks) * 100, 1)
              else 0 end as percent,
-           rank() over (partition by sa.assessment_id order by m.obtained desc) as rnk
+           dense_rank() over (partition by sa.assessment_id order by m.obtained desc) as rnk
     from section_assessments sa
     join public.marks m on m.assessment_id = sa.assessment_id
     join public.assessments a on a.id = m.assessment_id and a.status = 'published'

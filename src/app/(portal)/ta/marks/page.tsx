@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { notifyAll } from "@/lib/push";
 import type { Assessment, CourseSection, Student } from "@/lib/types";
 import { cleanName, one, parseCsv, regNoDisplay } from "@/lib/utils";
+import { calculateAssessmentStats } from "@/lib/marks";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
@@ -320,38 +321,54 @@ async function exportSelectedAssessments(selectedIds: string[]) {
       ) : (
         <>
           {/* Class stats bar */}
-          {rows.length > 0 && (() => {
-            const scored = rows
-              .map((r) => Number(r.saved ?? r.mark))
-              .filter((v) => !isNaN(v) && v !== null);
-            if (scored.length === 0) return null;
-            const total = selectedAssessment?.total_marks ?? 0;
-            const avg = scored.reduce((s, v) => s + v, 0) / scored.length;
-            const min = Math.min(...scored);
-            const max = Math.max(...scored);
-            const avgPct = total > 0 ? ((avg / total) * 100).toFixed(1) : "0";
-            const scoredPct = total > 0 ? ((scored.length / rows.length) * 100).toFixed(0) : "0";
+          {rows.length > 0 && selectedAssessment && (() => {
+            const stats = calculateAssessmentStats(
+              rows.length,
+              rows.map((r) => r.saved),
+              selectedAssessment.total_marks
+            );
+            if (stats.markedCount === 0) return null;
             return (
               <div className="mb-4 grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl bg-gold/10 p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-gold-deep/70">Class Average</p>
-                  <p className="mt-1 text-xl font-extrabold text-ink">{avg.toFixed(1)} <span className="text-sm font-normal text-ink/30">/ {total}</span></p>
-                  <p className="text-xs font-semibold text-gold-deep">{avgPct}%</p>
+                  {stats.trimmedMean !== null ? (
+                    <>
+                      <p className="mt-1 text-xl font-extrabold text-ink">
+                        {stats.trimmedMean.toFixed(1)} <span className="text-sm font-normal text-ink/30">/ {stats.maxMarks}</span>
+                      </p>
+                      <p className="text-xs font-semibold text-gold-deep">Trimmed mean · 10%</p>
+                    </>
+                  ) : (
+                    <p className="mt-1 text-xl font-extrabold text-ink">N/A</p>
+                  )}
                 </div>
                 <div className="rounded-xl bg-green-50 p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-green-600/70">Highest</p>
-                  <p className="mt-1 text-xl font-extrabold text-ink">{max} <span className="text-sm font-normal text-ink/30">/ {total}</span></p>
-                  <p className="text-xs font-semibold text-green-600">{total > 0 ? ((max / total) * 100).toFixed(1) : 0}%</p>
+                  {stats.highest !== null ? (
+                    <p className="mt-1 text-xl font-extrabold text-ink">
+                      {stats.highest} <span className="text-sm font-normal text-ink/30">/ {stats.maxMarks}</span>
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xl font-extrabold text-ink">N/A</p>
+                  )}
                 </div>
                 <div className="rounded-xl bg-red-50 p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-red-500/70">Lowest</p>
-                  <p className="mt-1 text-xl font-extrabold text-ink">{min} <span className="text-sm font-normal text-ink/30">/ {total}</span></p>
-                  <p className="text-xs font-semibold text-red-500">{total > 0 ? ((min / total) * 100).toFixed(1) : 0}%</p>
+                  {stats.lowest !== null ? (
+                    <p className="mt-1 text-xl font-extrabold text-ink">
+                      {stats.lowest} <span className="text-sm font-normal text-ink/30">/ {stats.maxMarks}</span>
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xl font-extrabold text-ink">N/A</p>
+                  )}
                 </div>
                 <div className="rounded-xl bg-blue-50 p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-500/70">Marked</p>
-                  <p className="mt-1 text-xl font-extrabold text-ink">{scored.length} <span className="text-sm font-normal text-ink/30">/ {rows.length}</span></p>
-                  <p className="text-xs font-semibold text-blue-600">{scoredPct}%</p>
+                  <p className="mt-1 text-xl font-extrabold text-ink">
+                    {stats.markedCount} <span className="text-sm font-normal text-ink/30">/ {stats.totalStudents}</span>
+                  </p>
+                  <p className="text-xs font-semibold text-blue-600">{stats.markedPercentage.toFixed(1)}%</p>
                 </div>
               </div>
             );

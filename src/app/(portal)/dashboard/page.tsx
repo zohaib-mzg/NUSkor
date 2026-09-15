@@ -8,9 +8,15 @@ import {
   CalendarDays,
   Megaphone,
   ArrowRight,
-  Shield,
   CheckCircle2,
   CircleDot,
+  BookOpen,
+  Users,
+  FolderKanban,
+  Star,
+  CalendarClock,
+  AlertCircle,
+  LayoutDashboard,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getPushSubscription, listDeviceSubscriptions } from "@/lib/push";
@@ -18,6 +24,7 @@ import type {
   Announcement,
   Booking,
   EvaluationPeriod,
+  CourseSection,
 } from "@/lib/types";
 import { cn, cleanName, formatDate, formatSlotRange, one, weightedOverallPct } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
@@ -26,7 +33,386 @@ import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
 
-export default function StudentDashboard() {
+export default function DashboardPage() {
+  const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<"admin" | "ta" | "student" | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function detect() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!cancelled && profile) setRole(profile.role as "admin" | "ta" | "student");
+    }
+    detect().finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) return <Spinner label="Loading your dashboard..." />;
+
+  if (role === "ta" || role === "admin") return <TaDashboard />;
+  return <StudentDashboard />;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TA DASHBOARD
+   ───────────────────────────────────────────────────────────── */
+
+interface TaSectionInfo {
+  sectionId: string;
+  sectionCode: string;
+  courseCode: string;
+  courseTitle: string;
+}
+
+interface TaAssessmentInfo {
+  id: string;
+  title: string;
+  type: string;
+  totalMarks: number;
+  sectionId: string;
+}
+
+function TaDashboard() {
+  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState("");
+  const [sections, setSections] = useState<TaSectionInfo[]>([]);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [assessments, setAssessments] = useState<TaAssessmentInfo[]>([]);
+  const [pendingMarks, setPendingMarks] = useState(0);
+  const [openPeriods, setOpenPeriods] = useState(0);
+  const [completedEvals, setCompletedEvals] = useState(0);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+
+      setName(cleanName(user.user_metadata?.full_name) || user.email?.split("@")[0] || "");
+
+      // Fetch TA's sections
+      const { data: stRes } = await supabase
+        .from("section_tas")
+        .select("section_id, section:course_sections(section_code, course:courses(code, title))");
+
+      if (cancelled) return;
+
+      const taSections = (stRes ?? []) as {
+        section_id: string;
+        section: (CourseSection & { course?: { code: string; title: string }[] | null })[];
+      }[];
+
+      const sectionInfos: TaSectionInfo[] = taSections
+        .map((r) => {
+          const sec = one(r.section);
+          if (!sec) return null;
+          return {
+            sectionId: r.section_id,
+            sectionCode: sec.section_code,
+            courseCode: sec.course?.code ?? "",
+            courseTitle: sec.course?.title ?? "",
+          };
+        })
+        .filter((s): s is TaSectionInfo => s !== null);
+
+      setSections(sectionInfos);
+
+      const sectionIds = sectionInfos.map((s) => s.sectionId);
+
+      if (sectionIds.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      // Fetch enrollments count, assessments, and evaluation data in parallel
+      const [enRes, aRes, pRes, annRes] = await Promise.all([
+        supabase
+          .from("enrollments")
+          .select("section_id, student_id")
+          .in("section_id", sectionIds),
+        supabase
+          .from("assessments")
+          .select("id, section_id, title, type, total_marks, status")
+          .in("section_id", sectionIds),
+        supabase
+          .from("evaluation_periods")
+          .select("id, section_id, is_closed, title, starts_on, ends_on")
+          .in("section_id", sectionIds),
+        supabase
+          .from("announcements")
+          .select("*")
+          .eq("status", "published")
+          .order("created_at", { ascending: false })
+          .limit(3),
+      ]);
+
+      if (cancelled) return;
+
+      // Total students (unique across all sections)
+      const uniqueStudents = new Set((enRes.data ?? []).map((e: { student_id: string }) => e.student_id));
+      setTotalStudents(uniqueStudents.size);
+
+      // Assessments
+      const assessmentList = (aRes.data ?? []).map((a: { id: string; section_id: string; title: string; type: string; total_marks: number; status: string }) => ({
+        id: a.id,
+        sectionId: a.section_id,
+        title: a.title,
+        type: a.type,
+        totalMarks: a.total_marks,
+        status: a.status,
+      }));
+      setAssessments(assessmentList);
+
+      // Pending marks: count enrolled students without marks for each assessment
+      const publishedAssessments = assessmentList.filter((a) => a.status === "published");
+      if (publishedAssessments.length > 0) {
+        const { data: marksData } = await supabase
+          .from("marks")
+          .select("assessment_id, student_id")
+          .in("assessment_id", publishedAssessments.map((a) => a.id));
+
+        if (!cancelled && marksData) {
+          const marksByAssessment = new Map<string, Set<string>>();
+          for (const m of marksData as { assessment_id: string; student_id: string }[]) {
+            if (!marksByAssessment.has(m.assessment_id)) marksByAssessment.set(m.assessment_id, new Set());
+            marksByAssessment.get(m.assessment_id)!.add(m.student_id);
+          }
+
+          let pending = 0;
+          const enrollBySection = new Map<string, Set<string>>();
+          for (const e of enRes.data ?? []) {
+            const se = e as { section_id: string; student_id: string };
+            if (!enrollBySection.has(se.section_id)) enrollBySection.set(se.section_id, new Set());
+            enrollBySection.get(se.section_id)!.add(se.student_id);
+          }
+
+          for (const a of publishedAssessments) {
+            const enrolled = enrollBySection.get(a.sectionId) ?? new Set();
+            const marked = marksByAssessment.get(a.id) ?? new Set();
+            pending += enrolled.size - marked.size;
+          }
+          setPendingMarks(pending);
+        }
+      }
+
+      // Open evaluation periods
+      const periodList = (pRes.data ?? []) as { id: string; is_closed: boolean }[];
+      setOpenPeriods(periodList.filter((p) => !p.is_closed).length);
+
+      // Get booking data for evaluation completion
+      const periodIds = periodList.map((p) => p.id);
+      if (periodIds.length > 0) {
+        const { data: bookingsData } = await supabase
+          .from("bookings")
+          .select("evaluation_status, evaluation_period_id")
+          .in("evaluation_period_id", periodIds);
+
+        if (!cancelled && bookingsData) {
+          const done = (bookingsData as { evaluation_status: string }[]).filter(
+            (b) => b.evaluation_status === "done"
+          ).length;
+          setCompletedEvals(done);
+        }
+      }
+
+      if (!annRes.error) setAnnouncements(annRes.data as Announcement[]);
+    }
+    load().finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) return <Spinner label="Loading your dashboard..." />;
+
+  return (
+    <div>
+      <PageHeader
+        title={`Welcome back, ${name.split(" ")[0] || "TA"}`}
+        subtitle="TA Dashboard"
+        icon={LayoutDashboard}
+      />
+
+      {/* Top stats */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard
+          icon={BookOpen}
+          label="Sections"
+          value={sections.length}
+          hint="Managed sections"
+          accent="gold"
+        />
+        <StatCard
+          icon={Users}
+          label="Students"
+          value={totalStudents}
+          hint="Across your sections"
+        />
+        <StatCard
+          icon={FolderKanban}
+          label="Assessments"
+          value={assessments.length}
+          hint="Total assessments"
+          accent="dark"
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard
+          icon={AlertCircle}
+          label="Pending Marks"
+          value={pendingMarks}
+          hint="Marks still to enter"
+          accent="blue"
+        />
+        <StatCard
+          icon={CalendarClock}
+          label="Open Evaluations"
+          value={openPeriods}
+          hint="Active evaluation periods"
+          accent="dark"
+        />
+        <StatCard
+          icon={CheckCircle2}
+          label="Completed Evals"
+          value={completedEvals}
+          hint="Evaluations marked done"
+          accent="green"
+        />
+      </div>
+
+      {/* Quick Actions */}
+      <section className="card mt-6 p-6">
+        <h2 className="font-bold text-ink">Quick Actions</h2>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link href="/ta/marks" className="btn-primary">
+            <Star className="h-4 w-4" /> Manage Marks
+          </Link>
+          <Link href="/ta/evaluations" className="btn-dark">
+            <CalendarClock className="h-4 w-4" /> Evaluation Periods
+          </Link>
+          <Link href="/ta/students" className="btn-outline">
+            <Users className="h-4 w-4" /> Students & Invites
+          </Link>
+          <Link href="/ta/assessments" className="btn-outline">
+            <FolderKanban className="h-4 w-4" /> Assessments
+          </Link>
+        </div>
+      </section>
+
+      {/* Managed Sections */}
+      {sections.length > 0 && (
+        <section className="card mt-6 p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-bold text-ink">Managed Sections</h2>
+            <Link
+              href="/ta/sections"
+              className="flex items-center gap-1 text-xs font-semibold text-gold-deep hover:underline"
+            >
+              View all <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <ul className="space-y-2">
+            {sections.map((s) => (
+              <li
+                key={s.sectionId}
+                className="flex items-center justify-between rounded-lg border border-black/[0.05] bg-white px-4 py-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gold/15 text-gold-deep">
+                    <BookOpen className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-ink">
+                      {s.courseCode} <span className="text-ink/40">→</span> {s.sectionCode}
+                    </p>
+                    <p className="text-xs text-ink/50">{s.courseTitle}</p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Marks Overview (compact) */}
+      {assessments.length > 0 && (
+        <section className="card mt-6 p-6">
+          <h2 className="font-bold text-ink">Marks Overview</h2>
+          <p className="mt-1 text-xs text-ink/50">Recent assessments across your sections</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {assessments.slice(0, 6).map((a) => {
+              const sec = sections.find((s) => s.sectionId === a.sectionId);
+              return (
+                <div
+                  key={a.id}
+                  className="rounded-xl border border-black/[0.07] bg-paper p-4"
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/45">
+                    {sec ? `${sec.courseCode} · ${sec.sectionCode}` : ""}
+                  </p>
+                  <h3 className="mt-1 font-semibold text-ink">{a.title}</h3>
+                  <p className="mt-1 text-xs text-ink/50">
+                    <Badge tone="neutral">{a.type}</Badge>
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+          {assessments.length > 6 && (
+            <Link
+              href="/ta/marks"
+              className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-gold-deep hover:underline"
+            >
+              View all assessments <ArrowRight className="h-3 w-3" />
+            </Link>
+          )}
+        </section>
+      )}
+
+      {/* Announcements */}
+      <section className="card mt-6 p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-bold text-ink">Announcements</h2>
+          <Link
+            href="/ta/announcements"
+            className="flex items-center gap-1 text-xs font-semibold text-gold-deep hover:underline"
+          >
+            View all <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+        {announcements.length === 0 ? (
+          <EmptyState title="No announcements yet" />
+        ) : (
+          <ul className="space-y-4">
+            {announcements.map((a) => (
+              <li key={a.id} className="border-b border-black/[0.05] pb-4 last:border-0 last:pb-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-gold-deep">
+                  {formatDate(a.created_at)}
+                </p>
+                <h3 className="mt-1 font-semibold text-ink">{a.title}</h3>
+                <p className="mt-1 line-clamp-2 text-sm text-ink/55">{a.body}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   STUDENT DASHBOARD
+   ───────────────────────────────────────────────────────────── */
+
+function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [periods, setPeriods] = useState<(EvaluationPeriod & { booking: Booking | null })[]>([]);
@@ -135,9 +521,6 @@ export default function StudentDashboard() {
             }[]
           | null;
       }[];
-      // Weighted Overall % — same formula as My Marks & overall rank
-      // (utils.weightedOverallPct / get_leaderboard SQL):
-      // SUM over PUBLISHED assessments of (obtained / total) × weightage
       const publishedMarks = marks.filter(
         (m) => one(m.assessments)?.status === "published"
       );
@@ -256,23 +639,6 @@ export default function StudentDashboard() {
           </Link>
         </section>
       )}
-
-      <section className="card mt-6 flex flex-wrap items-center justify-between gap-4 border-blue-500/30 bg-blue-500/[0.04] p-6">
-        <div className="flex items-center gap-4">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500 text-white">
-            <Shield className="h-5 w-5" />
-          </span>
-          <div>
-            <h2 className="font-bold text-ink">Become a TA</h2>
-            <p className="text-sm text-ink/55">
-              Want to manage courses, invite students, and track marks? Apply to become a Teaching Assistant.
-            </p>
-          </div>
-        </div>
-        <Link href="/ta-apply" className="btn-primary">
-          Apply now <ArrowRight className="h-4 w-4" />
-        </Link>
-      </section>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
         {/* Latest + recent assessments */}

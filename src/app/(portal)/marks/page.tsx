@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ClipboardList,
   Trophy,
@@ -26,6 +26,7 @@ import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
+import { useRealtime } from "@/lib/hooks/useRealtime";
 
 interface AssessmentRow {
   id: string;
@@ -84,138 +85,141 @@ export default function MarksPage() {
   const [myRegNo, setMyRegNo] = useState<string | null>(null);
   const [hasAnyMarks, setHasAnyMarks] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const load = useCallback(async () => {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
 
-    async function load() {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user || cancelled) return;
+    const { data: studentRes } = await supabase
+      .from("students")
+      .select("registration_no")
+      .eq("id", user.id)
+      .maybeSingle();
 
-      const { data: studentRes } = await supabase
-        .from("students")
-        .select("registration_no")
-        .eq("id", user.id)
-        .maybeSingle();
+    const regNo = (studentRes as { registration_no: string | null } | null)?.registration_no ?? null;
+    setMyRegNo(regNo);
 
-      if (cancelled) return;
-      const regNo = (studentRes as { registration_no: string | null } | null)?.registration_no ?? null;
-      setMyRegNo(regNo);
+    const { data: rpcData, error: rpcErr } = await supabase.rpc("get_student_marks_data", {
+      p_student_id: user.id,
+    });
 
-      const { data: rpcData, error: rpcErr } = await supabase.rpc("get_student_marks_data", {
-        p_student_id: user.id,
-      });
+    if (rpcErr || !rpcData || rpcData.length === 0) {
+      setSections([]);
+      return;
+    }
 
-      if (cancelled || rpcErr || !rpcData || rpcData.length === 0) {
-        setSections([]);
-        return;
+    const rows = rpcData as RpcRow[];
+
+    const studentHasMarks = rows.some((r) => r.obtained !== null);
+    setHasAnyMarks(studentHasMarks);
+
+    const sectionMap = new Map<string, {
+      sectionId: string;
+      sectionCode: string;
+      code: string;
+      title: string;
+      leaderboardVisible: boolean;
+      assessments: Map<string, AssessmentRow>;
+      leaderboard: Map<string, LeaderboardEntry[]>;
+    }>();
+
+    for (const row of rows) {
+      if (!sectionMap.has(row.section_id)) {
+        sectionMap.set(row.section_id, {
+          sectionId: row.section_id,
+          sectionCode: row.section_code,
+          code: row.course_code,
+          title: row.course_title,
+          leaderboardVisible: row.leaderboard_visible,
+          assessments: new Map(),
+          leaderboard: new Map(),
+        });
       }
+      const sec = sectionMap.get(row.section_id)!;
 
-      const rows = rpcData as RpcRow[];
-
-      const studentHasMarks = rows.some((r) => r.obtained !== null);
-      setHasAnyMarks(studentHasMarks);
-
-      const sectionMap = new Map<string, {
-        sectionId: string;
-        sectionCode: string;
-        code: string;
-        title: string;
-        leaderboardVisible: boolean;
-        assessments: Map<string, AssessmentRow>;
-        leaderboard: Map<string, LeaderboardEntry[]>;
-      }>();
-
-      for (const row of rows) {
-        if (!sectionMap.has(row.section_id)) {
-          sectionMap.set(row.section_id, {
-            sectionId: row.section_id,
-            sectionCode: row.section_code,
-            code: row.course_code,
-            title: row.course_title,
-            leaderboardVisible: row.leaderboard_visible,
-            assessments: new Map(),
-            leaderboard: new Map(),
-          });
-        }
-        const sec = sectionMap.get(row.section_id)!;
-
-        if (!sec.assessments.has(row.assessment_id)) {
-          const obtained = row.obtained;
-          sec.assessments.set(row.assessment_id, {
-            id: row.assessment_id,
-            title: row.assessment_title,
-            type: row.assessment_type,
-            total: Number(row.total_marks),
-            weightage: Number(row.weightage ?? 0),
-            obtained,
-            stats: row.avg_marks != null ? {
-              avg_marks: row.avg_marks,
-              min_marks: row.min_marks,
-              max_marks: row.max_marks,
-              total_students: row.stat_total_students,
-            } : null,
-            myPercent: obtained === null ? 0 : percent(obtained, Number(row.total_marks)),
-            leaderboard: [],
-          });
-        }
-
-        if (row.lb_registration_no && row.lb_rank != null) {
-          const lb = sec.leaderboard.get(row.assessment_id) ?? [];
-          lb.push({
-            registration_no: row.lb_registration_no,
-            obtained: row.lb_obtained,
-            total_marks: row.lb_total_marks,
-            percent: Number(row.lb_percent ?? 0),
-            rank: Number(row.lb_rank),
-          });
-          sec.leaderboard.set(row.assessment_id, lb);
-        }
-      }
-
-      const sections: SectionMarks[] = [];
-      for (const sec of sectionMap.values()) {
-        const assessments: AssessmentRow[] = [];
-        for (const a of sec.assessments.values()) {
-          a.leaderboard = sec.leaderboard.get(a.id) ?? [];
-          assessments.push(a);
-        }
-
-        const overallLb = [...sec.leaderboard.values()].flat();
-        const myRankEntry = regNo
-          ? overallLb.find((e) => e.registration_no === regNo) ?? null
-          : null;
-
-        const weightedOverall = weightedOverallPct(
-          assessments.map((a) => ({
-            obtained: a.obtained,
-            total: a.total,
-            weightage: a.weightage,
-          }))
-        );
-
-        sections.push({
-          sectionId: sec.sectionId,
-          code: sec.code,
-          title: sec.title,
-          sectionCode: sec.sectionCode,
-          assessments,
-          weightedOverall,
-          hasScoredMarks: assessments.some((r) => r.obtained !== null),
-          leaderboardVisible: sec.leaderboardVisible,
-          myRank: myRankEntry ? { rank: myRankEntry.rank, registration_no: myRankEntry.registration_no ?? "" } : null,
+      if (!sec.assessments.has(row.assessment_id)) {
+        const obtained = row.obtained;
+        sec.assessments.set(row.assessment_id, {
+          id: row.assessment_id,
+          title: row.assessment_title,
+          type: row.assessment_type,
+          total: Number(row.total_marks),
+          weightage: Number(row.weightage ?? 0),
+          obtained,
+          stats: row.avg_marks != null ? {
+            avg_marks: row.avg_marks,
+            min_marks: row.min_marks,
+            max_marks: row.max_marks,
+            total_students: row.stat_total_students,
+          } : null,
+          myPercent: obtained === null ? 0 : percent(obtained, Number(row.total_marks)),
+          leaderboard: [],
         });
       }
 
-      if (!cancelled) setSections(sections);
+      if (row.lb_registration_no && row.lb_rank != null) {
+        const lb = sec.leaderboard.get(row.assessment_id) ?? [];
+        lb.push({
+          registration_no: row.lb_registration_no,
+          obtained: row.lb_obtained,
+          total_marks: row.lb_total_marks,
+          percent: Number(row.lb_percent ?? 0),
+          rank: Number(row.lb_rank),
+        });
+        sec.leaderboard.set(row.assessment_id, lb);
+      }
     }
 
+    const result: SectionMarks[] = [];
+    for (const sec of sectionMap.values()) {
+      const assessments: AssessmentRow[] = [];
+      for (const a of sec.assessments.values()) {
+        a.leaderboard = sec.leaderboard.get(a.id) ?? [];
+        assessments.push(a);
+      }
+
+      const overallLb = [...sec.leaderboard.values()].flat();
+      const myRankEntry = regNo
+        ? overallLb.find((e) => e.registration_no === regNo) ?? null
+        : null;
+
+      const weightedOverall = weightedOverallPct(
+        assessments.map((a) => ({
+          obtained: a.obtained,
+          total: a.total,
+          weightage: a.weightage,
+        }))
+      );
+
+      result.push({
+        sectionId: sec.sectionId,
+        code: sec.code,
+        title: sec.title,
+        sectionCode: sec.sectionCode,
+        assessments,
+        weightedOverall,
+        hasScoredMarks: assessments.some((r) => r.obtained !== null),
+        leaderboardVisible: sec.leaderboardVisible,
+        myRank: myRankEntry ? { rank: myRankEntry.rank, registration_no: myRankEntry.registration_no ?? "" } : null,
+      });
+    }
+
+    setSections(result);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
     load().finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [load]);
+
+  // Realtime: refetch when marks change (e.g. TA publishes marks)
+  useRealtime({
+    table: "marks",
+    onChange: load,
+  });
 
   const summary = useMemo(() => {
     const allRows = sections.flatMap((c) => c.assessments);

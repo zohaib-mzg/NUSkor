@@ -38,6 +38,7 @@ import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { useRealtime } from "@/lib/hooks/useRealtime";
 
 interface PeriodAdmin extends EvaluationPeriod {
   slots: SlotWithBookings[];
@@ -173,6 +174,12 @@ export default function TaEvaluationPeriodsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Realtime: refetch when bookings change (updates remaining counts)
+  useRealtime({
+    table: "bookings",
+    onChange: load,
+  });
 
   async function toggleBookings(period: PeriodAdmin, slot: SlotWithBookings) {
     const key = slot.slot_id;

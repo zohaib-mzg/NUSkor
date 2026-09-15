@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
 import type { Notification } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
+import { useRealtime } from "@/lib/hooks/useRealtime";
 
 export default function NotificationBell() {
   const router = useRouter();
@@ -35,9 +36,13 @@ export default function NotificationBell() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 60000);
-    return () => clearInterval(t);
   }, [load]);
+
+  // Realtime: refetch notifications when the table changes
+  useRealtime({
+    table: "notifications",
+    onChange: load,
+  });
 
   useEffect(() => {
     function onClick(e: MouseEvent) {

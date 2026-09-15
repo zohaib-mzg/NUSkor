@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   CalendarDays,
   Clock,
@@ -24,6 +24,7 @@ import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { useRealtime } from "@/lib/hooks/useRealtime";
 
 interface PeriodWithData extends EvaluationPeriod {
   slots: SlotWithBookings[];
@@ -34,14 +35,16 @@ export default function EvaluationsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
   const [periods, setPeriods] = useState<PeriodWithData[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
   const [acting, setActing] = useState<string | null>(null);
-  async function load() {
+  const load = useCallback(async () => {
     const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
+    setUserId(user.id);
 
     const today = new Date();
     const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
@@ -85,7 +88,7 @@ export default function EvaluationsPage() {
     );
 
     setPeriods(withSlots);
-  }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,7 +99,19 @@ export default function EvaluationsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [load]);
+
+  // Realtime: refetch when bookings or slots change
+  useRealtime({
+    table: "bookings",
+    onChange: load,
+    enabled: !!userId,
+  });
+  useRealtime({
+    table: "evaluation_slots",
+    onChange: load,
+    enabled: !!userId,
+  });
 
   async function bookSlot(periodId: string, slotId: string) {
     setActing(slotId);

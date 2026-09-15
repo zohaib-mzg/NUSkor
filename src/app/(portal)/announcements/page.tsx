@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Announcement } from "@/lib/types";
@@ -9,27 +9,39 @@ import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
+import { useRealtime } from "@/lib/hooks/useRealtime";
 
 export default function AnnouncementsPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<Announcement[]>([]);
 
+  const load = useCallback(async () => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("announcements")
+      .select("*, profiles(full_name), section:course_sections(section_code, course:courses(code))")
+      .eq("status", "published")
+      .order("published_at", { ascending: false });
+    if (data) setItems(data as Announcement[]);
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("announcements")
-        .select("*, profiles(full_name), section:course_sections(section_code, course:courses(code))")
-        .eq("status", "published")
-        .order("published_at", { ascending: false });
-      if (!cancelled && data) setItems(data as Announcement[]);
+      await load();
       if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [load]);
+
+  // Realtime: refetch when announcements change
+  useRealtime({
+    table: "announcements",
+    onChange: load,
+  });
 
   if (loading) return <Spinner label="Loading announcements..." />;
 

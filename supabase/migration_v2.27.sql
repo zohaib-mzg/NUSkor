@@ -130,7 +130,7 @@ as $$
     select m.obtained,
            row_number() over (order by m.obtained) as rn,
            count(*) over () as total_count
-    from marks m
+    from public.marks m
     join public.assessments a
       on a.id = m.assessment_id
      and a.status = 'published'

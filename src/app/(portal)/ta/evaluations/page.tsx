@@ -619,6 +619,78 @@ export default function TaEvaluationPeriodsPage() {
                                             const student = one(b.students);
                                             const profile = one(student?.profiles);
                                             const evalDone = b.evaluation_status === "done";
+                                            const completedAt = b.evaluation_completed_at
+                                              ? new Date(b.evaluation_completed_at)
+                                              : null;
+                                            const completedDate = completedAt
+                                              ? formatDate(completedAt)
+                                              : null;
+                                            const completedTime = completedAt
+                                              ? completedAt.toLocaleTimeString("en-US", {
+                                                  hour: "numeric",
+                                                  minute: "2-digit",
+                                                })
+                                              : null;
+
+                                            if (evalDone) {
+                                              return (
+                                                <div
+                                                  key={b.id}
+                                                  className="rounded-lg border border-green-200 bg-green-50/50 px-4 py-3"
+                                                >
+                                                  {/* Status + Unmark */}
+                                                  <div className="flex items-center justify-between">
+                                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-700">
+                                                      <CheckCircle2 className="h-3.5 w-3.5" />
+                                                      Evaluation Done
+                                                    </span>
+                                                    <button
+                                                      onClick={() => unmarkDone(b.id)}
+                                                      disabled={markingEval === b.id}
+                                                      className="inline-flex items-center gap-1 rounded-md border border-orange-200 bg-white px-2 py-1 text-[11px] font-semibold text-orange-600 transition-colors hover:bg-orange-50 disabled:opacity-50"
+                                                    >
+                                                      <XCircle className="h-3 w-3" />
+                                                      {markingEval === b.id ? "..." : "Unmark"}
+                                                    </button>
+                                                  </div>
+
+                                                  {/* Student info */}
+                                                  <p className="mt-2 text-sm font-semibold text-ink">
+                                                    {cleanName(profile?.full_name) || "Student"}
+                                                  </p>
+                                                  <p className="text-[11px] text-ink/50">
+                                                    {regNoDisplay(student?.registration_no, student?.profiles?.email)}
+                                                  </p>
+
+                                                  {/* Date + Time */}
+                                                  {(completedDate || completedTime) && (
+                                                    <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-green-200/60 pt-2 sm:grid-cols-2">
+                                                      {completedDate && (
+                                                        <div>
+                                                          <p className="text-[10px] font-semibold uppercase tracking-wider text-ink/40">
+                                                            Evaluation Date
+                                                          </p>
+                                                          <p className="text-xs font-medium text-ink">
+                                                            {completedDate}
+                                                          </p>
+                                                        </div>
+                                                      )}
+                                                      {completedTime && (
+                                                        <div>
+                                                          <p className="text-[10px] font-semibold uppercase tracking-wider text-ink/40">
+                                                            Evaluation Time
+                                                          </p>
+                                                          <p className="text-xs font-medium text-ink">
+                                                            {completedTime}
+                                                          </p>
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            }
+
                                             return (
                                               <div
                                                 key={b.id}
@@ -632,38 +704,14 @@ export default function TaEvaluationPeriodsPage() {
                                                     {regNoDisplay(student?.registration_no, student?.profiles?.email)}
                                                   </p>
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                  {evalDone ? (
-                                                    <div className="flex items-center gap-1.5">
-                                                      <span className="flex items-center gap-1 text-xs text-green-600">
-                                                        <CheckCircle2 className="h-3.5 w-3.5" />
-                                                        <span className="font-medium">Done</span>
-                                                        {b.evaluation_completed_at && (
-                                                          <span className="text-ink/35">
-                                                            {formatDate(b.evaluation_completed_at)}
-                                                          </span>
-                                                        )}
-                                                      </span>
-                                                      <button
-                                                        onClick={() => unmarkDone(b.id)}
-                                                        disabled={markingEval === b.id}
-                                                        className="inline-flex items-center gap-1 rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-[11px] font-semibold text-orange-600 transition-colors hover:bg-orange-100 disabled:opacity-50"
-                                                      >
-                                                        <XCircle className="h-3 w-3" />
-                                                        {markingEval === b.id ? "..." : "Unmark"}
-                                                      </button>
-                                                    </div>
-                                                  ) : (
-                                                    <button
-                                                      onClick={() => markDone(b.id)}
-                                                      disabled={markingEval === b.id}
-                                                      className="inline-flex items-center gap-1 rounded-md bg-gold/15 px-2 py-1 text-[11px] font-semibold text-gold-deep transition-colors hover:bg-gold/25 disabled:opacity-50"
-                                                    >
-                                                      <CircleDot className="h-3 w-3" />
-                                                      {markingEval === b.id ? "..." : "Mark Done"}
-                                                    </button>
-                                                  )}
-                                                </div>
+                                                <button
+                                                  onClick={() => markDone(b.id)}
+                                                  disabled={markingEval === b.id}
+                                                  className="inline-flex items-center gap-1 rounded-md bg-gold/15 px-2 py-1 text-[11px] font-semibold text-gold-deep transition-colors hover:bg-gold/25 disabled:opacity-50"
+                                                >
+                                                  <CircleDot className="h-3 w-3" />
+                                                  {markingEval === b.id ? "..." : "Mark Done"}
+                                                </button>
                                               </div>
                                             );
                                           })}

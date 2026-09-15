@@ -166,7 +166,8 @@ export type NotificationType =
   | "evaluation_created"
   | "booking_confirmed"
   | "booking_cancelled"
-  | "important_update";
+  | "important_update"
+  | "evaluation_completed";
 
 export interface Notification {
   id: string;

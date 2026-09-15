@@ -155,6 +155,12 @@ export default function TaEvaluationPeriodsPage() {
     setMarkingEval(null);
     if (err) return error(err.message);
     success("Evaluation marked as done.");
+    // Notify the student
+    try {
+      await notifyAll("evaluation_completed", bookingId);
+    } catch (pushErr) {
+      console.error("evaluation completed notification failed", pushErr);
+    }
     // Refresh expanded bookings
     if (expandedSlot) {
       const supabase = createClient();

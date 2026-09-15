@@ -62,7 +62,7 @@ export default function NotificationBell() {
     const url =
       n.type === "marks_released"
         ? "/marks"
-        : n.type === "evaluation_created"
+        : n.type === "evaluation_created" || n.type === "evaluation_completed"
           ? "/evaluations"
           : "/announcements";
     router.push(url);

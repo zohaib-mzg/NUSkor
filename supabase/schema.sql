@@ -1603,7 +1603,7 @@ as $$
   select registration_no,
          weighted_pct,
          round(weighted_pct, 1) as percent,
-         rank() over (order by weighted_pct desc) as rank
+         dense_rank() over (order by weighted_pct desc) as rank
   from scored
   order by weighted_pct desc, registration_no;
 $$;
@@ -1658,7 +1658,7 @@ as $$
     where public.can_view_section_aggregates(p_section_id)
   )
   select registration_no, obtained, total_marks, pct,
-         rank() over (order by obtained desc) as rank
+         dense_rank() over (order by obtained desc) as rank
   from scored
   order by rank, registration_no;
 $$;

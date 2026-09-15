@@ -34,7 +34,6 @@ export default function EvaluationsPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
   const [periods, setPeriods] = useState<PeriodWithData[]>([]);
-  const [taNames, setTaNames] = useState<Map<string, string>>(new Map());
   const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
   const [acting, setActing] = useState<string | null>(null);
   async function load() {
@@ -59,7 +58,7 @@ export default function EvaluationsPage() {
         .order("starts_on", { ascending: true }),
       supabase
         .from("bookings")
-        .select("*, evaluation_slots(slot_date, start_time, end_time), evaluated_by")
+        .select("*, evaluation_slots(slot_date, start_time, end_time), evaluated_by, evaluated_by_name")
         .eq("student_id", user.id),
     ]);
 
@@ -86,34 +85,6 @@ export default function EvaluationsPage() {
     );
 
     setPeriods(withSlots);
-
-    // Fetch TA names for completed evaluations via evaluated_by
-    const evaluatorIds = [
-      ...new Set(
-        withSlots
-          .map((p) => p.booking?.evaluated_by)
-          .filter((id): id is string => !!id)
-      ),
-    ];
-    if (evaluatorIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .in("id", evaluatorIds);
-      const nameMap = new Map<string, string>();
-      for (const p of profiles ?? []) {
-        const r = p as { id: string; full_name?: string | null; email?: string };
-        const name = cleanName(r.full_name) || r.email?.split("@")[0] || "";
-        if (name) nameMap.set(r.id, name);
-      }
-      // Map evaluator_id -> display name, then attach to periods
-      const evaluatorNames = new Map<string, string>();
-      for (const id of evaluatorIds) {
-        const name = nameMap.get(id);
-        if (name) evaluatorNames.set(id, name);
-      }
-      setTaNames(evaluatorNames);
-    }
   }
 
   useEffect(() => {
@@ -210,7 +181,7 @@ export default function EvaluationsPage() {
                 const evalTime = completedAt
                   ? completedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
                   : null;
-                const taName = (period.booking?.evaluated_by && taNames.get(period.booking.evaluated_by)) || "—";
+                const taName = cleanName(period.booking?.evaluated_by_name) || "—";
                 return (
                   <div className="border-b border-green-200 bg-green-50/50 px-5 py-5">
                     <div className="flex items-start gap-3">

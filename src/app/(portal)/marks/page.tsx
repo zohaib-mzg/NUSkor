@@ -375,7 +375,7 @@ function AssessmentCard({
           <span>
             Average:{" "}
             <span className="font-semibold text-ink">
-              {a.stats.avg_marks} / {a.total}
+              {Number(a.stats.avg_marks).toFixed(2)} / {a.total}
             </span>
           </span>
         )}

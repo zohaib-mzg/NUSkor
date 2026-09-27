@@ -64,7 +64,7 @@ export default function EvaluationPeriodsPage() {
       supabase
         .from("evaluation_periods")
         .select("*, section:course_sections(section_code, course:courses(code, title))")
-        .order("starts_on", { ascending: false }),
+        .order("starts_on", { ascending: true }),
     ]);
     if (!sRes.error) setSections((sRes.data ?? []) as CourseSection[]);
     if (!pRes.error) {

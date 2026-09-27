@@ -106,7 +106,7 @@ export default function TaEvaluationPeriodsPage() {
         .from("evaluation_periods")
         .select("*, section:course_sections(section_code, course:courses(code, title))")
         .in("section_id", ids)
-        .order("starts_on", { ascending: false });
+        .order("starts_on", { ascending: true });
       raw = (pRes.data ?? []) as EvaluationPeriod[];
     }
     const withSlots = await Promise.all(

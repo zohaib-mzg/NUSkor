@@ -148,6 +148,7 @@ Deno.serve(async (req) => {
     announcement: "announcements",
     marks_released: "marks_released",
     evaluation_created: "evaluation_updates",
+    evaluation_completed: "evaluation_updates",
   }[type];
 
   const { data: subs, error: subsError } = await admin

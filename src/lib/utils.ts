@@ -178,12 +178,20 @@ export function many<T>(value: T | T[] | null | undefined): T[] {
   return Array.isArray(value) ? value : [value];
 }
 
-// "l242610", "L242610", "24L2610", "24L-2610" -> "24L-2610"
+// A NUST reg no is 2-digit year + 1-letter campus/program code +
+// serial, canonicalised as "YY?-NNNN".
+//   "l242610", "L242610", "24L2610", "24L-2610" -> "24L-2610"
+//   "f250646", "F250646", "25F0646", "25F-0646" -> "25F-0646"
 export function formatRegNo(value?: string | null): string | null {
   const s = (value ?? "").replace(/[^0-9a-zA-Z]/g, "").toUpperCase();
   if (!s) return null;
-  const m = s.match(/^L(\d{2})(\d{3,})$/) ?? s.match(/^(\d{2})L(\d{3,})$/);
-  return m ? `${m[1]}L-${m[2]}` : null;
+  // The email local part puts the code before the year (f250646);
+  // an already-canonical reg no puts it after (24L-2610).
+  const lead = s.match(/^([A-Z])(\d{2})(\d{3,})$/);
+  if (lead) return `${lead[2]}${lead[1]}-${lead[3]}`;
+  const trail = s.match(/^(\d{2})([A-Z])(\d{3,})$/);
+  if (trail) return `${trail[1]}${trail[2]}-${trail[3]}`;
+  return null;
 }
 
 // Best-effort registration number for display: DB value first,

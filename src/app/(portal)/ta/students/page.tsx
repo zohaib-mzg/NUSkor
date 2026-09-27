@@ -331,7 +331,7 @@ async function copyLink(token: string) {
                       <tbody>
                         {sortByRegNo(students, (row) => {
                           const st = extractStudent(row);
-                          return st?.registration_no ?? st?.profiles?.email?.split("@")[0] ?? null;
+                          return regNoDisplay(st?.registration_no, st?.profiles?.email);
                         }).map((row) => {
                           const st = studentOf(row);
                           return (

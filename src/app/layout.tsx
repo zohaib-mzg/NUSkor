@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s · nuSkor",
   },
   description:
-    "Marks, evaluation slots and bookings for FAST-NUCES. Empowering Students. Elevating Futures.",
+    "Free student tools and a marks portal: CGPA calculators, guides, marks tracking and evaluation slot bookings. Empowering Students. Elevating Futures.",
   applicationName: "nuSkor",
   icons: {
     icon: [

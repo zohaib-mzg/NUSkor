@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import DeveloperFooter from "@/components/DeveloperFooter";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -55,6 +56,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
+        <DeveloperFooter />
       </body>
     </html>
   );

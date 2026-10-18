@@ -12,12 +12,9 @@ export const SITE = {
     /\/+$/,
     ""
   ),
-  /**
-   * nuSkor's own contact address — never a university address.
-   * Placeholder until the owner sets NEXT_PUBLIC_CONTACT_EMAIL.
-   */
+  /** nuSkor's own contact address — never a university address. */
   contactEmail:
-    process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "admin@nuskor.app",
+    process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "zohaib.mzg158@gmail.com",
   independence: {
     short:
       "nuSkor is an independent student-built project — not affiliated with any university.",

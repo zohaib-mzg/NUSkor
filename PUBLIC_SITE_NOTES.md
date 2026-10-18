@@ -32,9 +32,8 @@ Branch: `feat/public-pages` — commit after every phase. **Nothing is pushed un
 
 ## Decisions made
 
-- **Contact email**: read from `NEXT_PUBLIC_CONTACT_EMAIL`; until the owner sets a real address
-  it falls back to `admin@nuskor.app` (matching the repo's existing VAPID_SUBJECT convention).
-  Owner TODO: confirm the address.
+- **Contact email**: confirmed by the owner — `zohaib.mzg158@gmail.com`. Used as the code
+  fallback and in `.env.example`; still overridable via `NEXT_PUBLIC_CONTACT_EMAIL`.
 - **Allow-list location**: the route allow-list lives in `src/lib/supabase/middleware.ts` (where
   the previous `PUBLIC_ROUTES` was); `src/middleware.ts` remains a thin wrapper.
 - **Ads + cookie consent** are wired into `(public)/layout.tsx` in Phase 2 so every intermediate

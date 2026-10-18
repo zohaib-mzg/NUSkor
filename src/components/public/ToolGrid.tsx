@@ -11,7 +11,7 @@ import {
   Target,
   TrendingUp,
 } from "lucide-react";
-import { TOOLS } from "@/lib/tools";
+import { TOOLS, type ToolMeta } from "@/lib/tools";
 
 const ICONS: Record<string, ReactNode> = {
   "cgpa-calculator": <Calculator className="h-5 w-5" />,
@@ -25,8 +25,16 @@ const ICONS: Record<string, ReactNode> = {
   "semester-gpa-planner": <CalendarDays className="h-5 w-5" />,
 };
 
-export default function ToolGrid({ limit }: { limit?: number }) {
-  const tools = typeof limit === "number" ? TOOLS.slice(0, limit) : TOOLS;
+export default function ToolGrid({
+  limit,
+  tools: toolsProp,
+}: {
+  limit?: number;
+  /** Explicit subset to render (used to slot an ad between rows on the hub). */
+  tools?: ToolMeta[];
+}) {
+  const tools =
+    toolsProp ?? (typeof limit === "number" ? TOOLS.slice(0, limit) : TOOLS);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

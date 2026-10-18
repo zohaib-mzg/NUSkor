@@ -51,6 +51,13 @@ Branch: `feat/public-pages` — commit after every phase. **Nothing is pushed un
 - **OG image runtime**: the `(public)` Open Graph image runs on the edge runtime — a workaround
   for a Windows-only path bug in `@vercel/og`'s Node runtime during `next build`; the route is
   therefore dynamic (rendered on demand), which is normal for OG images.
+- **Calc checks**: `tsx` added as a devDependency with `npm run check:calcs`
+  (`scripts/check-calcs.ts`) covering the worked example (3 CH A + 3 CH B- + 4 CH C+ = 2.93),
+  guards (NaN / zero / negative inputs) and every pure function in `src/lib/calc/*`.
+- **Tool page ads**: display unit sits after the whole tool card; the in-article unit lives inside
+  the explainer prose. Neither ever sits between inputs and results.
+- **Grade scale**: `src/lib/grading.ts` holds a commonly used 4.0 scale purely as an editable
+  default; every tool that reads grade points renders the "Use my university's scale" editor.
 
 ## Route plan (target 35+)
 
@@ -82,7 +89,11 @@ Runtime proof: `scripts/check-guards.mjs` (run against `npm run start` in Phase 
 - [x] Phase 1 — `(public)` route group, neutral home, PublicHeader/PublicFooter, middleware allow-list, 404/error
 - [x] Phase 2 — ads infrastructure (env, AdSenseScript, AdSlot, CookieConsent, ads.txt)
 - [x] Phase 3 — SEO foundation (sitemap, robots, JSON-LD, OG image, noindex on private layouts)
-- [ ] Phase 4 — public pages (core, product, tools, resources, glossary/FAQ, blog)
+- [x] Phase 4a — tools: 9 working calculators + `/tools` hub, `src/lib/calc/*` pure functions,
+  `src/lib/grading.ts`, shared content components (ToolShell, FAQ, RelatedLinks, Prose, Callout,
+  PageHero), `npm run check:calcs` all green, lint + build green (47 pages)
+- [ ] Phase 4b — public pages (core, product, resources, glossary/FAQ)
+- [ ] Phase 4c — blog (18 posts + category pages)
 - [ ] Phase 5 — student-first funnel
 - [ ] Phase 6 — performance & quality gates
 - [ ] Phase 7 — handoff & owner TODOs

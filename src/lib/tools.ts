@@ -69,6 +69,9 @@ export const TOOLS: ToolMeta[] = [
 
 export const TOOL_SLUGS = TOOLS.map((t) => t.slug);
 
+/** Shown as the "Last updated" line on tool pages. Fixed string, updated by hand. */
+export const TOOLS_LAST_REVIEWED = "October 2026";
+
 export function toolHref(slug: string): string {
   return `/tools/${slug}`;
 }

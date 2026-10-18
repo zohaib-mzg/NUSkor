@@ -5,7 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { SITE, STUDENT_PORTAL_HREF } from "@/lib/site";
+import { SITE } from "@/lib/site";
+import PortalButton from "@/components/public/PortalButton";
 import { cn } from "@/lib/utils";
 
 export default function PublicHeader() {
@@ -55,12 +56,7 @@ export default function PublicHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link
-            href={STUDENT_PORTAL_HREF}
-            className="btn-primary hidden text-sm sm:inline-flex"
-          >
-            Student Portal →
-          </Link>
+          <PortalButton className="btn-primary hidden text-sm sm:inline-flex" />
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -94,13 +90,10 @@ export default function PublicHeader() {
                 {item.label}
               </Link>
             ))}
-            <Link
-              href={STUDENT_PORTAL_HREF}
-              onClick={() => setOpen(false)}
+            <PortalButton
               className="btn-primary mt-3 w-full"
-            >
-              Student Portal →
-            </Link>
+              onClick={() => setOpen(false)}
+            />
           </nav>
         </div>
       )}

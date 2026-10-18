@@ -4,15 +4,17 @@ import {
   CalendarDays,
   ClipboardList,
   GraduationCap,
+  LayoutDashboard,
   ShieldCheck,
   Star,
   TrendingUp,
   Users,
 } from "lucide-react";
-import { SITE, STUDENT_PORTAL_HREF, TA_LOGIN_HREF } from "@/lib/site";
+import { SITE, TA_LOGIN_HREF } from "@/lib/site";
 import { organizationSchema, webSiteSchema } from "@/lib/schema";
 import { getAllPosts } from "@/lib/blog";
 import JsonLd from "@/components/public/JsonLd";
+import PortalButton from "@/components/public/PortalButton";
 import ToolGrid from "@/components/public/ToolGrid";
 import AdSlot from "@/components/public/AdSlot";
 import FAQ from "@/components/public/FAQ";
@@ -129,12 +131,7 @@ export default function HomePage() {
             >
               Try the CGPA Calculator
             </Link>
-            <Link
-              href={STUDENT_PORTAL_HREF}
-              className="btn-outline w-full text-base sm:w-auto"
-            >
-              Student Portal →
-            </Link>
+            <PortalButton className="btn-outline w-full text-base sm:w-auto" />
           </div>
           <p className="mt-5 text-xs text-ink/40">{SITE.independence.short}</p>
         </div>
@@ -278,12 +275,19 @@ export default function HomePage() {
             slot bookings end to end.
           </p>
           <div className="mx-auto mt-7 flex max-w-md flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href={STUDENT_PORTAL_HREF}
+            <PortalButton
               className="btn-dark w-full sm:w-auto"
-            >
-              <GraduationCap className="h-4 w-4" /> Sign in as Student
-            </Link>
+              signedOutLabel={
+                <>
+                  <GraduationCap className="h-4 w-4" /> Sign in as Student
+                </>
+              }
+              signedInLabel={
+                <>
+                  <LayoutDashboard className="h-4 w-4" /> Go to Dashboard
+                </>
+              }
+            />
             <Link href={TA_LOGIN_HREF} className="btn-primary w-full sm:w-auto">
               <Users className="h-4 w-4" /> Login as TA
             </Link>

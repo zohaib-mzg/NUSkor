@@ -1,12 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import CookieSettingsLink from "@/components/public/CookieSettingsLink";
-import {
-  ADMIN_LOGIN_HREF,
-  SITE,
-  STUDENT_PORTAL_HREF,
-  TA_LOGIN_HREF,
-} from "@/lib/site";
+import PortalButton from "@/components/public/PortalButton";
+import { ADMIN_LOGIN_HREF, SITE, TA_LOGIN_HREF } from "@/lib/site";
 
 const columns: { title: string; links: { href: string; label: string }[] }[] = [
   {
@@ -79,12 +75,10 @@ export default function PublicFooter() {
               Free student tools and a marks portal. {SITE.tagline}
             </p>
             <div className="mt-5 flex flex-col items-start gap-2 text-sm font-semibold">
-              <Link
-                href={STUDENT_PORTAL_HREF}
+              <PortalButton
                 className="text-gold-deep hover:underline"
-              >
-                Student portal →
-              </Link>
+                signedOutLabel="Student portal →"
+              />
               <Link href={TA_LOGIN_HREF} className="text-ink/60 hover:text-ink">
                 Login as TA
               </Link>

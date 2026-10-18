@@ -1,5 +1,6 @@
 import AdSenseScript from "@/components/public/AdSenseScript";
 import CookieConsent from "@/components/public/CookieConsent";
+import MobilePortalBar from "@/components/public/MobilePortalBar";
 import PublicHeader from "@/components/public/PublicHeader";
 import PublicFooter from "@/components/public/PublicFooter";
 
@@ -19,6 +20,9 @@ export default function PublicLayout({
       <PublicHeader />
       <main className="flex-1">{children}</main>
       <PublicFooter />
+      {/* Space so the mobile sticky bar never covers footer content */}
+      <div className="h-16 sm:hidden" aria-hidden="true" />
+      <MobilePortalBar />
       <CookieConsent />
     </div>
   );

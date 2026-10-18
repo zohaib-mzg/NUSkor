@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { GraduationCap, Users } from "lucide-react";
-import { STUDENT_PORTAL_HREF, TA_LOGIN_HREF } from "@/lib/site";
+import { GraduationCap, LayoutDashboard, Users } from "lucide-react";
+import { TA_LOGIN_HREF } from "@/lib/site";
+import PortalButton from "@/components/public/PortalButton";
 import { cn } from "@/lib/utils";
 
 /**
@@ -35,13 +36,21 @@ export default function CtaCard({
         {description}
       </p>
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-        <Link
-          href={STUDENT_PORTAL_HREF}
+        <PortalButton
           className="btn-primary w-full sm:w-auto"
-        >
-          <GraduationCap className="h-4 w-4" aria-hidden="true" /> Sign in as
-          Student
-        </Link>
+          signedOutLabel={
+            <>
+              <GraduationCap className="h-4 w-4" aria-hidden="true" /> Sign in
+              as Student
+            </>
+          }
+          signedInLabel={
+            <>
+              <LayoutDashboard className="h-4 w-4" aria-hidden="true" /> Go to
+              Dashboard
+            </>
+          }
+        />
         <Link href={TA_LOGIN_HREF} className="btn-outline w-full sm:w-auto">
           <Users className="h-4 w-4" aria-hidden="true" /> Login as TA
         </Link>

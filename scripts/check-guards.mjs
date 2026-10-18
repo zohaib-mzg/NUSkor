@@ -33,6 +33,12 @@ const PUBLIC_ROUTES = [
   "/tools",
   "/resources",
   "/updates",
+  "/tools/cgpa-calculator",
+  "/blog/how-cgpa-is-calculated",
+  "/blog/category/grades-gpa",
+  "/sitemap.xml",
+  "/robots.txt",
+  "/ads.txt",
 ];
 
 const GUARDED_ROUTES = [
@@ -43,9 +49,12 @@ const GUARDED_ROUTES = [
   "/settings",
   "/ta/sections",
   "/admin",
+  // Authenticated app flow: the page itself redirects to /login while
+  // signed out (middleware treats it as reachable, the page requires user).
+  "/ta-apply",
 ];
 
-const FLOW_ROUTES = ["/login", "/admin/login", "/join", "/ta-apply", "/access-denied"];
+const FLOW_ROUTES = ["/login", "/admin/login", "/join", "/access-denied"];
 
 let failures = 0;
 
@@ -111,6 +120,20 @@ async function checkFlow(path) {
   }
 }
 
+async function checkNoAds(path) {
+  try {
+    const res = await fetch(new URL(path, BASE));
+    const html = await res.text();
+    if (html.includes("adsbygoogle")) {
+      fail(`auth ${path} -> contains "adsbygoogle"`);
+    } else {
+      pass(`auth ${path} -> no ad script`);
+    }
+  } catch (err) {
+    fail(`auth ${path} -> network error: ${err.message}`);
+  }
+}
+
 console.log(`Guard checks against ${BASE}\n`);
 
 console.log("Public routes (expect 200 while signed out):");
@@ -121,6 +144,9 @@ for (const route of GUARDED_ROUTES) await checkGuarded(route);
 
 console.log("\nApp-flow routes (expect reachable while signed out):");
 for (const route of FLOW_ROUTES) await checkFlow(route);
+
+console.log("\nAuth surfaces (expect no ad scripts):");
+for (const route of ["/login", "/admin/login"]) await checkNoAds(route);
 
 console.log(
   failures === 0

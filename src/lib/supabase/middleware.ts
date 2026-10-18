@@ -15,7 +15,8 @@ const ADMIN_EMAIL = "adminmzg@gmail.com";
  *   (+ any path containing a "." — sitemap.xml, robots.txt, ads.txt, images…)
  *
  * APP FLOW — reachable signed-out exactly as before (auth + account flows):
- *   /login  /admin/login  /join  /invite*  /ta-apply  /access-denied  /auth*
+ *   /login  /admin/login  /join  /invite*  /access-denied  /auth*
+ *   (/ta-apply is signed-in only — the page itself redirects to /login)
  *
  * GUARDED — redirect to /login when signed out. Sanity check: every (portal)
  * route and /admin (except /admin/login) stays protected. Proven at runtime

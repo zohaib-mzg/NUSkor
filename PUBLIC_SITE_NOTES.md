@@ -79,6 +79,23 @@ Branch: `feat/public-pages` — commit after every phase. **Nothing is pushed un
   produce a double hyphen in the anchor.
 - **Home page**: one display ad between the tools grid and the guides, "Latest guides" (newest 3
   posts, auto-updating), and a 5-question FAQ teaser that renders `FAQPage` JSON-LD.
+- **Funnel (Phase 5)**: one auth-aware `PortalButton` client component is the single "Student
+  Portal" action (header, footer, CtaCard, home hero + final CTA, mobile bar). It renders
+  "Student Portal" statically and upgrades to "Go to Dashboard" after a client-side session
+  check (one shared Supabase `getUser()` per page load) — static rendering is untouched.
+  `MobilePortalBar` is a fixed bottom bar on <sm, with a spacer in the layout so it never covers
+  the footer. Soft CTA after every tool result (inside `ToolShell`) and at the end of every post.
+  The admin login link exists only in the public footer.
+- **Quality gates (Phase 6)**: three runnable checks against `npm run start` —
+  `npm run check:guards` (public 200 / guarded redirect / flow reachable / no ads on auth
+  surfaces), `npm run check:independence` (source term scan + independence footer line on every
+  sitemap URL + no ad scripts on `/login` + `/admin/login`), and `npm run check:links` (every
+  sitemap URL plus every same-origin link found on those pages resolves < 400). All green in
+  this build.
+- **Lighthouse** was not run in this environment (no throttled Chrome available). Run it on `/`,
+  a tool page and a blog post before launch — targets: Performance ≥ 90 mobile (ads off),
+  SEO 100, Accessibility ≥ 95. Static generation is already in place; only the calculators,
+  consent banner, portal button and ads are client islands.
 
 ## Route plan (target 35+)
 
@@ -97,12 +114,79 @@ Branch: `feat/public-pages` — commit after every phase. **Nothing is pushed un
   `/disclaimer`, `/cookie-policy`, `/features*`, `/how-it-works`, `/for-students`, `/for-tas`,
   `/faq`, `/glossary`, `/blog*`, `/tools*`, `/resources*`, `/updates`, plus static files
   (`.` in path: sitemap.xml, robots.txt, ads.txt, manifest, og images).
-- **App flow (reachable logged-out as today, no ads):** `/login`, `/admin/login`, `/join`,
-  `/invite`, `/ta-apply`, `/access-denied`, `/auth/*`.
+- **App flow (middleware leaves them reachable logged-out, no ads):** `/login`, `/admin/login`,
+  `/join`, `/invite`, `/access-denied`, `/auth/*`. (`/ta-apply` sits in this list in the
+  middleware, but the page itself requires a signed-in user and redirects to `/login` — the
+  guard check asserts it as guarded.)
 - **Guarded (redirect to `/login` when logged out):** `/dashboard`, `/marks`, `/evaluations`,
   `/announcements`, `/settings`, `/ta`, `/admin` (except `/admin/login`).
 
-Runtime proof: `scripts/check-guards.mjs` (run against `npm run start` in Phase 6).
+Runtime proof (all must pass against `npm run start`):
+`npm run check:guards`, `npm run check:independence`, `npm run check:links`.
+
+## Owner TODOs (do these before/at launch)
+
+1. **Custom domain.** Buy a nuSkor-based domain, connect it in Vercel, set
+   `NEXT_PUBLIC_SITE_URL=https://<domain>` and redeploy. AdSense does **not** approve
+   `*.vercel.app` sites. Canonicals, sitemap, OG image URLs and the share links all follow
+   `NEXT_PUBLIC_SITE_URL` — set it before applying.
+2. **AdSense.** Apply at adsense.google.com, add the domain, and fill in:
+   `NEXT_PUBLIC_ADSENSE_CLIENT` (ca-pub-…), `NEXT_PUBLIC_ADSENSE_SLOT_DISPLAY`,
+   `NEXT_PUBLIC_ADSENSE_SLOT_INARTICLE`, `NEXT_PUBLIC_ADSENSE_SLOT_MULTIPLEX`, and replace the
+   placeholder line in `public/ads.txt` with `google.com, ca-pub-…, DIRECT, f08c47fec0942fa0`.
+   Ads render nothing until these exist — the site is already safe by default.
+3. **Search Console.** Set `NEXT_PUBLIC_GSC_VERIFICATION`, verify the domain, submit
+   `/sitemap.xml`.
+4. **Contact email.** Keep `zohaib.mzg158@gmail.com` or change via
+   `NEXT_PUBLIC_CONTACT_EMAIL` — never a university address anywhere on the public side.
+5. **Legal review.** Have someone qualified read `/privacy-policy`, `/terms`, `/disclaimer` and
+   `/cookie-policy` once; adjust wording/jurisdiction as advised.
+6. **Screenshots.** Feature pages currently use labelled CSS mockups ("Sample data"). Replace
+   with real screenshots later if desired — keep real names and emails out of any image.
+7. **Lighthouse run.** Mobile Lighthouse on `/`, `/tools/cgpa-calculator` and
+   `/blog/how-cgpa-is-calculated`: Performance ≥ 90 (ads off), SEO 100, Accessibility ≥ 95.
+
+## AdSense approval checklist
+
+- [ ] Custom domain live over HTTPS; `NEXT_PUBLIC_SITE_URL` points at it; canonicals follow.
+- [ ] Required pages exist: About, Contact, Privacy, Terms, Disclaimer, Cookie policy ✓ (built).
+- [ ] Original, useful content on every page ✓ (18 posts, 9 tools, 5 resource guides, glossary,
+      28-question FAQ).
+- [ ] `public/ads.txt` contains the real `pub-` id.
+- [ ] AdSense account: site added, verification snippet via `NEXT_PUBLIC_ADSENSE_CLIENT`.
+- [ ] Three ad units created (display / in-article / multiplex) → slot env vars set.
+- [ ] Consent flow already gates ad loading (ads only after "Accept").
+- [ ] No ads on legal/contact/404/login/portal pages ✓ (enforced by layout; covered by checks).
+- [ ] After approval: accept cookies on the live site and confirm units fill; reserved heights
+      prevent layout shift.
+
+## How to add a blog post (5 steps)
+
+1. Create `src/content/blog/<slug>.mdx` (the filename is the URL slug) with frontmatter:
+   `title`, `description`, `date`, `updated` (fixed strings — never generated), `category`
+   (must exactly match one of the four names in `src/lib/blog.ts`), `tags`, `readingTime`,
+   `author: "nuSkor Team"`.
+2. Write the body: introduction, optionally `<AdSlot variant="in-article" />` after the intro
+   and again mid-article, H2/H3 sections, an FAQ section, and links to at least two tools or
+   posts. Keep H2 text plain (no em dashes with spaces — see the heading note above).
+3. Run `npm run gen:blog` (regenerates `src/lib/blog-index.json` for the OG images).
+4. `npm run build` — the post appears on `/blog`, its category page and the sitemap
+   automatically.
+5. Verify with `npm run start` + `npm run check:links`, and eyeball the post's
+   `/blog/<slug>/opengraph-image`.
+
+## How to add a tool (5 steps)
+
+1. Add the pure calculation to `src/lib/calc/` (no DOM, no React) with a sensible default scale
+   from `src/lib/grading.ts`.
+2. Register the tool in `TOOLS` in `src/lib/tools.ts` (slug, title, blurb) — the hub, home grid
+   and sitemap pick it up automatically.
+3. Build the client component in `src/components/public/tools/` and the page in
+   `src/app/(public)/tools/<slug>/page.tsx` using `ToolShell` (explainer ≥ 300 words, FAQ,
+   related links, `TOOLS_LAST_REVIEWED` line).
+4. Add cases for the new function to `scripts/check-calcs.ts` and run `npm run check:calcs`.
+5. `npm run build`, then `npm run check:links` + `npm run check:independence` against
+   `npm run start`.
 
 ## Status log
 
@@ -123,6 +207,11 @@ Runtime proof: `scripts/check-guards.mjs` (run against `npm run start` in Phase 
   `src/lib/blog-index.json` via `npm run gen:blog`), sitemap entries, home page updated (latest 3
   guides + 5-Q FAQ teaser + 1 display ad). All 23 blog routes 200, unknown slugs 404, term scan
   clean, lint + build green.
-- [ ] Phase 5 — student-first funnel
-- [ ] Phase 6 — performance & quality gates
-- [ ] Phase 7 — handoff & owner TODOs
+- [x] Phase 5 — student-first funnel: auth-aware `PortalButton` everywhere (header, footer,
+  CtaCard, home, mobile sticky bar → "Go to Dashboard" when signed in), soft CTA after every
+  tool result and post, admin link only in the footer. Static rendering preserved.
+- [x] Phase 6 — quality gates: `check:guards` (23 public + 8 guarded + 4 flow + no-ads-on-auth),
+  `check:independence` (99 files scanned clean; footer line on all 59 sitemap URLs; no ad
+  scripts on auth pages), `check:links` (59 sitemap URLs + 72 internal links all resolve).
+  Lighthouse deferred to owner (no throttled Chrome here) — see Owner TODOs.
+- [x] Phase 7 — handoff: owner TODOs, AdSense checklist and how-to guides are in this file.

@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "check:calcs": "tsx scripts/check-calcs.ts",
+    "check:guards": "node scripts/check-guards.mjs",
+    "check:links": "tsx scripts/check-links.ts",
+    "check:independence": "node scripts/check-independence.mjs",
     "gen:blog": "node scripts/gen-blog-index.mjs"
   },
   "dependencies": {

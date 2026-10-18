@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils";
 const TRAVEL_VISTA_URL = "https://travel-vista-usa.vercel.app/";
 
 // Routes rendered inside the portal shell, which has a fixed 16rem sidebar on
-// lg+ screens. The footer is indented to line up with the main content area.
+// lg+ screens. The banner is indented so it lines up with the main content
+// area instead of running underneath the sidebar.
 const PORTAL_PREFIXES = [
   "/dashboard",
   "/marks",
@@ -18,7 +19,7 @@ const PORTAL_PREFIXES = [
   "/admin",
 ];
 
-export default function DeveloperFooter() {
+export default function DeveloperBanner() {
   const pathname = usePathname();
 
   const isPortal =
@@ -28,24 +29,27 @@ export default function DeveloperFooter() {
     );
 
   return (
-    <footer
+    <div
       className={cn(
-        "border-t border-black/[0.06] bg-paper px-5 py-5 text-center",
+        "border-b border-black/[0.06] bg-gold-faint px-5 py-3.5 text-center",
         isPortal && "lg:ml-64"
       )}
     >
-      <p className="text-xs text-ink/45">
+      <p className="text-xl font-bold text-ink sm:text-2xl">
         Also from the developer:{" "}
         <a
           href={TRAVEL_VISTA_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-0.5 font-semibold text-gold-deep hover:underline"
+          className="inline-flex items-center gap-1.5 align-middle font-extrabold text-gold-deep hover:underline"
         >
           Travel Vista
-          <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+          <ArrowUpRight
+            className="h-[1.1em] w-[1.1em] shrink-0"
+            aria-hidden="true"
+          />
         </a>
       </p>
-    </footer>
+    </div>
   );
 }

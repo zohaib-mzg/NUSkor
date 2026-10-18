@@ -58,6 +58,15 @@ Branch: `feat/public-pages` — commit after every phase. **Nothing is pushed un
   the explainer prose. Neither ever sits between inputs and results.
 - **Grade scale**: `src/lib/grading.ts` holds a commonly used 4.0 scale purely as an editable
   default; every tool that reads grade points renders the "Use my university's scale" editor.
+- **Contact**: email only (`zohaib.mzg158@gmail.com`), never a university address. The contact
+  form is a client-side `mailto:` composer with a hidden honeypot field — no server endpoint,
+  consistent with the no-backend-for-advisors decision.
+- **Feature mockups**: CSS-built, fictional, always labelled "Sample data" (`SampleMockup.tsx`).
+  No screenshots of real users, no real names.
+- **Legal pages carry no ads** and no ad-adjacent components; every content page has a soft CTA
+  card (`CtaCard.tsx`) instead.
+- **Glossary** ships 43 terms with `DefinedTermSet` JSON-LD; **FAQ** ships 28 Qs in 7 groups with
+  one `FAQPage` schema for the whole page.
 
 ## Route plan (target 35+)
 
@@ -92,7 +101,10 @@ Runtime proof: `scripts/check-guards.mjs` (run against `npm run start` in Phase 
 - [x] Phase 4a — tools: 9 working calculators + `/tools` hub, `src/lib/calc/*` pure functions,
   `src/lib/grading.ts`, shared content components (ToolShell, FAQ, RelatedLinks, Prose, Callout,
   PageHero), `npm run check:calcs` all green, lint + build green (47 pages)
-- [ ] Phase 4b — public pages (core, product, resources, glossary/FAQ)
+- [x] Phase 4b — public pages: about/contact/legal (6), features hub + 6 sub-pages, how-it-works,
+  for-students, for-tas, updates, resources hub + 5 guides, glossary (43 terms, DefinedTermSet
+  schema), FAQ (28 Qs, 7 groups). Contact form is mailto + honeypot, no server. Legal pages carry
+  no ads. All 25 routes 200, term scan clean, lint + build green.
 - [ ] Phase 4c — blog (18 posts + category pages)
 - [ ] Phase 5 — student-first funnel
 - [ ] Phase 6 — performance & quality gates

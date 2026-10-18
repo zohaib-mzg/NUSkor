@@ -90,6 +90,26 @@ export function webApplicationSchema({
   };
 }
 
+export function definedTermSetSchema({
+  terms,
+  path,
+}: {
+  terms: { term: string; definition: string }[];
+  path: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "DefinedTermSet",
+    name: `${SITE.name} Glossary`,
+    url: `${SITE.url}${path}`,
+    hasDefinedTerm: terms.map((t) => ({
+      "@type": "DefinedTerm",
+      name: t.term,
+      description: t.definition,
+    })),
+  };
+}
+
 export function blogPostingSchema({
   title,
   description,

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import CookieSettingsLink from "@/components/public/CookieSettingsLink";
 import {
   ADMIN_LOGIN_HREF,
   SITE,
@@ -112,6 +113,11 @@ export default function PublicFooter() {
                     </Link>
                   </li>
                 ))}
+                {col.title === "Legal" && (
+                  <li>
+                    <CookieSettingsLink />
+                  </li>
+                )}
               </ul>
             </div>
           ))}

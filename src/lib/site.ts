@@ -17,7 +17,7 @@ export const SITE = {
    * Placeholder until the owner sets NEXT_PUBLIC_CONTACT_EMAIL.
    */
   contactEmail:
-    process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "contact@nuskor.example",
+    process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "admin@nuskor.app",
   independence: {
     short:
       "nuSkor is an independent student-built project — not affiliated with any university.",

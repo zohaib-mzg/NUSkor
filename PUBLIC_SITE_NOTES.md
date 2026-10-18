@@ -15,8 +15,9 @@ Branch: `feat/public-pages` — commit after every phase. **Nothing is pushed un
 - Design tokens: Tailwind `gold #F5C518`, `ink`, `paper`; utility classes `.card`, `.btn-*`,
   `.input` in `globals.css`. Logo: `/logo.png`.
 - Docs referenced by the prompt (`NUSKOR_CONTEXT.md`, `NUSKOR_MASTER_PROMPT.md`,
-  `RESTORE_LOGIN_GATE.md`) do not exist in the repo, and there was no `.env.example`.
-  → The codebase itself was treated as the source of truth; `.env.example` is created in Phase 2.
+  `RESTORE_LOGIN_GATE.md`) do not exist in the repo → the codebase itself was treated as the
+  source of truth. `.env.example` already existed (portal vars) and was extended with the
+  public-site and AdSense variables (Phase 2).
 
 ## Ground rules applied (prompt §1A / §1B — these override everything)
 
@@ -31,8 +32,9 @@ Branch: `feat/public-pages` — commit after every phase. **Nothing is pushed un
 
 ## Decisions made
 
-- **Contact email**: read from `NEXT_PUBLIC_CONTACT_EMAIL`; until the owner sets a real address it
-  falls back to `contact@nuskor.example` (clearly a placeholder). Owner TODO.
+- **Contact email**: read from `NEXT_PUBLIC_CONTACT_EMAIL`; until the owner sets a real address
+  it falls back to `admin@nuskor.app` (matching the repo's existing VAPID_SUBJECT convention).
+  Owner TODO: confirm the address.
 - **Allow-list location**: the route allow-list lives in `src/lib/supabase/middleware.ts` (where
   the previous `PUBLIC_ROUTES` was); `src/middleware.ts` remains a thin wrapper.
 - **Ads + cookie consent** are wired into `(public)/layout.tsx` in Phase 2 so every intermediate
@@ -72,7 +74,7 @@ Runtime proof: `scripts/check-guards.mjs` (run against `npm run start` in Phase 
 
 - [x] Phase 0 — repo read, plan written, branch created
 - [x] Phase 1 — `(public)` route group, neutral home, PublicHeader/PublicFooter, middleware allow-list, 404/error
-- [ ] Phase 2 — ads infrastructure (env, AdSenseScript, AdSlot, CookieConsent, ads.txt)
+- [x] Phase 2 — ads infrastructure (env, AdSenseScript, AdSlot, CookieConsent, ads.txt)
 - [ ] Phase 3 — SEO foundation
 - [ ] Phase 4 — public pages (core, product, tools, resources, glossary/FAQ, blog)
 - [ ] Phase 5 — student-first funnel

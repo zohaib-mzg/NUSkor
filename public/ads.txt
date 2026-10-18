@@ -1,0 +1,2 @@
+# ads.txt for nuSkor — replace pub-REPLACE_WITH_YOUR_ID after AdSense approval.
+google.com, pub-REPLACE_WITH_YOUR_ID, DIRECT, f08c47fec0942fa0

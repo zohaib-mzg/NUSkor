@@ -22,6 +22,10 @@ export const metadata: Metadata = {
   description:
     "Free student tools and a marks portal: CGPA calculators, guides, marks tracking and evaluation slot bookings. Empowering Students. Elevating Futures.",
   applicationName: "nuSkor",
+  manifest: "/site.webmanifest",
+  verification: process.env.NEXT_PUBLIC_GSC_VERIFICATION
+    ? { google: process.env.NEXT_PUBLIC_GSC_VERIFICATION }
+    : undefined,
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },

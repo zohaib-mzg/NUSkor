@@ -10,6 +10,8 @@ import {
   Users,
 } from "lucide-react";
 import { SITE, STUDENT_PORTAL_HREF, TA_LOGIN_HREF } from "@/lib/site";
+import { organizationSchema, webSiteSchema } from "@/lib/schema";
+import JsonLd from "@/components/public/JsonLd";
 import ToolGrid from "@/components/public/ToolGrid";
 
 export const metadata: Metadata = {
@@ -66,6 +68,9 @@ const steps = [
 export default function HomePage() {
   return (
     <>
+      <JsonLd data={organizationSchema()} />
+      <JsonLd data={webSiteSchema()} />
+
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div

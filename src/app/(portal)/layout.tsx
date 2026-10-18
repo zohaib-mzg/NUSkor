@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import PortalShell from "@/components/PortalShell";
@@ -5,6 +6,11 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { cleanName } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+/** Private area — never index, never carry ads. */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 const ADMIN_EMAIL = "adminmzg@gmail.com";
 

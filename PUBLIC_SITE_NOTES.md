@@ -44,6 +44,13 @@ Branch: `feat/public-pages` — commit after every phase. **Nothing is pushed un
 - **Landing page** was moved from `src/app/page.tsx` to `src/app/(public)/page.tsx` (URL `/`
   unchanged) and rewritten neutral (new student-first copy arrives fully in Phase 4).
 - **Copyright year** is computed at render time (build) in the public footer.
+- **SEO**: `sitemap.ts` + `robots.ts` live at the app root and list only public routes; `(portal)`,
+  `login` and `admin/login` layouts are `noindex, nofollow`; the default Open Graph image is the
+  brand-yellow card in `(public)/opengraph-image.tsx` (blog posts get their own in Phase 4c).
+  GSC verification is supported via `NEXT_PUBLIC_GSC_VERIFICATION`.
+- **OG image runtime**: the `(public)` Open Graph image runs on the edge runtime — a workaround
+  for a Windows-only path bug in `@vercel/og`'s Node runtime during `next build`; the route is
+  therefore dynamic (rendered on demand), which is normal for OG images.
 
 ## Route plan (target 35+)
 
@@ -74,7 +81,7 @@ Runtime proof: `scripts/check-guards.mjs` (run against `npm run start` in Phase 
 - [x] Phase 0 — repo read, plan written, branch created
 - [x] Phase 1 — `(public)` route group, neutral home, PublicHeader/PublicFooter, middleware allow-list, 404/error
 - [x] Phase 2 — ads infrastructure (env, AdSenseScript, AdSlot, CookieConsent, ads.txt)
-- [ ] Phase 3 — SEO foundation
+- [x] Phase 3 — SEO foundation (sitemap, robots, JSON-LD, OG image, noindex on private layouts)
 - [ ] Phase 4 — public pages (core, product, tools, resources, glossary/FAQ, blog)
 - [ ] Phase 5 — student-first funnel
 - [ ] Phase 6 — performance & quality gates

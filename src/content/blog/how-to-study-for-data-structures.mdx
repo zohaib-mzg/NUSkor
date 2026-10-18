@@ -1,0 +1,72 @@
+---
+title: "How to Study for Data Structures (Without Just Watching Solution Videos)"
+description: "Watching solutions feels like learning but doesn't survive a blank editor. A study loop for data structures based on attempts, rebuilds and pattern journals."
+date: "2026-08-31"
+updated: "2026-08-31"
+category: "Study Skills"
+tags: ["data structures", "algorithms", "practice", "active recall"]
+readingTime: 7
+author: "nuSkor Team"
+---
+
+Data structures is the course where study strategies go to die publicly. Students who coasted through earlier programming courses hit their first hard problem set, discover that rereading lecture slides produces no functioning code, and reach for the nearest solution video. The video makes sense. Everything makes sense while someone else drives. Then the exam asks for a modified version of the same problem and the humbling discovery is that recognition is not recall. This post is about the loop that actually builds recall — and it is heavier than watching, lighter than it sounds.
+
+<AdSlot variant="in-article" />
+
+## Why passive study fails here specifically
+
+Data structures is the first course where the difficulty is not remembering *what* to do but *deciding* what to do: which structure fits, which traversal applies, which invariant makes the code correct. That decision is a skill, and skills are built by making decisions under mild difficulty, not by observing decisions.
+
+The practical test is what we can call the blank-editor test: could you sit down, open an empty file, and produce a working version of the topic from memory — with only the problem statement in front of you? If the answer is no, the material is not studied yet, no matter how well the lecture felt.
+
+## The core loop
+
+Every serious problem you work through should run this four-phase loop:
+
+1. **Attempt before help.** Spend 20 to 30 minutes genuinely trying. Write brute force if the optimal is elusive; draw the structure on paper; trace your idea on a small example. Struggling here is not wasted time — it is the phase that makes the eventual understanding stick.
+2. **Take hints, not solutions.** Look at a hint, a partial idea, or the first step, then return to your own attempt. Full solutions are a last resort, and when you use one, you — see phase three.
+3. **Verify and understand.** Once you have a working solution — yours or borrowed — trace it on an edge case: empty input, one element, duplicates, a skewed shape. Complexity claims you cannot justify on paper are not yet yours.
+4. **Rebuild from scratch.** Close everything and re-implement the solution from an empty file. This is the phase everyone skips and the only phase that transfers to exams. If the rebuild takes two attempts, that is normal; run it again tomorrow in five minutes.
+
+The loop is expensive per problem — call it one to two hours for a serious problem done properly. Six problems done this loop beats twenty skimmed.
+
+## Keep a pattern journal
+
+Data structures problems are drawn from a finite deck of patterns: two pointers, sliding window, BFS vs DFS, top-k with a heap, prefix sums, binary search on the answer. After each problem, write three lines:
+
+- **Trigger** — what in the problem statement should make you think of this pattern?
+- **Skeleton** — the invariant or structure of the solution, in one sentence.
+- **Complexity** — time and space, with the reason.
+
+The journal turns each solved problem into a reusable decision, which is precisely what exams test. A good review session is rereading the triggers, not the code.
+
+<AdSlot variant="in-article" />
+
+## A weekly rhythm that compounds
+
+A sustainable version of this for a normal course load:
+
+- **Two or three deep problems** with the full loop above, spread across the week.
+- **One rebuild session**, where you re-implement two solutions from previous weeks from scratch, timed. This is spaced repetition applied to code.
+- **One blank-paper session**: draw and describe the core structures — a hash map, a tree rotation, a heap's array layout — without notes. Ten minutes of drawing beats an hour of rereading.
+- **One past-paper session** late in the term, timed, with the same conditions as the real thing.
+
+If a topic feels shaky afterwards, resist the urge to manually “re-study the slides”. Instead, attempt a fresh problem on that topic and let the failure show you what to reread.
+
+## FAQ
+
+### How many problems should I solve per topic?
+
+Fewer than you think, done properly. The marker is not a count but a feeling of recognition reversing into recall: seeing a new problem and knowing your first move without being told. When that happens on two consecutive unseen problems, the topic is ready. Move the topic to the spaced-review rotation and advance.
+
+### I understand the lecture but freeze facing problems. Why?
+
+This is the recognition deficit described above: understanding when guided is different from deciding when not. The [blank-editor test](/blog/how-to-prepare-for-a-programming-viva) from the evaluation guide applies here too — if you cannot rebuild the core operations from an empty file, that is the gap to train, and the four-phase loop is the training.
+
+### Are solution videos ever useful?
+
+As phase three of the loop, when you have already attempted and taken hints, yes — a clear explanation of why the solution works, immediately followed by a from-scratch rebuild, is legitimate study. Opening the video first, before an honest attempt, converts a learning exercise into a viewing exercise. The videos are not the problem; the ordering is.
+
+## The takeaway
+
+Data structures rewards decision-making built on retrieval, and retrieval is trained by attempting, hinting, verifying and rebuilding — not by watching. Keep a pattern journal, rotate old topics back through rebuilds, and run the blank-editor test before declaring a topic done. If you want a collection of course-neutral practice resources next, the [study resources page](/resources/study-resources) is a good starting shelf, and if the viva is already on the calendar, [the evaluation guide](/blog/how-to-prepare-for-a-programming-viva) pairs well with this loop.

@@ -1,0 +1,80 @@
+---
+title: "How to Prepare for a Programming Viva or Evaluation"
+description: "Demos and vivas reward explanation, not perfection. A one-week plan to rehearse your project, anticipate questions, and survive the pressure."
+date: "2026-08-10"
+updated: "2026-08-10"
+category: "Study Skills"
+tags: ["viva", "evaluation", "projects", "presentation"]
+readingTime: 7
+author: "nuSkor Team"
+---
+
+Most students prepare for a programming evaluation the way they prepare for an exam: they reread. Then the evaluation begins, someone says “walk me through it”, and rereading turns out to have been the wrong training. Evaluations — demos, vivas, project defences — test something narrower and more practical than the code itself: whether you can explain what you built, why you built it that way, and what breaks when conditions change. That is a preparation problem with a well-known solution, and it fits comfortably inside one week.
+
+<AdSlot variant="in-article" />
+
+## What evaluators are actually checking
+
+Interviewers and instructors who run these sessions are usually testing four things, none of which is “did you memorise line 212”:
+
+- **Understanding.** Can you explain the design in your own words, at two levels — the 60-second version and the follow-up-detail version?
+- **Ownership.** Do you know where the hard part lives, and what the code does in edge cases — empty input, huge input, malformed input?
+- **Adaptability.** What happens when the request changes mid-session: “what if we also wanted to sort by date — where would you start?”
+- **Honesty.** Do you know what your project does *not* do, and can you say so without apologising?
+
+Notice how little of that list is “the code compiles”. A working project is table stakes; the evaluation is the discussion on top.
+
+## The one-week preparation plan
+
+Five sessions of about an hour each beat one heroic night. Here is how to spend them.
+
+**Session 1 — clean checkout.** Clone your own project into a fresh folder and follow your own README as if you were a stranger. Every missing setup step you find now is a five-minute fix instead of a live-demo disaster. Nothing else this week is this boring or this valuable.
+
+**Session 2 — rehearse the demo path.** Write down the exact sequence of actions you will show: the happy path, the interesting feature, one error case. Keep it under three minutes. Run it twice and time it. If the demo needs configuration that takes longer than the demo itself, simplify now, not during the session.
+
+**Session 3 — build the question list.** For every significant component, write two questions you would ask if you were the evaluator, and draft the answers in one or two sentences. More on what to target below.
+
+**Session 4 — the fallback.** Prepare the smallest version of your project that still demonstrates the core idea — a version that runs even if the database is down, the build fails, or the laptop resets. Knowing it exists changes your whole posture under pressure.
+
+**Session 5 — a full dress rehearsal.** Present to a friend, a mirror, or a phone camera. Speaking the explanation out loud once is worth more than three silent read-throughs. Ask your audience to interrupt with one hostile question.
+
+<AdSlot variant="in-article" />
+
+## Demoing under pressure
+
+Three habits separate calm demos from chaotic ones:
+
+- **Narrate, don't fiddle.** Say what you are about to do, do it, say what happened. If something takes a second to load, your narration fills the silence and shows you know what should be happening.
+- **Never refactor live.** The clock is running and the stakes are psychological; the middle of a demo is the worst possible moment to start improving code. If you notice a problem, name it: “I'd normally tweak the naming here — the logic below is the part I want to show.”
+- **Use the fallback unapologetically.** If the full demo breaks, say “the live path is having trouble, so let me show you the core logic” and move on. Prepared recovery reads as competence; flailing does not.
+
+## Questions worth rehearsing
+
+The exact questions vary, but the terrain is remarkably consistent. Prepare short, spoken answers for:
+
+1. “Why did you choose this data structure / framework?”
+2. “What is the time or space complexity of the main operation?”
+3. “Show me where the input validation happens.”
+4. “What happens if this input is empty / enormous / duplicated?”
+5. “What would you do differently with one more month?”
+6. “Which part was hardest, and how did you get past it?”
+
+Question six is a gift, by the way — a prepared honest answer here reliably outperforms a humble-brag about never struggling.
+
+## FAQ
+
+### What if I don't know the answer to a question?
+
+Say what you do know, reason out loud from there, and stop at the edge of your knowledge. “I'd have to check how that behaves with concurrent writes — my guess is X, and I'd verify by testing Y” is a strong answer. Bluffing is the only losing move, and evaluators fact-check bluffs for a living.
+
+### Do I need to memorise my own code?
+
+No — you need to navigate it. Know which file does what and roughly which function handles which feature. In most evaluations you have your laptop and your repository; treating it like a familiar map beats reciting it like a poem.
+
+### Does the evaluation score the project or the discussion?
+
+Usually a mixture, weighted differently by course. That is exactly why the preparation plan above exists: it improves the discussion half, which is the half most students leave un-prepared and the half that is fully within your control.
+
+## The takeaway
+
+An evaluation is a guided tour of your understanding, and understanding is rehearsable. Clean checkout, a timed demo path, a question list, a fallback, and one out-loud rehearsal: five hours, spread across a week, ahead of an event that a semester of work culminates in. The [evaluation preparation checklist](/resources/evaluation-prep-checklist) turns that list into a printable walkthrough, and if you want to coordinate a slot without the email back-and-forth, see [how evaluation slots work](/features/evaluation-slots). For the etiquette layer — asking, rescheduling, following up — the [guide to emailing your TA or instructor](/blog/how-to-email-your-ta-or-instructor) covers it.

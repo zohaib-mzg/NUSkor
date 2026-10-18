@@ -11,8 +11,12 @@ import {
 } from "lucide-react";
 import { SITE, STUDENT_PORTAL_HREF, TA_LOGIN_HREF } from "@/lib/site";
 import { organizationSchema, webSiteSchema } from "@/lib/schema";
+import { getAllPosts } from "@/lib/blog";
 import JsonLd from "@/components/public/JsonLd";
 import ToolGrid from "@/components/public/ToolGrid";
+import AdSlot from "@/components/public/AdSlot";
+import FAQ from "@/components/public/FAQ";
+import PostCard from "@/components/public/PostCard";
 
 export const metadata: Metadata = {
   title: { absolute: "nuSkor — Free CGPA Calculator & Student Tools" },
@@ -65,7 +69,32 @@ const steps = [
   },
 ];
 
+const homeFaqs = [
+  {
+    q: "Are the calculators really free?",
+    a: "Yes. Every calculator runs entirely in your browser, free, with no account required — your numbers never leave your device.",
+  },
+  {
+    q: "What is nuSkor?",
+    a: "nuSkor is an independent student-built project: free grade and CGPA calculators, practical guides, and an optional portal where the marks your instructors publish, class statistics and evaluation slots live in one place.",
+  },
+  {
+    q: "Is nuSkor affiliated with any university?",
+    a: "No. nuSkor is an independent project and is not affiliated with, endorsed by or connected to any university. The tools use generic grade arithmetic that every student can adapt to their own institution's scale.",
+  },
+  {
+    q: "Do I need an account to use the tools?",
+    a: "No. The calculators and guides work without any account. An account is only needed to sign in to the portal for marks, class statistics and evaluation slots.",
+  },
+  {
+    q: "Where is my data stored?",
+    a: "The calculators never send your inputs anywhere — everything is computed in your browser. In the portal, your marks come from what your instructors enter, protected by database-level rules so students can only read their own data.",
+  },
+];
+
 export default function HomePage() {
+  const latestPosts = getAllPosts().slice(0, 3);
+
   return (
     <>
       <JsonLd data={organizationSchema()} />
@@ -133,6 +162,37 @@ export default function HomePage() {
         </p>
       </section>
 
+      {/* The home page's single display ad sits between the tools and the guides */}
+      <section className="mx-auto max-w-4xl px-5 pb-4" aria-label="Advertisement">
+        <AdSlot variant="display" />
+      </section>
+
+      {/* Latest guides */}
+      <section className="mx-auto max-w-6xl px-5 pb-20">
+        <div className="mb-8 text-center">
+          <h2 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+            Latest guides
+          </h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-ink/55">
+            Practical, university-neutral reads on grades, study habits and
+            university life.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {latestPosts.map((post) => (
+            <PostCard key={post.slug} post={post} />
+          ))}
+        </div>
+        <p className="mt-6 text-center">
+          <Link
+            href="/blog"
+            className="text-sm font-semibold text-gold-deep hover:underline"
+          >
+            Read the blog →
+          </Link>
+        </p>
+      </section>
+
       {/* What is nuSkor */}
       <section className="mx-auto max-w-6xl px-5 pb-20">
         <h2 className="mb-8 text-center text-2xl font-bold tracking-tight text-ink sm:text-3xl">
@@ -184,6 +244,19 @@ export default function HomePage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* FAQ teaser — five questions plus FAQPage schema via the shared component */}
+      <section className="mx-auto max-w-3xl px-5 pb-20">
+        <FAQ items={homeFaqs} heading="Common questions" />
+        <p className="mt-5 text-center">
+          <Link
+            href="/faq"
+            className="text-sm font-semibold text-gold-deep hover:underline"
+          >
+            Read all FAQs →
+          </Link>
+        </p>
       </section>
 
       {/* CTA */}

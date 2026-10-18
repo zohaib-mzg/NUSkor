@@ -7,18 +7,22 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "check:calcs": "tsx scripts/check-calcs.ts"
+    "check:calcs": "tsx scripts/check-calcs.ts",
+    "gen:blog": "node scripts/gen-blog-index.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "clsx": "^2.1.1",
     "exceljs": "^4.4.0",
+    "gray-matter": "^4.0.3",
     "lucide-react": "^1.33.0",
     "next": "14.2.35",
+    "next-mdx-remote": "^6.0.0",
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^3.10.1",
+    "rehype-slug": "^6.0.0",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {

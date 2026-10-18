@@ -67,6 +67,18 @@ Branch: `feat/public-pages` — commit after every phase. **Nothing is pushed un
   card (`CtaCard.tsx`) instead.
 - **Glossary** ships 43 terms with `DefinedTermSet` JSON-LD; **FAQ** ships 28 Qs in 7 groups with
   one `FAQPage` schema for the whole page.
+- **Blog**: 18 original MDX posts (4 categories: Grades & GPA, Study Skills, University Life,
+  Careers & Skills). Dates are fixed hand-written strings, spread July–October 2026 — never
+  generated at build time. Post pages carry a TOC (H2 anchors), reading time, plain share links
+  (no SDKs), 2 in-article ad slots inside the MDX + 1 display slot before related posts, and
+  `BlogPosting` + breadcrumb JSON-LD. **After adding/renaming posts run `npm run gen:blog`** —
+  it regenerates `src/lib/blog-index.json`, which the edge OG image route imports (edge cannot
+  read the filesystem).
+- **Blog headings**: TOC anchors are produced by rehype-slug and mirrored by `headingSlug()` in
+  `src/lib/blog.ts`. Keep H2 text plain (single spaces) — an em dash surrounded by spaces would
+  produce a double hyphen in the anchor.
+- **Home page**: one display ad between the tools grid and the guides, "Latest guides" (newest 3
+  posts, auto-updating), and a 5-question FAQ teaser that renders `FAQPage` JSON-LD.
 
 ## Route plan (target 35+)
 
@@ -105,7 +117,12 @@ Runtime proof: `scripts/check-guards.mjs` (run against `npm run start` in Phase 
   for-students, for-tas, updates, resources hub + 5 guides, glossary (43 terms, DefinedTermSet
   schema), FAQ (28 Qs, 7 groups). Contact form is mailto + honeypot, no server. Legal pages carry
   no ads. All 25 routes 200, term scan clean, lint + build green.
-- [ ] Phase 4c — blog (18 posts + category pages)
+- [x] Phase 4c — blog: MDX infra (`src/content/blog`, gray-matter + next-mdx-remote/rsc +
+  rehype-slug), 18 full posts across 4 categories, `/blog` hub, 4 category pages, per-post pages
+  with TOC, share links, BlogPosting + breadcrumb JSON-LD, per-post OG image (edge, from
+  `src/lib/blog-index.json` via `npm run gen:blog`), sitemap entries, home page updated (latest 3
+  guides + 5-Q FAQ teaser + 1 display ad). All 23 blog routes 200, unknown slugs 404, term scan
+  clean, lint + build green.
 - [ ] Phase 5 — student-first funnel
 - [ ] Phase 6 — performance & quality gates
 - [ ] Phase 7 — handoff & owner TODOs

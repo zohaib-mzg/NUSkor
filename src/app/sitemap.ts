@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
 import { SITE } from "@/lib/site";
 import { TOOLS } from "@/lib/tools";
+import { CATEGORIES, getAllPosts } from "@/lib/blog";
 
 /**
  * Sitemap for the public (university-neutral) side of nuSkor.
  * Private routes (portal, admin, auth, account flows) are never listed here —
  * see src/app/robots.ts for the matching disallow rules.
- * Blog entries are appended in Phase 4c via src/lib/blog.ts.
  */
 
 const STATIC_ROUTES: {
@@ -61,5 +61,26 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
-  return [...staticEntries, ...toolEntries];
+  const blogEntries: MetadataRoute.Sitemap = getAllPosts().map((post) => ({
+    url: `${SITE.url}/blog/${post.slug}`,
+    lastModified: new Date(`${post.updated}T00:00:00Z`),
+    changeFrequency: "monthly" as const,
+    priority: 0.7,
+  }));
+
+  const blogCategoryEntries: MetadataRoute.Sitemap = CATEGORIES.map(
+    (category) => ({
+      url: `${SITE.url}/blog/category/${category.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.5,
+    })
+  );
+
+  return [
+    ...staticEntries,
+    ...toolEntries,
+    ...blogEntries,
+    ...blogCategoryEntries,
+  ];
 }

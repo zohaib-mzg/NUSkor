@@ -1,0 +1,128 @@
+[
+  {
+    "slug": "internships-and-skills",
+    "title": "Internships and Skills: Building the Journey, Not Just the Résumé",
+    "description": "What internship processes actually filter for, the skill stack that compounds, how to build proof of work, and why grades and projects answer different doors.",
+    "category": "Careers & Skills",
+    "date": "2026-10-12"
+  },
+  {
+    "slug": "first-semester-survival-guide",
+    "title": "The First-Semester Survival Guide",
+    "description": "The first semester is a different game with the same name. The hidden syllabus, the first-three-weeks setup, the habits that carry the term, and the warning signs.",
+    "category": "University Life",
+    "date": "2026-10-10"
+  },
+  {
+    "slug": "why-leaderboards-should-be-anonymous",
+    "title": "Why Leaderboards Should Be Anonymous",
+    "description": "Public class rankings are a design choice with real costs — comparison stress, privacy exposure, mark-chasing. Here's the case for private ranks and opt-in competition.",
+    "category": "University Life",
+    "date": "2026-10-08"
+  },
+  {
+    "slug": "understanding-your-marksheet",
+    "title": "Understanding Your Marksheet: How to Read It Like an Engineer",
+    "description": "A result sheet is compressed data, and it deserves a careful read: worked example, the red flags worth checking, and how to turn sheets into a personal ledger.",
+    "category": "Grades & GPA",
+    "date": "2026-10-05"
+  },
+  {
+    "slug": "how-to-email-your-ta-or-instructor",
+    "title": "How to Email Your TA or Instructor (and Actually Get a Reply)",
+    "description": "Most student emails fail at the subject line. A five-part structure for emails that get answered, plus timing rules, a template, and what not to send.",
+    "category": "University Life",
+    "date": "2026-10-02"
+  },
+  {
+    "slug": "group-projects-without-the-drama",
+    "title": "Group Projects Without the Drama",
+    "description": "Group coursework is a coordination problem wearing a module costume. Day-one scoping, deliverable ownership and an escalation ladder that keeps projects and friendships intact.",
+    "category": "University Life",
+    "date": "2026-09-28"
+  },
+  {
+    "slug": "write-assignments-that-dont-lose-marks",
+    "title": "How to Write Assignments That Don't Lose Marks",
+    "description": "Most lost assignment marks are not knowledge gaps — they're rubric misses, structure problems and last-minute logistics. A checklist that keeps your earned marks.",
+    "category": "Study Skills",
+    "date": "2026-09-21"
+  },
+  {
+    "slug": "pomodoro-spaced-repetition-active-recall",
+    "title": "Pomodoro, Spaced Repetition, Active Recall: What Actually Works",
+    "description": "Three famous study techniques, honestly evaluated — what each one really does, where it helps most, and how to combine them without turning study into a ritual.",
+    "category": "Study Skills",
+    "date": "2026-09-14"
+  },
+  {
+    "slug": "time-management-for-cs-students",
+    "title": "Time Management for CS Students: A Weekly System That Survives Deadlines",
+    "description": "When every deadline lands in the same week, motivation is not the missing piece — structure is. A weekly review, time-boxing and triage system that holds up.",
+    "category": "Study Skills",
+    "date": "2026-09-07"
+  },
+  {
+    "slug": "how-to-study-for-data-structures",
+    "title": "How to Study for Data Structures (Without Just Watching Solution Videos)",
+    "description": "Watching solutions feels like learning but doesn't survive a blank editor. A study loop for data structures based on attempts, rebuilds and pattern journals.",
+    "category": "Study Skills",
+    "date": "2026-08-31"
+  },
+  {
+    "slug": "planning-your-attendance",
+    "title": "Planning Attendance: How Many Classes Can You Actually Miss?",
+    "description": "Attendance math without the guilt: how minimum percentages work, how to compute your remaining absences, and how to recover if you've drifted below the line.",
+    "category": "University Life",
+    "date": "2026-08-24"
+  },
+  {
+    "slug": "quiz-sessional-midterm-final-explained",
+    "title": "Quiz, Sessional, Midterm, Final: How Course Components Usually Add Up",
+    "description": "Your course grade is a weighted assembly, not a single exam. Here's how the usual components combine — and how their weights should direct your study hours.",
+    "category": "Study Skills",
+    "date": "2026-08-17"
+  },
+  {
+    "slug": "how-to-prepare-for-a-programming-viva",
+    "title": "How to Prepare for a Programming Viva or Evaluation",
+    "description": "Demos and vivas reward explanation, not perfection. A one-week plan to rehearse your project, anticipate questions, and survive the pressure.",
+    "category": "Study Skills",
+    "date": "2026-08-10"
+  },
+  {
+    "slug": "what-to-do-after-a-bad-midterm",
+    "title": "What to Do After a Bad Midterm",
+    "description": "A bad midterm is a data point, not a verdict. A 48-hour recovery plan: get the facts, diagnose honestly, and rebuild using the weightage you still control.",
+    "category": "Study Skills",
+    "date": "2026-08-03"
+  },
+  {
+    "slug": "how-to-raise-your-cgpa",
+    "title": "How to Raise Your CGPA: A Realistic Semester-by-Semester Plan",
+    "description": "A CGPA improvement plan built on arithmetic, not motivation: find your required average, audit your leverage, and run a semester routine that lasts.",
+    "category": "Grades & GPA",
+    "date": "2026-07-27"
+  },
+  {
+    "slug": "how-letter-grades-usually-work",
+    "title": "How Letter Grades Usually Work: Weightage, Marks and Instructor Cutoffs",
+    "description": "How marks turn into percentages, percentages into letters, and letters into grade points — a generic guide with a worked example and the questions to ask.",
+    "category": "Grades & GPA",
+    "date": "2026-07-20"
+  },
+  {
+    "slug": "sgpa-vs-cgpa-whats-the-difference",
+    "title": "SGPA vs CGPA: What's the Difference and Which Matters",
+    "description": "One term describes a semester, the other your whole degree. Here's how SGPA and CGPA relate, where each one matters, and the mistake that breaks both.",
+    "category": "Grades & GPA",
+    "date": "2026-07-13"
+  },
+  {
+    "slug": "how-cgpa-is-calculated",
+    "title": "How CGPA Is Calculated (with a Worked Example)",
+    "description": "The CGPA formula in plain words — quality points, credit weighting, and a full worked example you can follow with your own marksheet.",
+    "category": "Grades & GPA",
+    "date": "2026-07-06"
+  }
+]

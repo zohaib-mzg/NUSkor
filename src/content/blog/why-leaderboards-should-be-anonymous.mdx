@@ -1,0 +1,63 @@
+---
+title: "Why Leaderboards Should Be Anonymous"
+description: "Public class rankings are a design choice with real costs — comparison stress, privacy exposure, mark-chasing. Here's the case for private ranks and opt-in competition."
+date: "2026-10-08"
+updated: "2026-10-08"
+category: "University Life"
+tags: ["leaderboards", "privacy", "motivation", "rank"]
+readingTime: 6
+author: "nuSkor Team"
+---
+
+At some point in most cohorts, someone builds a ranked list of students — a spreadsheet, a bot, a hallway tradition — and the class splits into three camps: relieved, ambushed, and quietly obsessed. Ranking is presented as neutral information, as if it were weather. It is not weather; it is a product with design choices, and one of those choices is whether individuals are named. This post makes the case for a specific design — anonymous, private, opt-in competition — and explains why we built the site's ranking this way.
+
+<AdSlot variant="in-article" />
+
+## What a public ranked list does to a class
+
+Rank information, by itself, is useful: it tells you where you stand. The trouble starts with identity attached and visibility imposed. Three effects appear reliably:
+
+- **The bottom quarter gets punished twice.** Students already behind receive rank as a verdict rather than a signal. Effort that would have gone into improving a course instead goes into managing a public identity as “the one at 74th”. Discouragement compounds; the list predicted the outcome it then helps cause.
+- **The top gets anxious company.** High rank does not remove comparison stress; it relocates it. Every subsequent assessment becomes a defence of a position, which is a worse frame for learning than curiosity was.
+- **Everyone mark-chases where ranks incentivise it.** When ranks are public, students optimise for the exact thing ranked — often raw totals — over the behaviours that produce durable understanding. Assessment becomes a sport with spectators; the spectators are the other students.
+
+There is also the privacy line. Grades are personal academic data; a public list exposes every student's relative position to every other student, permanently, without asking. Most institutions would never post it on a noticeboard anymore. A spreadsheet circulated privately is the same act with worse formatting.
+
+## The alternative: private rank, aggregate context
+
+None of this requires giving up self-knowledge. It requires separating two questions that public leaderboards fuse together:
+
+1. **Where do I stand?** Answerable privately: your own rank or percentile, visible only to you.
+2. **How is the class doing overall?** Answerable in aggregate: median, spread, an anonymised distribution — context with nobody's name on it.
+
+Under that design, students get exactly the information that helps, and lose only the information that harms: the ability to know that specific other people are currently beating them. Notice that the two questions above are the ones students actually ask — “am I okay?” and “is this course being graded hard?” — neither of which needs a name.
+
+<AdSlot variant="in-article" />
+
+## The comparison you actually need
+
+The most useful benchmark is not another student; it is your own trajectory. Percentile bands over time, “you moved up two bands since the midterm”, an improvement plan that starts from YOUR numbers — this is comparison with a rival you can actually beat, because the rival is last month's you. A private rank view supports all of it; a public list supports almost none of it, because its emotional payload arrives first and its data arrives second.
+
+That design reasoning is why nuSkor's class ranking is anonymous: you see your own position and class statistics, computed from the marks your instructors enter, without anyone else's name — or yours — attached to a public ordering. The [leaderboard feature page](/features/leaderboard) describes how the ranking itself is computed.
+
+## When visible competition is fine
+
+There is a version of ranked competition that works: opt-in, low-stakes, and separate from grades. Programming contests, practice quizzes with fun handles, study-group challenges — all fine, all voluntary, none of them tied to your academic record. The dividing line is consent plus stakes. A student who chooses a pseudonymous contest has opted into comparison as a game; a student whose grade position is listed for the cohort has received it as a disclosure.
+
+## FAQ
+
+### Doesn't hiding ranks remove motivation?
+
+Competition motivates some students a lot, which is exactly why opt-in contests exist — and why imposed public ranks are a bad deal for everyone else. The median student does not need a public spotlight to work harder; they need to know their own position and their own trend, privately. That version motivates without the collateral.
+
+### So I can never know how I compare?
+
+You compare constantly and should: against percentiles, against class statistics, against your previous semesters, against the required average for your goal. All of that is available without a named list — the [CGPA improvement planner](/tools/cgpa-improvement-planner) compares you against your own target, which is the comparison with consequences.
+
+### What about class statistics — don't they expose people in tiny classes?
+
+That's a real edge case, and good ranking design handles it: statistics are shown where the cohort is large enough to be anonymous, and suppressed in very small classes where a “distribution” would identify individuals. Privacy-conscious implementation is part of the feature, not an afterthought — see [how nuSkor handles data](/features/security).
+
+## The takeaway
+
+A ranked list is a design decision, and naming students is a costly default: it discourages the bottom, distracts the top, incentivises mark-chasing and exposes academic data. Rank privately, aggregate openly, compete only by consent — that is the design that keeps the signal and drops the spectators. If you want to see where your own numbers stand against your own target, start with the [CGPA calculator](/tools/cgpa-calculator), and for the study-side of climbing privately, the [CGPA improvement plan](/blog/how-to-raise-your-cgpa) lays out the arithmetic.

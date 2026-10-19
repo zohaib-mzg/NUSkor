@@ -135,16 +135,17 @@ Runtime proof (all must pass against `npm run start`):
    `NEXT_PUBLIC_SITE_URL` — set it before applying. **Current production value is malformed:**
    `https://nuskor.vercel.app)` includes a stray `)` — fix it to `https://nuskor.vercel.app`
    (or the final custom domain) and redeploy before submitting.
-2. **AdSense.** Publisher ID received: `ca-pub-8713827731867413` — now in `public/ads.txt` and
-   in the gitignored `.env.local`. **Current status (owner):** account exists, but the site is
-   not verified and the application has not been submitted yet. Order of operations:
-   custom domain live → deploy → add the domain in AdSense → verify via **ads.txt** (the file is
-   ready at the domain root) → submit for review → after approval, create the three ad units
-   (display / in-article / multiplex) and send their slot IDs. Vercel env vars to set:
-   `NEXT_PUBLIC_ADSENSE_CLIENT=ca-pub-8713827731867413` plus
+2. **AdSense.** Publisher ID changed to `ca-pub-5321082236533177` on 2026-10-19 — now in
+   `public/ads.txt` and in the gitignored `.env.local`. The old account
+   (`ca-pub-8713827731867413`) is no longer used. **Current status (owner):** new account exists,
+   but the site is not verified and the application has not been submitted yet. Order of
+   operations: custom domain live → deploy → add the domain in AdSense → verify via **ads.txt**
+   (the file is ready at the domain root) → submit for review → after approval, create the three
+   ad units (display / in-article / multiplex) and send their slot IDs. Vercel env vars to set:
+   `NEXT_PUBLIC_ADSENSE_CLIENT=ca-pub-5321082236533177` plus
    `NEXT_PUBLIC_ADSENSE_SLOT_DISPLAY`, `NEXT_PUBLIC_ADSENSE_SLOT_INARTICLE`,
    `NEXT_PUBLIC_ADSENSE_SLOT_MULTIPLEX`. Ads stay invisible until the slot IDs exist — the site
-   is safe by default.
+   is safe by default. Ad units from the old account do not carry over; create new units.
 3. **Search Console.** Set `NEXT_PUBLIC_GSC_VERIFICATION`, verify the domain, submit
    `/sitemap.xml`.
 4. **Contact email.** Keep `zohaib.mzg158@gmail.com` or change via
@@ -168,7 +169,7 @@ Runtime proof (all must pass against `npm run start`):
 - [ ] Required pages exist: About, Contact, Privacy, Terms, Disclaimer, Cookie policy ✓ (built).
 - [ ] Original, useful content on every page ✓ (18 posts, 9 tools, 5 resource guides, glossary,
       28-question FAQ).
-- [x] `public/ads.txt` contains the real `pub-` id (`pub-8713827731867413`).
+- [x] `public/ads.txt` contains the real `pub-` id (`pub-5321082236533177`).
 - [ ] AdSense account: site added and verified. **Use the ads.txt method** — the crawler will
       not see the consent-gated script tag in the HTML. Requires the custom domain to be live
       first (`/ads.txt` must resolve at the domain root).

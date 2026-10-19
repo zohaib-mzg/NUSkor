@@ -1,2 +1,2 @@
 # ads.txt for nuSkor — Google AdSense publisher verification.
-google.com, pub-8713827731867413, DIRECT, f08c47fec0942fa0
+google.com, pub-5321082236533177, DIRECT, f08c47fec0942fa0

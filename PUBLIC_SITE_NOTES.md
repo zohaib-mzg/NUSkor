@@ -130,11 +130,13 @@ Runtime proof (all must pass against `npm run start`):
    `NEXT_PUBLIC_SITE_URL=https://<domain>` and redeploy. AdSense does **not** approve
    `*.vercel.app` sites. Canonicals, sitemap, OG image URLs and the share links all follow
    `NEXT_PUBLIC_SITE_URL` — set it before applying.
-2. **AdSense.** Apply at adsense.google.com, add the domain, and fill in:
-   `NEXT_PUBLIC_ADSENSE_CLIENT` (ca-pub-…), `NEXT_PUBLIC_ADSENSE_SLOT_DISPLAY`,
-   `NEXT_PUBLIC_ADSENSE_SLOT_INARTICLE`, `NEXT_PUBLIC_ADSENSE_SLOT_MULTIPLEX`, and replace the
-   placeholder line in `public/ads.txt` with `google.com, ca-pub-…, DIRECT, f08c47fec0942fa0`.
-   Ads render nothing until these exist — the site is already safe by default.
+2. **AdSense.** Publisher ID received: `ca-pub-8713827731867413` — now in `public/ads.txt` and
+   in the gitignored `.env.local`. **Still needed:** after approval, create the three ad units
+   (display / in-article / multiplex) and send their slot IDs. Vercel env vars to set:
+   `NEXT_PUBLIC_ADSENSE_CLIENT=ca-pub-8713827731867413` plus
+   `NEXT_PUBLIC_ADSENSE_SLOT_DISPLAY`, `NEXT_PUBLIC_ADSENSE_SLOT_INARTICLE`,
+   `NEXT_PUBLIC_ADSENSE_SLOT_MULTIPLEX`. Ads stay invisible until the slot IDs exist — the site
+   is safe by default.
 3. **Search Console.** Set `NEXT_PUBLIC_GSC_VERIFICATION`, verify the domain, submit
    `/sitemap.xml`.
 4. **Contact email.** Keep `zohaib.mzg158@gmail.com` or change via
@@ -152,7 +154,7 @@ Runtime proof (all must pass against `npm run start`):
 - [ ] Required pages exist: About, Contact, Privacy, Terms, Disclaimer, Cookie policy ✓ (built).
 - [ ] Original, useful content on every page ✓ (18 posts, 9 tools, 5 resource guides, glossary,
       28-question FAQ).
-- [ ] `public/ads.txt` contains the real `pub-` id.
+- [x] `public/ads.txt` contains the real `pub-` id (`pub-8713827731867413`).
 - [ ] AdSense account: site added, verification snippet via `NEXT_PUBLIC_ADSENSE_CLIENT`.
 - [ ] Three ad units created (display / in-article / multiplex) → slot env vars set.
 - [ ] Consent flow already gates ad loading (ads only after "Accept").

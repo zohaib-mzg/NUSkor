@@ -132,7 +132,9 @@ Runtime proof (all must pass against `npm run start`):
 1. **Custom domain.** Buy a nuSkor-based domain, connect it in Vercel, set
    `NEXT_PUBLIC_SITE_URL=https://<domain>` and redeploy. AdSense does **not** approve
    `*.vercel.app` sites. Canonicals, sitemap, OG image URLs and the share links all follow
-   `NEXT_PUBLIC_SITE_URL` — set it before applying.
+   `NEXT_PUBLIC_SITE_URL` — set it before applying. **Current production value is malformed:**
+   `https://nuskor.vercel.app)` includes a stray `)` — fix it to `https://nuskor.vercel.app`
+   (or the final custom domain) and redeploy before submitting.
 2. **AdSense.** Publisher ID received: `ca-pub-8713827731867413` — now in `public/ads.txt` and
    in the gitignored `.env.local`. **Current status (owner):** account exists, but the site is
    not verified and the application has not been submitted yet. Order of operations:
@@ -153,6 +155,12 @@ Runtime proof (all must pass against `npm run start`):
    with real screenshots later if desired — keep real names and emails out of any image.
 7. **Lighthouse run.** Mobile Lighthouse on `/`, `/tools/cgpa-calculator` and
    `/blog/how-cgpa-is-calculated`: Performance ≥ 90 (ads off), SEO 100, Accessibility ≥ 95.
+8. **Adsterra (held 2026-10-19).** Three tags received (two `bauval.org`, one `abscloud.org`);
+   all contain **popunder** code. Decision: do **not** load them while the AdSense review is
+   pending — popunders violate AdSense placement policy and would likely get the site rejected.
+   If Adsterra is ever enabled, the owner chose: consent-gated, **public pages + student portal**,
+   never legal/contact/login/admin, and the AdSense loader must be disabled first. Update the
+   privacy/cookie policy and ads.txt before enabling. Do not add without explicit approval.
 
 ## AdSense approval checklist
 

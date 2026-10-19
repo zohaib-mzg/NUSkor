@@ -146,6 +146,10 @@ Runtime proof (all must pass against `npm run start`):
    `NEXT_PUBLIC_ADSENSE_SLOT_DISPLAY`, `NEXT_PUBLIC_ADSENSE_SLOT_INARTICLE`,
    `NEXT_PUBLIC_ADSENSE_SLOT_MULTIPLEX`. Ads stay invisible until the slot IDs exist — the site
    is safe by default. Ad units from the old account do not carry over; create new units.
+   **Verified 2026-10-19:** the live JS bundle contains no `ca-pub-` string, so Vercel does not
+   have `NEXT_PUBLIC_ADSENSE_CLIENT` set — add it (`ca-pub-5321082236533177`) for Production,
+   Preview and Development and redeploy before verifying. The AdSense script tag is never
+   pasted into the layout: `AdSenseScript.tsx` builds it from the env var and consent-gates it.
 3. **Search Console.** Set `NEXT_PUBLIC_GSC_VERIFICATION`, verify the domain, submit
    `/sitemap.xml`.
 4. **Contact email.** Keep `zohaib.mzg158@gmail.com` or change via

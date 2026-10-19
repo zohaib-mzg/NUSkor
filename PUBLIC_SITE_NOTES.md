@@ -131,7 +131,10 @@ Runtime proof (all must pass against `npm run start`):
    `*.vercel.app` sites. Canonicals, sitemap, OG image URLs and the share links all follow
    `NEXT_PUBLIC_SITE_URL` — set it before applying.
 2. **AdSense.** Publisher ID received: `ca-pub-8713827731867413` — now in `public/ads.txt` and
-   in the gitignored `.env.local`. **Still needed:** after approval, create the three ad units
+   in the gitignored `.env.local`. **Current status (owner):** account exists, but the site is
+   not verified and the application has not been submitted yet. Order of operations:
+   custom domain live → deploy → add the domain in AdSense → verify via **ads.txt** (the file is
+   ready at the domain root) → submit for review → after approval, create the three ad units
    (display / in-article / multiplex) and send their slot IDs. Vercel env vars to set:
    `NEXT_PUBLIC_ADSENSE_CLIENT=ca-pub-8713827731867413` plus
    `NEXT_PUBLIC_ADSENSE_SLOT_DISPLAY`, `NEXT_PUBLIC_ADSENSE_SLOT_INARTICLE`,
@@ -155,7 +158,10 @@ Runtime proof (all must pass against `npm run start`):
 - [ ] Original, useful content on every page ✓ (18 posts, 9 tools, 5 resource guides, glossary,
       28-question FAQ).
 - [x] `public/ads.txt` contains the real `pub-` id (`pub-8713827731867413`).
-- [ ] AdSense account: site added, verification snippet via `NEXT_PUBLIC_ADSENSE_CLIENT`.
+- [ ] AdSense account: site added and verified. **Use the ads.txt method** — the crawler will
+      not see the consent-gated script tag in the HTML. Requires the custom domain to be live
+      first (`/ads.txt` must resolve at the domain root).
+- [ ] Application submitted for review (wait for approval before creating ad units).
 - [ ] Three ad units created (display / in-article / multiplex) → slot env vars set.
 - [ ] Consent flow already gates ad loading (ads only after "Accept").
 - [ ] No ads on legal/contact/404/login/portal pages ✓ (enforced by layout; covered by checks).

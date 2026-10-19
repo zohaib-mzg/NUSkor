@@ -18,9 +18,10 @@ const ADMIN_EMAIL = "adminmzg@gmail.com";
  *   /login  /admin/login  /join  /invite*  /access-denied  /auth*
  *   (/ta-apply is signed-in only — the page itself redirects to /login)
  *
- * GUARDED — redirect to /login when signed out. Sanity check: every (portal)
- * route and /admin (except /admin/login) stays protected. Proven at runtime
- * by `scripts/check-guards.mjs` (run against `npm run start` in Phase 6):
+ * GUARDED — redirect to the landing page ("/") when signed out; admin
+ * routes go to /admin/login. Sanity check: every (portal) route and /admin
+ * (except /admin/login) stays protected. Proven at runtime by
+ * `scripts/check-guards.mjs` (run against `npm run start` in Phase 6):
  *   /dashboard  /marks  /evaluations  /announcements  /settings  /ta*  /admin*
  */
 const PUBLIC_PREFIXES = [
@@ -108,7 +109,9 @@ export async function updateSession(request: NextRequest) {
   if (!user) {
     if (isGuarded) {
       const url = request.nextUrl.clone();
-      url.pathname = "/login";
+      // Everyone starts at the public landing page; admins go to their login.
+      url.pathname = pathname.startsWith("/admin") ? "/admin/login" : "/";
+      url.search = "";
       return NextResponse.redirect(url);
     }
     return supabaseResponse;

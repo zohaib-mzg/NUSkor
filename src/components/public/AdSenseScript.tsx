@@ -7,8 +7,11 @@ import { useConsent } from "@/components/public/CookieConsent";
  * Loads the AdSense library.
  *
  * Safety rules (see PUBLIC_SITE_NOTES.md):
- * - Mounted exclusively in the `(public)` layout, so it can never appear on
- *   login / portal / admin pages.
+ * - Mounted in the `(public)` layout and the `(portal)` layout only. It never
+ *   appears on login / admin-login pages.
+ * - Portal ads are student-only, must be reviewed through a crawler login
+ *   after the AdSense account is approved, and remain dormant until slot IDs
+ *   are configured.
  * - Loads only after the visitor accepted advertising cookies.
  * - Renders nothing when NEXT_PUBLIC_ADSENSE_CLIENT is unset — ads are fully
  *   disabled by default.

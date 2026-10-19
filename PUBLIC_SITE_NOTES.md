@@ -27,7 +27,9 @@ Branch: `feat/public-pages` — commit after every phase. **Nothing is pushed un
 - Independence line rendered in the public footer on every public page.
 - Tools use **editable scales** (the common 4.0 scale is only a default); calculator inputs stay
   in the browser.
-- Ads never load on `login`, `admin`, `auth`, `access-denied` or `(portal)` pages.
+- Ads never load on `login`, `admin`, `auth` or `access-denied` pages. Student portal
+  pages (`/dashboard`, `/marks`, `/evaluations`, `/announcements`) may carry one display unit
+  after AdSense approval; TA/admin pages never do.
 - Original copy only; hedged facts; fixed "Last updated" strings.
 
 ## Decisions made
@@ -118,8 +120,9 @@ Branch: `feat/public-pages` — commit after every phase. **Nothing is pushed un
   `/join`, `/invite`, `/access-denied`, `/auth/*`. (`/ta-apply` sits in this list in the
   middleware, but the page itself requires a signed-in user and redirects to `/login` — the
   guard check asserts it as guarded.)
-- **Guarded (redirect to `/login` when logged out):** `/dashboard`, `/marks`, `/evaluations`,
-  `/announcements`, `/settings`, `/ta`, `/admin` (except `/admin/login`).
+- **Guarded (redirect to `/` when logged out; `/admin*` to `/admin/login`):** `/dashboard`,
+  `/marks`, `/evaluations`, `/announcements`, `/settings`, `/ta`, `/admin` (except
+  `/admin/login`). Signed-out visitors always start at the public landing page.
 
 Runtime proof (all must pass against `npm run start`):
 `npm run check:guards`, `npm run check:independence`, `npm run check:links`.
@@ -164,9 +167,11 @@ Runtime proof (all must pass against `npm run start`):
 - [ ] Application submitted for review (wait for approval before creating ad units).
 - [ ] Three ad units created (display / in-article / multiplex) → slot env vars set.
 - [ ] Consent flow already gates ad loading (ads only after "Accept").
-- [ ] No ads on legal/contact/404/login/portal pages ✓ (enforced by layout; covered by checks).
-- [ ] After approval: accept cookies on the live site and confirm units fill; reserved heights
-      prevent layout shift.
+- [ ] No ads on legal/contact/404/login pages ✓. Student portal pages carry a single display
+      unit behind consent; TA/admin pages never do.
+- [ ] After approval: create a **crawler login** in AdSense for the student portal pages,
+      accept cookies on the live site and confirm units fill; reserved heights prevent layout
+      shift.
 
 ## How to add a blog post (5 steps)
 

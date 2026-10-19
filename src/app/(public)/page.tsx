@@ -1,24 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  CalendarDays,
-  ClipboardList,
+  ArrowRight,
+  BookOpen,
+  Calculator,
   GraduationCap,
+  HelpCircle,
   LayoutDashboard,
-  ShieldCheck,
-  Star,
-  TrendingUp,
   Users,
 } from "lucide-react";
 import { SITE, TA_LOGIN_HREF } from "@/lib/site";
 import { organizationSchema, webSiteSchema } from "@/lib/schema";
-import { getAllPosts } from "@/lib/blog";
 import JsonLd from "@/components/public/JsonLd";
 import PortalButton from "@/components/public/PortalButton";
-import ToolGrid from "@/components/public/ToolGrid";
 import AdSlot from "@/components/public/AdSlot";
-import FAQ from "@/components/public/FAQ";
-import PostCard from "@/components/public/PostCard";
 
 export const metadata: Metadata = {
   title: { absolute: "nuSkor — Free CGPA Calculator & Student Tools" },
@@ -27,76 +22,34 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-const features = [
+const destinations = [
   {
-    icon: <ClipboardList className="h-5 w-5" />,
-    title: "Your marksheet, the moment it's published",
-    desc: "Marks your instructor enters appear in a clean marksheet with class averages, min/max, your rank and a privacy-conscious leaderboard.",
+    href: "/tools",
+    icon: <Calculator className="h-5 w-5" />,
+    title: "Free student tools",
+    desc: "Nine calculators for CGPA, GPA, final grades, attendance and semester planning — all in your browser.",
   },
   {
-    icon: <CalendarDays className="h-5 w-5" />,
-    title: "Evaluation slots without the spreadsheet chaos",
-    desc: "Pick an open time slot at a tap. Booking the same slot twice is impossible — enforced by the database, not by hoping.",
+    href: "/blog",
+    icon: <BookOpen className="h-5 w-5" />,
+    title: "Guides",
+    desc: "Practical, university-neutral reads on grades, study habits, projects and university life.",
   },
   {
-    icon: <ShieldCheck className="h-5 w-5" />,
-    title: "Privacy enforced by the database",
-    desc: "Row-Level Security means students can only ever read their own data. Not hidden buttons — real database rules.",
+    href: "/features",
+    icon: <LayoutDashboard className="h-5 w-5" />,
+    title: "The portal",
+    desc: "Your marksheet, class statistics, rankings and evaluation slots in one private place.",
   },
   {
-    icon: <Star className="h-5 w-5" />,
-    title: "Announcements in one place",
-    desc: "No more chasing group chats. Course announcements reach every student in a single feed.",
-  },
-];
-
-const steps = [
-  {
-    icon: <GraduationCap className="h-5 w-5" />,
-    step: "01",
-    title: "Sign in with Google",
-    desc: "Use the Google account you use at your university. Your role decides which portal you land in — student or TA.",
-  },
-  {
-    icon: <TrendingUp className="h-5 w-5" />,
-    step: "02",
-    title: "Track marks & rankings",
-    desc: "A full marksheet with class statistics, your rank and an anonymized leaderboard.",
-  },
-  {
-    icon: <CalendarDays className="h-5 w-5" />,
-    step: "03",
-    title: "Book your evaluation slot",
-    desc: "Pick any open slot at a tap. One booking per evaluation period, guaranteed.",
-  },
-];
-
-const homeFaqs = [
-  {
-    q: "Are the calculators really free?",
-    a: "Yes. Every calculator runs entirely in your browser, free, with no account required — your numbers never leave your device.",
-  },
-  {
-    q: "What is nuSkor?",
-    a: "nuSkor is an independent student-built project: free grade and CGPA calculators, practical guides, and an optional portal where the marks your instructors publish, class statistics and evaluation slots live in one place.",
-  },
-  {
-    q: "Is nuSkor affiliated with any university?",
-    a: "No. nuSkor is an independent project and is not affiliated with, endorsed by or connected to any university. The tools use generic grade arithmetic that every student can adapt to their own institution's scale.",
-  },
-  {
-    q: "Do I need an account to use the tools?",
-    a: "No. The calculators and guides work without any account. An account is only needed to sign in to the portal for marks, class statistics and evaluation slots.",
-  },
-  {
-    q: "Where is my data stored?",
-    a: "The calculators never send your inputs anywhere — everything is computed in your browser. In the portal, your marks come from what your instructors enter, protected by database-level rules so students can only read their own data.",
+    href: "/faq",
+    icon: <HelpCircle className="h-5 w-5" />,
+    title: "FAQ",
+    desc: "Straight answers about accounts, privacy, advertising and how the calculations work.",
   },
 ];
 
 export default function HomePage() {
-  const latestPosts = getAllPosts().slice(0, 3);
-
   return (
     <>
       <JsonLd data={organizationSchema()} />
@@ -111,9 +64,9 @@ export default function HomePage() {
               "radial-gradient(600px 220px at 50% -40px, rgba(245,197,24,0.22), transparent 70%)",
           }}
         />
-        <div className="mx-auto max-w-6xl px-5 pb-16 pt-16 text-center sm:pt-24">
+        <div className="mx-auto max-w-5xl px-5 pb-14 pt-16 text-center sm:pt-24">
           <span className="badge bg-gold/15 text-gold-deep">
-            Free · no account needed for tools
+            Independent · Free tools · No account needed
           </span>
           <h1 className="mx-auto mt-4 max-w-3xl text-4xl font-extrabold leading-tight tracking-tight text-ink sm:text-5xl">
             Calculate your CGPA, understand your grades,{" "}
@@ -125,135 +78,109 @@ export default function HomePage() {
             your marks, rankings and evaluation slots in one place.
           </p>
           <div className="mx-auto mt-8 flex max-w-md flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href="/tools/cgpa-calculator"
+            <PortalButton
               className="btn-primary w-full text-base sm:w-auto"
+              signedOutLabel={
+                <>
+                  <GraduationCap className="h-4 w-4" /> Login as Student
+                </>
+              }
+              signedInLabel={
+                <>
+                  <LayoutDashboard className="h-4 w-4" /> Go to Dashboard
+                </>
+              }
+            />
+            <Link
+              href="/tools"
+              className="btn-outline w-full text-base sm:w-auto"
             >
-              Try the CGPA Calculator
+              Explore free tools <ArrowRight className="h-4 w-4" />
             </Link>
-            <PortalButton className="btn-outline w-full text-base sm:w-auto" />
           </div>
           <p className="mt-5 text-xs text-ink/40">{SITE.independence.short}</p>
         </div>
       </section>
 
-      {/* Tools */}
-      <section className="mx-auto max-w-6xl px-5 pb-20">
+      {/* Start here — links to the dedicated pages instead of repeating them */}
+      <section
+        className="mx-auto max-w-6xl px-5 pb-12"
+        aria-labelledby="start-here"
+      >
         <div className="mb-8 text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">
-            Popular student tools
+          <h2
+            id="start-here"
+            className="text-2xl font-bold tracking-tight text-ink sm:text-3xl"
+          >
+            Start here
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-ink/55">
-            Plan your semester with calculators that respect your privacy —
-            nothing you type is sent to a server.
+            Pick a page and go straight to what you need.
           </p>
         </div>
-        <ToolGrid />
-        <p className="mt-6 text-center">
-          <Link
-            href="/tools"
-            className="text-sm font-semibold text-gold-deep hover:underline"
-          >
-            Browse all tools →
-          </Link>
-        </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {destinations.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="card group flex flex-col gap-3 p-5 transition-shadow hover:shadow-lift"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold-deep">
+                {item.icon}
+              </div>
+              <div>
+                <h3 className="font-bold text-ink group-hover:text-gold-deep">
+                  {item.title}
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-ink/55">
+                  {item.desc}
+                </p>
+              </div>
+              <span className="mt-auto inline-flex items-center gap-1 text-xs font-semibold text-gold-deep">
+                Open <ArrowRight className="h-3.5 w-3.5" />
+              </span>
+            </Link>
+          ))}
+        </div>
       </section>
 
-      {/* The home page's single display ad sits between the tools and the guides */}
+      {/* The home page's single display ad */}
       <section className="mx-auto max-w-4xl px-5 pb-4" aria-label="Advertisement">
         <AdSlot variant="display" />
       </section>
 
-      {/* Latest guides */}
-      <section className="mx-auto max-w-6xl px-5 pb-20">
-        <div className="mb-8 text-center">
+      {/* Short explanation */}
+      <section className="mx-auto max-w-4xl px-5 py-8">
+        <div className="card p-8 sm:p-10">
           <h2 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">
-            Latest guides
+            What is nuSkor?
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-ink/55">
-            Practical, university-neutral reads on grades, study habits and
-            university life.
+          <p className="mt-3 text-sm leading-relaxed text-ink/60 sm:text-base">
+            nuSkor is an independent, student-built project. It is not affiliated
+            with, endorsed by or connected to any university. The public
+            calculators and guides are free, need no account, and keep your
+            inputs in your browser.
           </p>
+          <p className="mt-3 text-sm leading-relaxed text-ink/60 sm:text-base">
+            When your instructors publish marks, the optional portal brings your
+            marksheet, class statistics, rankings and evaluation slots together.
+            Database-level rules mean students can only ever read their own data.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold">
+            <Link href="/about" className="text-gold-deep hover:underline">
+              About nuSkor
+            </Link>
+            <Link
+              href="/how-it-works"
+              className="text-gold-deep hover:underline"
+            >
+              How it works
+            </Link>
+            <Link href="/features" className="text-gold-deep hover:underline">
+              See the features
+            </Link>
+          </div>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {latestPosts.map((post) => (
-            <PostCard key={post.slug} post={post} />
-          ))}
-        </div>
-        <p className="mt-6 text-center">
-          <Link
-            href="/blog"
-            className="text-sm font-semibold text-gold-deep hover:underline"
-          >
-            Read the blog →
-          </Link>
-        </p>
-      </section>
-
-      {/* What is nuSkor */}
-      <section className="mx-auto max-w-6xl px-5 pb-20">
-        <h2 className="mb-8 text-center text-2xl font-bold tracking-tight text-ink sm:text-3xl">
-          What is nuSkor?
-        </h2>
-        <div className="grid gap-5 sm:grid-cols-2">
-          {features.map((f) => (
-            <div key={f.title} className="card flex gap-4 p-6">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold-deep">
-                {f.icon}
-              </div>
-              <div>
-                <h3 className="font-bold text-ink">{f.title}</h3>
-                <p className="mt-1 text-sm leading-relaxed text-ink/55">
-                  {f.desc}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-        <p className="mt-6 text-center text-sm">
-          <Link
-            href="/features"
-            className="font-semibold text-gold-deep hover:underline"
-          >
-            See every feature →
-          </Link>
-        </p>
-      </section>
-
-      {/* How it works */}
-      <section className="mx-auto max-w-6xl px-5 pb-20">
-        <h2 className="mb-8 text-center text-2xl font-bold tracking-tight text-ink sm:text-3xl">
-          How the portal works
-        </h2>
-        <div className="card grid gap-8 p-8 sm:grid-cols-3">
-          {steps.map((s) => (
-            <div key={s.step} className="relative">
-              <span className="text-4xl font-extrabold text-gold/60">
-                {s.step}
-              </span>
-              <div className="mt-3 flex items-center gap-2 text-gold-deep">
-                {s.icon}
-              </div>
-              <h3 className="mt-2 font-bold text-ink">{s.title}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-ink/55">
-                {s.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* FAQ teaser — five questions plus FAQPage schema via the shared component */}
-      <section className="mx-auto max-w-3xl px-5 pb-20">
-        <FAQ items={homeFaqs} heading="Common questions" />
-        <p className="mt-5 text-center">
-          <Link
-            href="/faq"
-            className="text-sm font-semibold text-gold-deep hover:underline"
-          >
-            Read all FAQs →
-          </Link>
-        </p>
       </section>
 
       {/* CTA */}
@@ -270,16 +197,15 @@ export default function HomePage() {
             Ready to see your real numbers?
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-ink/55">
-            nuSkor tracks the marks your instructors enter, shows class
-            statistics and a privacy-conscious rank — and handles evaluation
-            slot bookings end to end.
+            Sign in with the Google account your university uses. Your role
+            decides whether you land in the student or TA portal.
           </p>
           <div className="mx-auto mt-7 flex max-w-md flex-col items-center justify-center gap-3 sm:flex-row">
             <PortalButton
               className="btn-dark w-full sm:w-auto"
               signedOutLabel={
                 <>
-                  <GraduationCap className="h-4 w-4" /> Sign in as Student
+                  <GraduationCap className="h-4 w-4" /> Login as Student
                 </>
               }
               signedInLabel={

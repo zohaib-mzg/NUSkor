@@ -34,9 +34,9 @@ function LoginContent() {
   const config = {
     student: {
       icon: <GraduationCap className="h-6 w-6" />,
-      title: "Sign in as Student",
+      title: "Login as Student",
       desc: "Access your marks, evaluation slots, and announcements.",
-      buttonLabel: "Sign in as Student",
+      buttonLabel: "Continue with Google",
       buttonClass: "btn-dark",
     },
     ta: {
@@ -114,7 +114,7 @@ function LoginContent() {
           <div className="mt-6 flex items-center justify-center gap-4 text-xs text-ink/40">
             {flow !== "student" && (
               <Link href="/login?flow=student" className="hover:text-ink/70">
-                Student sign in
+                Student login
               </Link>
             )}
             {flow !== "ta" && (

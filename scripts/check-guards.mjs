@@ -7,7 +7,7 @@
  *
  * Asserts, while signed out:
  *   - public routes respond 200 (they must load logged-out)
- *   - guarded routes redirect to /login (portal + admin stay protected)
+ *   - guarded routes redirect to / (portal) or /admin/login (admin)
  *   - app-flow routes are still reachable (no bounce to /login)
  *
  * Exits with code 1 if any check fails.
@@ -49,10 +49,11 @@ const GUARDED_ROUTES = [
   "/settings",
   "/ta/sections",
   "/admin",
-  // Authenticated app flow: the page itself redirects to /login while
-  // signed out (middleware treats it as reachable, the page requires user).
-  "/ta-apply",
 ];
+
+// Authenticated app flow: the page itself redirects to /login while signed out
+// (middleware treats it as reachable, the page requires a user).
+const APP_REDIRECT_ROUTES = [{ path: "/ta-apply", to: "/login" }];
 
 const FLOW_ROUTES = ["/login", "/admin/login", "/join", "/access-denied"];
 
@@ -79,6 +80,14 @@ function isRedirectToLogin({ status, location }) {
   return status >= 300 && status < 400 && location.includes("/login");
 }
 
+function redirectPath({ location }) {
+  try {
+    return new URL(location, BASE).pathname;
+  } catch {
+    return "";
+  }
+}
+
 async function checkPublic(path) {
   try {
     const res = await fetchManual(path);
@@ -95,15 +104,37 @@ async function checkPublic(path) {
 }
 
 async function checkGuarded(path) {
+  const expected = path.startsWith("/admin") ? "/admin/login" : "/";
   try {
     const res = await fetchManual(path);
-    if (isRedirectToLogin(res)) {
-      pass(`guarded ${path} -> ${res.status} to login`);
+    if (redirectPath(res) === expected) {
+      pass(`guarded ${path} -> ${res.status} to ${expected}`);
     } else {
-      fail(`guarded ${path} -> NOT redirected to login (status ${res.status})`);
+      fail(
+        `guarded ${path} -> expected redirect to ${expected}, got ${
+          res.status
+        } ${redirectPath(res) || res.location || ""}`.trim()
+      );
     }
   } catch (err) {
     fail(`guarded ${path} -> network error: ${err.message}`);
+  }
+}
+
+async function checkAppRedirect({ path, to }) {
+  try {
+    const res = await fetchManual(path);
+    if (redirectPath(res) === to) {
+      pass(`app redirect ${path} -> ${res.status} to ${to}`);
+    } else {
+      fail(
+        `app redirect ${path} -> expected redirect to ${to}, got ${
+          res.status
+        } ${redirectPath(res) || res.location || ""}`.trim()
+      );
+    }
+  } catch (err) {
+    fail(`app redirect ${path} -> network error: ${err.message}`);
   }
 }
 
@@ -139,8 +170,11 @@ console.log(`Guard checks against ${BASE}\n`);
 console.log("Public routes (expect 200 while signed out):");
 for (const route of PUBLIC_ROUTES) await checkPublic(route);
 
-console.log("\nGuarded routes (expect redirect to /login while signed out):");
+console.log("\nGuarded routes (expect redirect to / or /admin/login while signed out):");
 for (const route of GUARDED_ROUTES) await checkGuarded(route);
+
+console.log("\nAuthenticated app-redirect routes (expect redirect while signed out):");
+for (const route of APP_REDIRECT_ROUTES) await checkAppRedirect(route);
 
 console.log("\nApp-flow routes (expect reachable while signed out):");
 for (const route of FLOW_ROUTES) await checkFlow(route);

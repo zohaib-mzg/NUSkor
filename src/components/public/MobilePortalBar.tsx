@@ -1,7 +1,7 @@
 import PortalButton from "@/components/public/PortalButton";
 
 /**
- * Mobile-only sticky sign-in bar (prompt §7): the "Student Portal" action
+ * Mobile-only sticky sign-in bar (prompt §7): the "Login as Student" action
  * stays visible on small screens without crowding the header. Rendered by
  * the public layout on every public page; hidden from `sm` upwards, where
  * the header button takes over.

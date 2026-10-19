@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import PortalShell from "@/components/PortalShell";
+import AdSenseScript from "@/components/public/AdSenseScript";
+import CookieConsent from "@/components/public/CookieConsent";
 import { ToastProvider } from "@/components/ui/Toast";
 import { cleanName } from "@/lib/utils";
 
@@ -84,6 +86,10 @@ export default async function PortalLayout({
 
   return (
     <ToastProvider>
+      {/* Ads are consent-gated and render nothing until slot IDs exist.
+          Pages behind auth additionally require a crawler login in AdSense
+          after the account is approved. */}
+      <AdSenseScript />
       <PortalShell
         email={profile.email}
         displayName={cleanName(profile.full_name) || profile.email.split("@")[0]}
@@ -92,6 +98,7 @@ export default async function PortalLayout({
       >
         {children}
       </PortalShell>
+      <CookieConsent />
     </ToastProvider>
   );
 }

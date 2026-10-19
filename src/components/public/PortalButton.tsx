@@ -6,9 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 import { STUDENT_PORTAL_HREF } from "@/lib/site";
 
 /**
- * The single "Student Portal" action used across public pages (prompt §7).
+ * The single student sign-in action used across public pages (prompt §7).
  *
- * Statically it renders "Student Portal"; on the client it upgrades to
+ * Statically it renders "Login as Student"; on the client it upgrades to
  * "Go to Dashboard" when a Supabase session already exists. The check runs
  * only in an effect, so every public page stays statically rendered.
  * All instances on a page share one auth lookup.
@@ -33,7 +33,7 @@ function hasSession(): Promise<boolean> {
 
 export default function PortalButton({
   className,
-  signedOutLabel = "Student Portal →",
+  signedOutLabel = "Login as Student",
   signedInLabel = "Go to Dashboard →",
   onClick,
 }: {

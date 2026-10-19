@@ -23,6 +23,7 @@ import {
   UserX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import AdSlot from "@/components/public/AdSlot";
 import NotificationBell from "@/components/NotificationBell";
 
 interface NavItem {
@@ -77,6 +78,17 @@ export default function PortalShell({
   const [open, setOpen] = useState(false);
   const isAdmin = role === "admin";
   const isTa = role === "ta";
+
+  // Portal ads are student-only (never on TA/admin surfaces, where the
+  // publisher and staff would be the ones seeing them). They stay invisible
+  // until AdSense slot IDs exist; behind-auth serving also needs a crawler
+  // login configured in AdSense after approval.
+  const showStudentAd =
+    !isAdmin &&
+    !isTa &&
+    ["/dashboard", "/marks", "/evaluations", "/announcements"].some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    );
 
   const nav = isAdmin ? adminNav : isTa ? taNav : studentNav;
 
@@ -293,6 +305,11 @@ export default function PortalShell({
             <NotificationBell />
           </div>
           {children}
+          {showStudentAd && (
+            <section className="mt-8 max-w-4xl" aria-label="Advertisement">
+              <AdSlot variant="display" />
+            </section>
+          )}
         </div>
       </main>
     </div>
